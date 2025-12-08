@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 export const BeeDogChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: '汪嗡！我是 BeeDog。想知道关于“蜜蜂金”的秘密吗？🐝🐶' }
+    { role: 'model', text: '汪嗡！我是蜜蜂狗。想知道关于我的故事吗？🐝🐶' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -61,10 +61,10 @@ export const BeeDogChat: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <h3 className="font-bold text-sm text-neutral-900 dark:text-white leading-none mb-1">
-                   BeeDog AI
+                   蜜蜂狗
                 </h3>
                 <span className="text-[10px] font-medium text-neutral-500 dark:text-neutral-400">
-                  Always online
+                  在线
                 </span>
               </div>
             </div>
