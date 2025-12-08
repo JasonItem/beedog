@@ -36,6 +36,10 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   const ORIGIN_Y = 40;
   const BASE_SPEED = 8;
 
+  // FPS Control
+  const TARGET_FPS = 60;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
   const gameRef = useRef({
     angle: 0,
     angleSpeed: 0.015, // Slower speed
@@ -47,7 +51,8 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     items: [] as MineItem[],
     caughtItem: null as MineItem | null,
     animationId: 0,
-    lastTime: 0,
+    lastTime: 0, // For Countdown Timer
+    lastFrameTime: 0, // For FPS throttling
     isGameOver: false,
     timeRemaining: 60, // Logic timer
     score: 0 // Added score to ref
@@ -118,6 +123,7 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
       caughtItem: null,
       animationId: 0,
       lastTime: performance.now(),
+      lastFrameTime: performance.now(),
       isGameOver: false,
       timeRemaining: 60,
       score: 0 // Reset score in ref
@@ -234,16 +240,25 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   };
 
   const loop = () => {
+    // Request next frame
+    gameRef.current.animationId = requestAnimationFrame(loop);
+
+    const now = performance.now();
+    const game = gameRef.current;
+    
+    // FPS Throttling
+    const elapsedFrame = now - game.lastFrameTime;
+    if (elapsedFrame < FRAME_INTERVAL) return;
+    game.lastFrameTime = now - (elapsedFrame % FRAME_INTERVAL);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    const game = gameRef.current;
     if (game.isGameOver) return; // Stop update loop if game over
 
-    // Timer Logic
-    const now = performance.now();
+    // Timer Logic (Independent of FPS throttling)
     if (now - game.lastTime > 1000) {
         game.timeRemaining = Math.max(0, game.timeRemaining - 1);
         setTimeLeft(game.timeRemaining); // Update UI
@@ -358,10 +373,6 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
 
     // World Items
     game.items.forEach(item => drawItem(ctx, item));
-
-    if (!game.isGameOver) {
-        game.animationId = requestAnimationFrame(loop);
-    }
   };
 
   useEffect(() => {

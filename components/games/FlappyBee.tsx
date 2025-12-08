@@ -20,6 +20,10 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   const PIPE_SPEED = 1.5; 
   const PIPE_SPAWN_RATE = 200; 
   const GAP_SIZE = 170; 
+  
+  // FPS Control
+  const TARGET_FPS = 60;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
   // Game Refs to maintain state inside requestAnimationFrame without re-renders
   const gameRef = useRef({
@@ -31,7 +35,8 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     frameCount: 0,
     score: 0,
     isGameOver: false,
-    animationId: 0
+    animationId: 0,
+    lastFrameTime: 0
   });
 
   useEffect(() => {
@@ -59,7 +64,8 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
       frameCount: 0,
       score: 0,
       isGameOver: false,
-      animationId: 0
+      animationId: 0,
+      lastFrameTime: performance.now()
     };
     loop();
   };
@@ -134,12 +140,25 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   };
 
   const loop = () => {
+    // Request next frame immediately to keep loop alive
+    gameRef.current.animationId = requestAnimationFrame(loop);
+
+    const now = performance.now();
+    const elapsed = now - gameRef.current.lastFrameTime;
+
+    // Limit FPS
+    if (elapsed < FRAME_INTERVAL) return;
+
+    // Adjust lastFrameTime to target interval (prevents drift)
+    gameRef.current.lastFrameTime = now - (elapsed % FRAME_INTERVAL);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const game = gameRef.current;
+    if (game.isGameOver) return;
 
     // Clear
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -207,10 +226,6 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
 
     // Draw Bird
     drawBird(ctx, game.birdX, game.birdY, game.birdVelocity);
-
-    if (!game.isGameOver) {
-      game.animationId = requestAnimationFrame(loop);
-    }
   };
 
   return (

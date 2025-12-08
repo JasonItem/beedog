@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
@@ -27,6 +26,10 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
   const PLATFORM_HEIGHT = 15;
   const RED_PLATFORM_RESPAWN_FRAMES = 180; // ~3 seconds at 60fps
 
+  // FPS Control
+  const TARGET_FPS = 60;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
   const gameRef = useRef({
     playerX: CANVAS_WIDTH / 2,
     playerY: CANVAS_HEIGHT - 150,
@@ -38,7 +41,8 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     isGameOver: false,
     keys: { left: false, right: false },
     animationId: 0,
-    frameCount: 0
+    frameCount: 0,
+    lastFrameTime: 0
   });
 
   useEffect(() => {
@@ -87,7 +91,8 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
       score: 0,
       isGameOver: false,
       animationId: 0,
-      frameCount: 0
+      frameCount: 0,
+      lastFrameTime: performance.now()
     };
     setScore(0);
     setGameState('PLAYING');
@@ -144,12 +149,26 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
   };
 
   const loop = () => {
+    // Keep Requesting
+    gameRef.current.animationId = requestAnimationFrame(loop);
+
+    const now = performance.now();
+    const elapsed = now - gameRef.current.lastFrameTime;
+
+    // Limit FPS
+    if (elapsed < FRAME_INTERVAL) return;
+    
+    // Adjust
+    gameRef.current.lastFrameTime = now - (elapsed % FRAME_INTERVAL);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const game = gameRef.current;
+    if (game.isGameOver) return;
+
     game.frameCount++;
 
     // --- PHYSICS ---
@@ -288,10 +307,6 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     });
 
     drawPlayer(ctx, game.playerX, game.playerY, game.playerVy);
-
-    if (!game.isGameOver) {
-      game.animationId = requestAnimationFrame(loop);
-    }
   };
 
   // Touch Controls
