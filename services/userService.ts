@@ -1,0 +1,154 @@
+import { db, storage } from "../firebaseConfig";
+import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { User } from "firebase/auth";
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  nickname: string;
+  avatarUrl?: string; 
+  credits: number;
+  lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
+}
+
+export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data() as any;
+    
+    // Migration: If credits doesn't exist (old user), initialize it.
+    if (typeof data.credits === 'undefined') {
+        // Give legacy users 10 credits to start
+        await updateDoc(docRef, { credits: 10 });
+        data.credits = 10;
+    }
+
+    return data as UserProfile;
+  }
+  return null;
+};
+
+/**
+ * Ensures a user profile exists.
+ */
+export const ensureUserProfile = async (user: User) => {
+  const docRef = doc(db, "users", user.uid);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    const newProfile: UserProfile = {
+      uid: user.uid,
+      email: user.email,
+      nickname: user.displayName || "新蜜蜂",
+      credits: 10, // Initial sign-up bonus
+      // lastCheckInDate left undefined so they can check-in immediately if desired, 
+      // or we can treat sign-up as first check-in. Let's let them check-in manually for the dopamine hit.
+    };
+
+    if (user.photoURL) {
+      newProfile.avatarUrl = user.photoURL;
+    }
+
+    await setDoc(docRef, newProfile);
+    return newProfile;
+  } else {
+    // Existing User Sync
+    const updates: any = {};
+    if (user.photoURL && !docSnap.data().avatarUrl) {
+       // Only sync google/twitter photo if user hasn't set a custom one?
+       // For now, let's strictly prefer what's in DB unless it's missing.
+       updates.avatarUrl = user.photoURL;
+    }
+    
+    // Migration check
+    const data = docSnap.data();
+    if (typeof data.credits === 'undefined') {
+      updates.credits = 10;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(docRef, updates);
+    }
+    
+    return { ...data, ...updates } as UserProfile;
+  }
+};
+
+export const updateUserNickname = async (uid: string, nickname: string) => {
+  const docRef = doc(db, "users", uid);
+  await setDoc(docRef, {
+    uid,
+    nickname
+  }, { merge: true });
+};
+
+/**
+ * Uploads a user avatar to Firebase Storage and updates the Firestore profile.
+ */
+export const uploadUserAvatar = async (uid: string, file: File): Promise<string> => {
+  // Create a storage reference: avatars/<uid>
+  // This overwrites the existing file, which is good for saving space.
+  const storageRef = ref(storage, `avatars/${uid}`);
+  
+  // Upload the file
+  await uploadBytes(storageRef, file);
+  
+  // Get the download URL
+  const downloadUrl = await getDownloadURL(storageRef);
+  
+  // Update Firestore
+  const docRef = doc(db, "users", uid);
+  await updateDoc(docRef, {
+    avatarUrl: downloadUrl
+  });
+
+  return downloadUrl;
+};
+
+/**
+ * Deducts 1 credit from the user. Returns true if successful, false if insufficient funds.
+ */
+export const deductCredit = async (uid: string): Promise<boolean> => {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) return false;
+
+  const data = docSnap.data();
+  const currentCredits = typeof data.credits === 'number' ? data.credits : 0;
+
+  if (currentCredits > 0) {
+    await updateDoc(docRef, {
+      credits: increment(-1)
+    });
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Performs daily check-in to get credits.
+ */
+export const performDailyCheckIn = async (uid: string): Promise<{ success: boolean; message: string }> => {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) return { success: false, message: "用户不存在" };
+
+  const data = docSnap.data() as UserProfile;
+  const today = new Date().toISOString().split('T')[0];
+
+  if (data.lastCheckInDate === today) {
+    return { success: false, message: "今天已经签到过了，明天再来吧！" };
+  }
+
+  await updateDoc(docRef, {
+    credits: increment(10),
+    lastCheckInDate: today
+  });
+
+  return { success: true, message: "签到成功！获得 10 个蜂蜜额度！" };
+};
