@@ -49,7 +49,8 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     animationId: 0,
     lastTime: 0,
     isGameOver: false,
-    timeRemaining: 60 // Logic timer
+    timeRemaining: 60, // Logic timer
+    score: 0 // Added score to ref
   });
 
   // Level Generation
@@ -118,7 +119,8 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
       animationId: 0,
       lastTime: performance.now(),
       isGameOver: false,
-      timeRemaining: 60
+      timeRemaining: 60,
+      score: 0 // Reset score in ref
     };
     
     loop();
@@ -134,8 +136,10 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     }
     
     // Only save score if user is logged in
-    if (userProfile && score > 0) {
-      await saveHighScore(userProfile, 'honey_miner', score);
+    // Use score from Ref to avoid closure staleness
+    const finalScore = gameRef.current.score;
+    if (userProfile && finalScore > 0) {
+      await saveHighScore(userProfile, 'honey_miner', finalScore);
       onGameOver();
     }
   };
@@ -310,7 +314,8 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
             game.hookStatus = 'IDLE';
             if (game.caughtItem) {
                 const earnedScore = game.caughtItem.score; 
-                setScore(s => s + earnedScore);
+                game.score += earnedScore; // Update Ref
+                setScore(game.score); // Update UI
                 game.caughtItem = null;
                 
                 // Respawn logic
