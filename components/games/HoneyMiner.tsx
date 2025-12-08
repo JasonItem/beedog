@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
@@ -10,7 +11,7 @@ interface HoneyMinerProps {
 }
 
 // Item Types
-type ItemType = 'diamond' | 'gold' | 'honey' | 'rock' | 'bag';
+type ItemType = 'btc' | 'eth' | 'bnb' | 'rock' | 'mystery';
 
 interface MineItem {
   id: number;
@@ -25,6 +26,7 @@ interface MineItem {
 
 export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const minerImgRef = useRef<HTMLImageElement | null>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -33,7 +35,7 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   const CANVAS_WIDTH = 320;
   const CANVAS_HEIGHT = 480;
   const ORIGIN_X = CANVAS_WIDTH / 2;
-  const ORIGIN_Y = 40;
+  const ORIGIN_Y = 50; // Moved down slightly to fit image
   const BASE_SPEED = 8;
 
   // FPS Control
@@ -58,6 +60,21 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     score: 0 // Added score to ref
   });
 
+  useEffect(() => {
+    // Load Miner Image
+    const img = new Image();
+    img.src = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce";
+    img.onload = () => {
+      minerImgRef.current = img;
+    };
+
+    return () => {
+      if (gameRef.current.animationId) {
+        cancelAnimationFrame(gameRef.current.animationId);
+      }
+    };
+  }, []);
+
   // Level Generation
   const generateLevel = () => {
     const items: MineItem[] = [];
@@ -75,16 +92,16 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
         let weight = 0;
 
         switch (type) {
-          case 'diamond': // High Value, Fast
-            radius = 12; score = 500; weight = 0.5; break;
-          case 'gold': // Medium Value, Medium
-            radius = 18; score = 250; weight = 1.5; break;
-          case 'honey': // Good Value, Medium
-            radius = 22; score = 150; weight = 1.2; break;
+          case 'btc': // Bitcoin: High Value, Fast-ish
+            radius = 14; score = 500; weight = 0.8; break;
+          case 'eth': // Ethereum: Medium/High Value
+            radius = 18; score = 300; weight = 1.2; break;
+          case 'bnb': // BNB: Good Value
+            radius = 20; score = 150; weight = 1.0; break;
           case 'rock': // Bad Value, Very Heavy
-            radius = 25; score = 20; weight = 4.0; break;
-          case 'bag': // Mystery
-            radius = 16; score = Math.floor(Math.random() * 400) + 50; weight = Math.random() * 2 + 0.5; break;
+            radius = 25; score = 10; weight = 4.0; break;
+          case 'mystery': // Airdrop Box
+            radius = 16; score = Math.floor(Math.random() * 450) + 50; weight = Math.random() * 2 + 0.5; break;
         }
 
         items.push({ id: idCounter++, type, x, y, radius, score, weight, active: true });
@@ -92,17 +109,16 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     };
 
     // Distribution
-    addItem('diamond', 2, 250, 450);
-    addItem('gold', 3, 200, 400);
-    addItem('honey', 4, 150, 350);
+    addItem('btc', 2, 250, 450);
+    addItem('eth', 3, 200, 400);
+    addItem('bnb', 4, 150, 350);
     addItem('rock', 5, 150, 450);
-    addItem('bag', 2, 200, 400);
+    addItem('mystery', 2, 200, 400);
 
     return items;
   };
 
   const startGame = () => {
-    // FIX: Cancel any existing animation frame to prevent multiple loops running
     if (gameRef.current.animationId) {
       cancelAnimationFrame(gameRef.current.animationId);
     }
@@ -113,7 +129,7 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     
     gameRef.current = {
       angle: 0,
-      angleSpeed: 0.015, // Slower speed here as well
+      angleSpeed: 0.015,
       angleDirection: 1,
       hookStatus: 'IDLE',
       hookLen: 30,
@@ -126,14 +142,14 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
       lastFrameTime: performance.now(),
       isGameOver: false,
       timeRemaining: 60,
-      score: 0 // Reset score in ref
+      score: 0 
     };
     
     loop();
   };
 
   const endGame = async () => {
-    if (gameRef.current.isGameOver) return; // Prevent double trigger
+    if (gameRef.current.isGameOver) return; 
     
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
@@ -141,8 +157,6 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
        cancelAnimationFrame(gameRef.current.animationId);
     }
     
-    // Only save score if user is logged in
-    // Use score from Ref to avoid closure staleness
     const finalScore = gameRef.current.score;
     if (userProfile && finalScore > 0) {
       await saveHighScore(userProfile, 'honey_miner', finalScore);
@@ -162,17 +176,17 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   const drawHook = (ctx: CanvasRenderingContext2D, x: number, y: number, angle: number) => {
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle); // Angle is already in radians + Math.PI/2 offset logic handled in loop
+    ctx.rotate(angle); 
     
     // Draw Hook Head
-    ctx.fillStyle = '#9ca3af'; // gray-400
+    ctx.fillStyle = '#94a3b8'; // slate-400
     ctx.beginPath();
-    // Simple 3-prong hook
-    ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.lineTo(0, 8); 
+    // Claw shape
+    ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(0, 10); 
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(0, 0, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#000';
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#334155';
     ctx.fill();
 
     ctx.restore();
@@ -185,34 +199,61 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     ctx.save();
     ctx.translate(x, y);
 
+    // Shadow
+    ctx.beginPath();
+    ctx.ellipse(2, 2, radius, radius, 0, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+
     switch (type) {
-        case 'diamond':
-            ctx.fillStyle = '#60a5fa'; // Blue-400
+        case 'btc': // Bitcoin
+            ctx.fillStyle = '#f7931a'; // BTC Orange
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = '#fcd34d'; // Lighter orange border
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Symbol
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline='middle';
+            ctx.fillText('₿', 0, 1);
+            break;
+
+        case 'eth': // Ethereum
+            ctx.fillStyle = '#627eea'; // ETH Blue/Purple
+            // Diamond/Rhombus shape
             ctx.beginPath();
             ctx.moveTo(0, -radius);
-            ctx.lineTo(radius, 0);
+            ctx.lineTo(radius*0.7, 0);
             ctx.lineTo(0, radius);
-            ctx.lineTo(-radius, 0);
+            ctx.lineTo(-radius*0.7, 0);
             ctx.fill();
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            ctx.beginPath(); ctx.moveTo(-radius/2, -radius/2); ctx.lineTo(0, -radius); ctx.lineTo(radius/2, -radius/2); ctx.fill();
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath(); ctx.moveTo(0, -radius); ctx.lineTo(radius*0.7, 0); ctx.lineTo(0, radius); ctx.fill();
+            // Symbol
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline='middle';
+            ctx.fillText('Ξ', 0, 1);
             break;
-        case 'gold':
-            ctx.fillStyle = '#facc15'; // Yellow-400
+
+        case 'bnb': // BNB
+            ctx.fillStyle = '#f3ba2f'; // BNB Yellow
             ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline='middle'; ctx.fillText('$', 0,0);
+            ctx.strokeStyle = '#b48a20'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = '#fff'; 
+            ctx.font = 'bold 10px sans-serif'; 
+            ctx.textAlign = 'center'; 
+            ctx.textBaseline='middle'; 
+            ctx.fillText('BNB', 0, 1);
             break;
-        case 'honey':
-            ctx.fillStyle = '#f97316'; // Orange-500
-            // Pot shape
-            ctx.beginPath(); 
-            ctx.ellipse(0, 5, radius, radius*0.8, 0, 0, Math.PI*2); 
-            ctx.fill();
-            ctx.fillStyle = '#fcd34d'; // Honey overflow
-            ctx.beginPath(); ctx.ellipse(0, -5, radius*0.6, 5, 0, 0, Math.PI*2); ctx.fill();
-            break;
-        case 'rock':
+
+        case 'rock': // Rock
             ctx.fillStyle = '#57534e'; // Stone-600
             ctx.beginPath();
             // Irregular shape
@@ -223,16 +264,26 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
             ctx.lineTo(radius*0.5, radius*0.8);
             ctx.lineTo(-radius*0.6, radius*0.7);
             ctx.fill();
+            // Cracks
+            ctx.strokeStyle = '#44403c';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(-5, -5); ctx.lineTo(0,0); ctx.lineTo(5, -2); ctx.stroke();
             break;
-        case 'bag':
+
+        case 'mystery': // Airdrop Box
+            // Box body
             ctx.fillStyle = '#ec4899'; // Pink-500
-            ctx.beginPath();
-            ctx.arc(0, 5, radius, 0, Math.PI, false);
-            ctx.lineTo(-radius, 5);
-            ctx.lineTo(0, -radius*1.2);
-            ctx.lineTo(radius, 5);
-            ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline='middle'; ctx.fillText('?', 0, 5);
+            ctx.fillRect(-radius, -radius, radius*2, radius*2);
+            // Ribbon
+            ctx.fillStyle = '#fce7f3'; 
+            ctx.fillRect(-radius, -2, radius*2, 4);
+            ctx.fillRect(-2, -radius, 4, radius*2);
+            // Question mark
+            ctx.fillStyle = '#fff'; 
+            ctx.font = 'bold 14px sans-serif'; 
+            ctx.textAlign = 'center'; 
+            ctx.textBaseline='middle'; 
+            ctx.fillText('?', 0, 0);
             break;
     }
 
@@ -240,7 +291,6 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   };
 
   const loop = () => {
-    // Request next frame
     gameRef.current.animationId = requestAnimationFrame(loop);
 
     const now = performance.now();
@@ -256,17 +306,16 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    if (game.isGameOver) return; // Stop update loop if game over
+    if (game.isGameOver) return; 
 
-    // Timer Logic (Independent of FPS throttling)
+    // Timer Logic
     if (now - game.lastTime > 1000) {
         game.timeRemaining = Math.max(0, game.timeRemaining - 1);
-        setTimeLeft(game.timeRemaining); // Update UI
+        setTimeLeft(game.timeRemaining);
         game.lastTime = now;
     }
 
     // End Game Check
-    // We only end when time is up AND hook is idle (so they can finish catching the last item)
     if (game.hookStatus === 'IDLE' && game.timeRemaining <= 0) {
         endGame();
         return;
@@ -277,8 +326,8 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     // 1. Hook Angle oscillation
     if (game.hookStatus === 'IDLE') {
         game.angle += game.angleSpeed * game.angleDirection;
-        if (game.angle > 1.2) game.angleDirection = -1; // ~70 degrees
-        if (game.angle < -1.2) game.angleDirection = 1;
+        if (game.angle > 1.3) game.angleDirection = -1; // ~75 degrees
+        if (game.angle < -1.3) game.angleDirection = 1;
         
         game.hookLen = 30; // Reset length
         game.hookX = ORIGIN_X + Math.sin(game.angle) * game.hookLen;
@@ -333,9 +382,9 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
                 setScore(game.score); // Update UI
                 game.caughtItem = null;
                 
-                // Respawn logic
-                if (game.items.filter(i => i.active).length < 5) {
-                    const newItem = generateLevel()[0];
+                // Respawn logic if few items left
+                if (game.items.filter(i => i.active).length < 4) {
+                    const newItem = generateLevel()[0]; // Just take the first random one generated
                     newItem.id = Date.now();
                     game.items.push(newItem);
                 }
@@ -346,15 +395,25 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     // --- RENDER ---
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Miner/Base
+    // Pivot Base
     ctx.fillStyle = '#333';
-    ctx.beginPath(); ctx.arc(ORIGIN_X, ORIGIN_Y - 20, 10, 0, Math.PI*2); ctx.fill(); // Pivot
+    ctx.beginPath(); ctx.arc(ORIGIN_X, ORIGIN_Y - 5, 8, 0, Math.PI*2); ctx.fill();
     
-    // Draw BeeDog Operator
-    ctx.font = '24px serif'; ctx.textAlign = 'center'; ctx.fillText('🐶', ORIGIN_X, ORIGIN_Y - 35);
+    // Draw BeeDog Operator (Centered on Pivot)
+    if (minerImgRef.current) {
+        ctx.save();
+        const size = 50;
+        ctx.translate(ORIGIN_X, ORIGIN_Y - 25);
+        // Tilt dog based on angle slightly
+        ctx.rotate(game.angle * 0.2);
+        ctx.drawImage(minerImgRef.current, -size/2, -size/2, size, size);
+        ctx.restore();
+    } else {
+        ctx.font = '24px serif'; ctx.textAlign = 'center'; ctx.fillText('🐶', ORIGIN_X, ORIGIN_Y - 25);
+    }
 
     // Line
-    ctx.strokeStyle = '#000';
+    ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(ORIGIN_X, ORIGIN_Y);
@@ -382,10 +441,10 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   }, []);
 
   return (
-    <div className="relative w-full max-w-md mx-auto aspect-[3/4] bg-[#5D4037] rounded-xl overflow-hidden shadow-2xl border-4 border-amber-900 select-none touch-none">
+    <div className="relative w-full max-w-md mx-auto aspect-[3/4] bg-[#451a03] rounded-xl overflow-hidden shadow-2xl border-4 border-amber-900 select-none touch-none">
        {/* Dirt Background Texture */}
-       <div className="absolute inset-0 opacity-10" 
-            style={{backgroundImage: 'repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #5D4037 25%, #5D4037 75%, #000 75%, #000)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 10px 10px'}}>
+       <div className="absolute inset-0 opacity-20" 
+            style={{backgroundImage: 'repeating-linear-gradient(45deg, #2a1002 25%, transparent 25%, transparent 75%, #2a1002 75%, #2a1002), repeating-linear-gradient(45deg, #2a1002 25%, #451a03 25%, #451a03 75%, #2a1002 75%, #2a1002)', backgroundSize: '40px 40px', backgroundPosition: '0 0, 20px 20px'}}>
        </div>
 
        <canvas 
@@ -399,40 +458,40 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
 
        {/* HUD */}
        <div className="absolute top-2 left-2 z-20 flex gap-4 pointer-events-none">
-          <div className="bg-black/50 text-white px-3 py-1 rounded-lg border border-white/20 flex items-center gap-2">
-             <Zap size={16} className="text-yellow-400" />
-             <span className="font-bold text-lg">{score}</span>
+          <div className="bg-black/60 text-white px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2 shadow-lg backdrop-blur-md">
+             <Zap size={16} className="text-yellow-400 fill-yellow-400" />
+             <span className="font-black text-xl font-mono">${score}</span>
           </div>
-          <div className={`bg-black/50 text-white px-3 py-1 rounded-lg border border-white/20 flex items-center gap-2 ${timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}`}>
+          <div className={`bg-black/60 text-white px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2 shadow-lg backdrop-blur-md ${timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}`}>
              <Timer size={16} />
-             <span className="font-bold text-lg">{timeLeft}s</span>
+             <span className="font-bold text-lg font-mono">{timeLeft}s</span>
           </div>
        </div>
 
        {/* Start Screen */}
        {gameState === 'START' && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 z-30">
-          <div className="text-4xl font-black mb-2 text-yellow-400 drop-shadow-lg text-center">Honey Miner<br/><span className="text-2xl text-white">淘金热</span></div>
-          <p className="mb-6 font-bold text-center text-neutral-300 text-sm">
-            点击屏幕发射钩子。<br/>
-            抓取 <span className="text-blue-400">钻石</span> 和 <span className="text-orange-400">蜂蜜</span><br/>
-            不要抓到石头！限时 60 秒！
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 z-30 backdrop-blur-sm">
+          <div className="text-4xl font-black mb-2 text-yellow-400 drop-shadow-lg text-center">Bee Miner<br/><span className="text-2xl text-white">Crypto Rush</span></div>
+          <p className="mb-8 font-bold text-center text-neutral-300 text-sm leading-relaxed">
+            点击屏幕发射钩子<br/>
+            抓取 <span className="text-orange-400">BTC</span>、<span className="text-blue-400">ETH</span> 和 <span className="text-yellow-400">BNB</span><br/>
+            避开垃圾资产 (石头)！
           </p>
-          <Button onClick={startGame} className="animate-bounce shadow-xl scale-110">
-             <Play className="mr-2" /> 开始挖矿
+          <Button onClick={startGame} className="animate-bounce shadow-[0_0_20px_rgba(234,179,8,0.5)] scale-110 border-none bg-yellow-500 hover:bg-yellow-400 text-black">
+             <Play className="mr-2 fill-current" /> 开始挖矿
           </Button>
         </div>
       )}
 
       {/* Game Over Screen */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-30">
-          <div className="text-3xl font-black mb-2 text-yellow-400">TIME'S UP!</div>
-          <div className="bg-[#3e2723] border border-[#5d4037] rounded-xl p-6 w-full mb-6 flex flex-col items-center shadow-lg">
-             <div className="text-xs text-neutral-400 uppercase font-bold mb-1">本局收益</div>
-             <div className="text-5xl font-black text-white font-mono">${score}</div>
+        <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-30 backdrop-blur-md">
+          <div className="text-3xl font-black mb-4 text-yellow-400">TIME'S UP!</div>
+          <div className="bg-[#2a1002] border border-[#451a03] rounded-2xl p-8 w-full mb-8 flex flex-col items-center shadow-2xl">
+             <div className="text-xs text-neutral-400 uppercase font-bold mb-2 tracking-widest">本局收益 (PnL)</div>
+             <div className="text-5xl font-black text-green-400 font-mono">+${score}</div>
           </div>
-          <Button onClick={startGame} className="w-full mb-3">
+          <Button onClick={startGame} className="w-full mb-3 py-3 text-lg bg-white text-black hover:bg-neutral-200 border-none">
              <RotateCcw className="mr-2" /> 再挖一次
           </Button>
         </div>

@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
 import { Button } from '../Button';
-import { Play, RotateCcw, Zap, Trophy, Flame } from 'lucide-react';
+import { Play, RotateCcw, Zap, Trophy, Flame, AlertTriangle } from 'lucide-react';
 
 interface BeeRacingProps {
   userProfile: UserProfile | null;
@@ -17,11 +17,13 @@ interface GameObject {
   width: number;
   height: number;
   type: 'rock' | 'car' | 'honey' | 'boost';
-  color: string;
+  lane: number; // 0, 1, 2
 }
 
 export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const beeDogImgRef = useRef<HTMLImageElement | null>(null);
+  
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
   const [speedDisplay, setSpeedDisplay] = useState(0);
@@ -29,9 +31,9 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   // Constants
   const CANVAS_WIDTH = 320;
   const CANVAS_HEIGHT = 550;
-  const PLAYER_WIDTH = 40;
-  const PLAYER_HEIGHT = 60;
-  const LANE_WIDTH = CANVAS_WIDTH / 3; // 3 Lanes effectively, but free movement allowed
+  const PLAYER_WIDTH = 48;
+  const PLAYER_HEIGHT = 74;
+  const LANE_WIDTH = CANVAS_WIDTH / 3; 
 
   // FPS Control
   const TARGET_FPS = 60;
@@ -39,10 +41,11 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
 
   const gameRef = useRef({
     playerX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
-    playerY: CANVAS_HEIGHT - 120,
-    targetX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2, // Smooth steering
-    speed: 5,
-    baseSpeed: 5,
+    playerY: CANVAS_HEIGHT - 140,
+    targetX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
+    speed: 0,
+    baseSpeed: 6,
+    maxSpeed: 15,
     distance: 0,
     objects: [] as GameObject[],
     roadOffset: 0,
@@ -56,6 +59,13 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   });
 
   useEffect(() => {
+    // Load BeeDog Image
+    const img = new Image();
+    img.src = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/game%2F1%2Fbee.png?alt=media&token=6b13c993-0686-47d8-9fad-63990e10a5fa";
+    img.onload = () => {
+      beeDogImgRef.current = img;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') gameRef.current.keys.left = true;
       if (e.key === 'ArrowRight') gameRef.current.keys.right = true;
@@ -84,10 +94,11 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
 
     gameRef.current = {
       playerX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
-      playerY: CANVAS_HEIGHT - 120,
+      playerY: CANVAS_HEIGHT - 140,
       targetX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
       speed: 6,
       baseSpeed: 6,
+      maxSpeed: 15,
       distance: 0,
       objects: [],
       roadOffset: 0,
@@ -116,38 +127,47 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   const spawnObject = () => {
     const typeRand = Math.random();
     let type: 'rock' | 'car' | 'honey' | 'boost' = 'rock';
-    let width = 40;
-    let height = 40;
-    let color = '#57534e'; // Rock color
+    let width = 45;
+    let height = 45;
 
-    if (typeRand > 0.95) {
+    if (typeRand > 0.96) {
         type = 'boost';
-        color = '#3b82f6'; // Blue
-        width = 30; height = 30;
-    } else if (typeRand > 0.8) {
+        width = 32; height = 48;
+    } else if (typeRand > 0.85) {
         type = 'honey';
-        color = '#fbbf24'; // Yellow
-        width = 30; height = 30;
+        width = 36; height = 36;
     } else if (typeRand > 0.6) {
         type = 'car';
-        color = '#ef4444'; // Red Car
-        width = 40; height = 70;
+        width = 48; height = 74;
+    } else {
+        // Rock
+        width = 42; height = 36;
     }
 
-    // Spawn in one of 3 lanes mostly, but with slight variance
+    // Spawn in lanes strict center
     const lane = Math.floor(Math.random() * 3);
     const centerX = (lane * LANE_WIDTH) + (LANE_WIDTH / 2);
-    const x = centerX - (width / 2) + (Math.random() * 20 - 10);
+    const x = centerX - (width / 2);
+
+    // Prevent overlapping spawn
+    const lastObj = gameRef.current.objects[gameRef.current.objects.length - 1];
+    if (lastObj && lastObj.y < 100) return; // Wait if recent spawn
 
     gameRef.current.objects.push({
         id: Date.now() + Math.random(),
         x,
-        y: -100, // Above screen
+        y: -150, 
         width,
         height,
         type,
-        color
+        lane
     });
+  };
+
+  const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    ctx.fill();
   };
 
   const drawPlayer = (ctx: CanvasRenderingContext2D, x: number, y: number, isBoost: boolean) => {
@@ -156,51 +176,231 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     
     // Tilt effect when turning
     const tilt = (gameRef.current.targetX - gameRef.current.playerX) * 0.05;
-    ctx.rotate(tilt * 0.1);
+    ctx.rotate(tilt * 0.15);
 
-    // Boost effect
-    if (isBoost) {
-       ctx.shadowBlur = 20;
-       ctx.shadowColor = '#3b82f6';
-    }
-
-    // Car Body
-    ctx.fillStyle = '#FFD700'; // Bee Yellow
-    ctx.fillRect(-PLAYER_WIDTH/2, -PLAYER_HEIGHT/2, PLAYER_WIDTH, PLAYER_HEIGHT);
+    // --- CAR DRAWING ---
     
-    // Stripes
-    ctx.fillStyle = '#000';
-    ctx.fillRect(-5, -PLAYER_HEIGHT/2, 10, PLAYER_HEIGHT);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, PLAYER_WIDTH/2 + 4, PLAYER_HEIGHT/2 + 2, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Body (Main)
+    ctx.fillStyle = '#FFD700'; // Bee Yellow
+    drawRoundedRect(ctx, -PLAYER_WIDTH/2, -PLAYER_HEIGHT/2, PLAYER_WIDTH, PLAYER_HEIGHT, 8);
+
+    // Hood Detail (Stripes)
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-6, -PLAYER_HEIGHT/2, 12, PLAYER_HEIGHT); // Center Stripe
+
+    // Engine Vents on Hood
+    ctx.fillStyle = '#333';
+    ctx.fillRect(-12, -PLAYER_HEIGHT/2 + 10, 6, 12);
+    ctx.fillRect(6, -PLAYER_HEIGHT/2 + 10, 6, 12);
 
     // Windshield
     ctx.fillStyle = '#60a5fa';
-    ctx.fillRect(-PLAYER_WIDTH/2 + 2, -PLAYER_HEIGHT/2 + 10, PLAYER_WIDTH - 4, 15);
-
-    // Wheels
-    ctx.fillStyle = '#1f2937';
-    ctx.fillRect(-PLAYER_WIDTH/2 - 4, -PLAYER_HEIGHT/2 + 10, 4, 12); // FL
-    ctx.fillRect(PLAYER_WIDTH/2, -PLAYER_HEIGHT/2 + 10, 4, 12); // FR
-    ctx.fillRect(-PLAYER_WIDTH/2 - 4, PLAYER_HEIGHT/2 - 15, 4, 12); // RL
-    ctx.fillRect(PLAYER_WIDTH/2, PLAYER_HEIGHT/2 - 15, 4, 12); // RR
-
-    // Head (BeeDog)
     ctx.beginPath();
-    ctx.arc(0, 0, 12, 0, Math.PI * 2);
-    ctx.fillStyle = '#d97706';
+    ctx.moveTo(-PLAYER_WIDTH/2 + 4, -PLAYER_HEIGHT/2 + 25);
+    ctx.lineTo(PLAYER_WIDTH/2 - 4, -PLAYER_HEIGHT/2 + 25);
+    ctx.quadraticCurveTo(PLAYER_WIDTH/2 - 2, -PLAYER_HEIGHT/2 + 35, PLAYER_WIDTH/2 - 4, -PLAYER_HEIGHT/2 + 40);
+    ctx.lineTo(-PLAYER_WIDTH/2 + 4, -PLAYER_HEIGHT/2 + 40);
+    ctx.quadraticCurveTo(-PLAYER_WIDTH/2 + 2, -PLAYER_HEIGHT/2 + 35, -PLAYER_WIDTH/2 + 4, -PLAYER_HEIGHT/2 + 25);
     ctx.fill();
-    ctx.strokeStyle = '#000';
+    // Glass Reflection
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath();
+    ctx.moveTo(-PLAYER_WIDTH/2 + 8, -PLAYER_HEIGHT/2 + 25);
+    ctx.lineTo(-PLAYER_WIDTH/2 + 12, -PLAYER_HEIGHT/2 + 40);
+    ctx.lineTo(-PLAYER_WIDTH/2 + 6, -PLAYER_HEIGHT/2 + 40);
+    ctx.fill();
+
+    // Side Mirrors
+    ctx.fillStyle = '#eab308';
+    ctx.beginPath();
+    ctx.arc(-PLAYER_WIDTH/2 - 2, -PLAYER_HEIGHT/2 + 30, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(PLAYER_WIDTH/2 + 2, -PLAYER_HEIGHT/2 + 30, 3, 0, Math.PI*2);
+    ctx.fill();
+
+    // Wheels (sticking out slightly)
+    ctx.fillStyle = '#111';
+    // Front Left
+    drawRoundedRect(ctx, -PLAYER_WIDTH/2 - 3, -PLAYER_HEIGHT/2 + 8, 4, 14, 2);
+    // Front Right
+    drawRoundedRect(ctx, PLAYER_WIDTH/2 - 1, -PLAYER_HEIGHT/2 + 8, 4, 14, 2);
+    // Rear Left
+    drawRoundedRect(ctx, -PLAYER_WIDTH/2 - 3, PLAYER_HEIGHT/2 - 18, 4, 14, 2);
+    // Rear Right
+    drawRoundedRect(ctx, PLAYER_WIDTH/2 - 1, PLAYER_HEIGHT/2 - 18, 4, 14, 2);
+
+    // Rear Spoiler
+    ctx.fillStyle = '#111';
+    drawRoundedRect(ctx, -PLAYER_WIDTH/2 - 2, PLAYER_HEIGHT/2 - 8, PLAYER_WIDTH + 4, 6, 2);
+
+    // Driver (BeeDog Head)
+    if (beeDogImgRef.current) {
+        const size = 32;
+        ctx.drawImage(beeDogImgRef.current, -size/2, -5, size, size);
+    } else {
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath(); ctx.arc(0, 10, 10, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Boost Flames
+    if (isBoost) {
+        const flameLen = Math.random() * 20 + 10;
+        // Left Flame
+        ctx.beginPath();
+        ctx.fillStyle = '#3b82f6'; // Blue flame for Nitro
+        ctx.moveTo(-10, PLAYER_HEIGHT/2);
+        ctx.lineTo(-14, PLAYER_HEIGHT/2 + flameLen);
+        ctx.lineTo(-6, PLAYER_HEIGHT/2);
+        ctx.fill();
+        // Right Flame
+        ctx.beginPath();
+        ctx.moveTo(10, PLAYER_HEIGHT/2);
+        ctx.lineTo(14, PLAYER_HEIGHT/2 + flameLen);
+        ctx.lineTo(6, PLAYER_HEIGHT/2);
+        ctx.fill();
+        
+        // Inner Core
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.moveTo(-10, PLAYER_HEIGHT/2);
+        ctx.lineTo(-12, PLAYER_HEIGHT/2 + flameLen/2);
+        ctx.lineTo(-8, PLAYER_HEIGHT/2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(10, PLAYER_HEIGHT/2);
+        ctx.lineTo(12, PLAYER_HEIGHT/2 + flameLen/2);
+        ctx.lineTo(8, PLAYER_HEIGHT/2);
+        ctx.fill();
+    }
+
+    ctx.restore();
+  };
+
+  const drawEnemyCar = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
+    ctx.save();
+    ctx.translate(x + w/2, y + h/2);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, w/2 + 2, h/2 + 2, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = '#dc2626'; // Red
+    drawRoundedRect(ctx, -w/2, -h/2, w, h, 6);
+
+    // Roof / Windshield (Darker for closed top)
+    ctx.fillStyle = '#111'; // Tinted
+    drawRoundedRect(ctx, -w/2 + 4, -h/2 + 15, w - 8, h/2, 4);
+    
+    // Rear Lights
+    ctx.fillStyle = '#7f1d1d';
+    ctx.fillRect(-w/2 + 4, h/2 - 4, 8, 4);
+    ctx.fillRect(w/2 - 12, h/2 - 4, 8, 4);
+
+    ctx.restore();
+  };
+
+  const drawRock = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
+    ctx.save();
+    ctx.translate(x + w/2, y + h/2);
+    
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(2, 2, w/2, h/2, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Rock Body
+    ctx.fillStyle = '#57534e'; // Stone Grey
+    ctx.beginPath();
+    ctx.moveTo(-w/2 + 5, -h/4);
+    ctx.lineTo(0, -h/2);
+    ctx.lineTo(w/2 - 5, -h/3);
+    ctx.lineTo(w/2, h/3);
+    ctx.lineTo(w/4, h/2);
+    ctx.lineTo(-w/3, h/2 - 5);
+    ctx.lineTo(-w/2, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Highlights
+    ctx.fillStyle = '#78716c';
+    ctx.beginPath();
+    ctx.moveTo(-w/4, -h/4);
+    ctx.lineTo(0, -h/3);
+    ctx.lineTo(w/4, 0);
+    ctx.fill();
+
+    ctx.restore();
+  };
+
+  const drawHoney = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
+    ctx.save();
+    ctx.translate(x + w/2, y + h/2);
+    
+    const radius = w/2;
+
+    // Pot
+    ctx.fillStyle = '#f59e0b'; // Amber
+    ctx.beginPath();
+    ctx.arc(0, 4, radius, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#92400e';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Flames if boosting
-    if (isBoost) {
-        ctx.beginPath();
-        ctx.moveTo(-5, PLAYER_HEIGHT/2);
-        ctx.lineTo(0, PLAYER_HEIGHT/2 + Math.random() * 20 + 10);
-        ctx.lineTo(5, PLAYER_HEIGHT/2);
-        ctx.fillStyle = '#f59e0b';
-        ctx.fill();
-    }
+    // Lid/Rim
+    ctx.fillStyle = '#fcd34d';
+    ctx.beginPath();
+    ctx.ellipse(0, -4, radius, radius*0.4, 0, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Shine
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.ellipse(-radius*0.4, 0, radius*0.2, radius*0.3, Math.PI/4, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  };
+
+  const drawBoost = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
+    ctx.save();
+    ctx.translate(x + w/2, y + h/2);
+
+    // Glow
+    ctx.shadowColor = '#3b82f6';
+    ctx.shadowBlur = 10;
+
+    // Canister Body
+    ctx.fillStyle = '#2563eb'; // Blue
+    drawRoundedRect(ctx, -w/3, -h/2, w/1.5, h, 4);
+    ctx.shadowBlur = 0; // Reset
+
+    // Cap
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillRect(-w/6, -h/2 - 4, w/3, 4);
+
+    // Label (Lightning)
+    ctx.fillStyle = '#facc15'; // Yellow Bolt
+    ctx.beginPath();
+    ctx.moveTo(2, -5);
+    ctx.lineTo(-6, 2);
+    ctx.lineTo(0, 2);
+    ctx.lineTo(-2, 10);
+    ctx.lineTo(6, 0);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
 
     ctx.restore();
   };
@@ -227,39 +427,45 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
 
     // Speed progression
     if (game.boostTimer > 0) {
-        game.speed = game.baseSpeed * 2.5; // Boost speed
+        game.speed = game.maxSpeed * 1.5; // Super speed
         game.boostTimer--;
     } else {
-        game.baseSpeed += 0.002; // Gradual acceleration
-        game.speed = game.baseSpeed;
+        // Accelerate naturally
+        if (game.speed < game.baseSpeed) {
+            game.speed += 0.1;
+        } else if (game.baseSpeed < game.maxSpeed) {
+            game.baseSpeed += 0.005;
+            game.speed = game.baseSpeed;
+        }
     }
     
     // Update Score
-    game.distance += game.speed;
-    if (game.frameCount % 10 === 0) {
-        game.score += 1;
-        setScore(game.score);
-        setSpeedDisplay(Math.floor(game.speed * 20)); // Fake km/h
+    if (game.speed > 0) {
+       game.distance += game.speed;
+       if (game.frameCount % 5 === 0) {
+           game.score += 1;
+           setScore(game.score);
+           setSpeedDisplay(Math.floor(game.speed * 15)); // Fake km/h
+       }
     }
 
     // Steering
-    if (game.keys.left) game.targetX -= 8;
-    if (game.keys.right) game.targetX += 8;
+    const steerSpeed = 10;
+    if (game.keys.left) game.targetX -= steerSpeed;
+    if (game.keys.right) game.targetX += steerSpeed;
     
-    // Mouse/Touch logic sets targetX directly, keys modify it relatively
     // Clamp target
     game.targetX = Math.max(0, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, game.targetX));
 
-    // Smooth movement
-    game.playerX += (game.targetX - game.playerX) * 0.15;
+    // Smooth movement (Drift feel)
+    game.playerX += (game.targetX - game.playerX) * 0.2;
 
     // Road Scroll
     game.roadOffset += game.speed;
-    if (game.roadOffset >= 40) game.roadOffset = 0;
+    if (game.roadOffset >= 60) game.roadOffset = 0;
 
     // Spawning
-    // Spawn faster as speed increases
-    const spawnRate = Math.max(20, Math.floor(100 - game.speed * 3));
+    const spawnRate = Math.max(30, Math.floor(120 - game.speed * 4));
     if (game.frameCount % spawnRate === 0) {
         spawnObject();
     }
@@ -268,12 +474,13 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     for (let i = game.objects.length - 1; i >= 0; i--) {
         const obj = game.objects[i];
         
-        // Relative speed: objects come down
-        // If it's a car, it moves down but slower than rocks (simulating traffic moving in same direction but slower than player)
-        let moveSpeed = game.speed;
-        if (obj.type === 'car') moveSpeed = game.speed - 3; // Traffic moves forward at speed 3, so relative approach is speed - 3
+        // Traffic Logic: Cars move forward, but slower than player
+        let relativeSpeed = game.speed;
+        if (obj.type === 'car') {
+            relativeSpeed = game.speed - 4; // Car speed ~4
+        }
         
-        obj.y += moveSpeed;
+        obj.y += relativeSpeed;
 
         // Cleanup
         if (obj.y > CANVAS_HEIGHT) {
@@ -281,33 +488,36 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
             continue;
         }
 
-        // Collision
-        // Simple AABB
-        // Shrink hitbox slightly for forgiveness
-        const hitX = game.playerX + 5;
-        const hitY = game.playerY + 5;
-        const hitW = PLAYER_WIDTH - 10;
-        const hitH = PLAYER_HEIGHT - 10;
+        // Collision AABB (Forgiving)
+        const hitX = game.playerX + 8;
+        const hitY = game.playerY + 8;
+        const hitW = PLAYER_WIDTH - 16;
+        const hitH = PLAYER_HEIGHT - 16;
+
+        const objHitX = obj.x + 4;
+        const objHitY = obj.y + 4;
+        const objHitW = obj.width - 8;
+        const objHitH = obj.height - 8;
 
         if (
-            hitX < obj.x + obj.width &&
-            hitX + hitW > obj.x &&
-            hitY < obj.y + obj.height &&
-            hitY + hitH > obj.y
+            hitX < objHitX + objHitW &&
+            hitX + hitW > objHitX &&
+            hitY < objHitY + objHitH &&
+            hitY + hitH > objHitY
         ) {
             if (obj.type === 'honey') {
                 game.score += 50;
                 setScore(game.score);
-                game.objects.splice(i, 1); // Collect
+                game.objects.splice(i, 1);
             } else if (obj.type === 'boost') {
-                game.boostTimer = 120; // 2 seconds of boost
+                game.boostTimer = 180; // 3 seconds
                 game.objects.splice(i, 1);
             } else {
                 // Crash
-                // If boosting, destroy obstacle instead of dying?
                 if (game.boostTimer > 0) {
+                    // Smash mode!
                     game.objects.splice(i, 1);
-                    game.score += 20; // Smash bonus
+                    game.score += 100;
                 } else {
                     endGame();
                     return;
@@ -320,74 +530,62 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Road Background
-    ctx.fillStyle = '#374151'; // Asphalt
+    ctx.fillStyle = '#262626'; // Dark Asphalt
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Grass Edges
-    ctx.fillStyle = '#166534';
-    ctx.fillRect(0, 0, 15, CANVAS_HEIGHT);
-    ctx.fillRect(CANVAS_WIDTH - 15, 0, 15, CANVAS_HEIGHT);
+    // Road Shoulders (Red/White stripes)
+    const STRIPE_HEIGHT = 40;
+    const SHOULDER_WIDTH = 12;
+    for (let y = -STRIPE_HEIGHT; y < CANVAS_HEIGHT; y += STRIPE_HEIGHT) {
+       const adjustedY = y + game.roadOffset;
+       const isRed = Math.floor((y + game.roadOffset) / STRIPE_HEIGHT) % 2 === 0;
+       ctx.fillStyle = isRed ? '#ef4444' : '#ffffff';
+       
+       // Left Shoulder
+       ctx.fillRect(0, adjustedY, SHOULDER_WIDTH, STRIPE_HEIGHT);
+       // Right Shoulder
+       ctx.fillRect(CANVAS_WIDTH - SHOULDER_WIDTH, adjustedY, SHOULDER_WIDTH, STRIPE_HEIGHT);
+    }
 
-    // Lane Markers (Moving)
+    // Grass Edges (Outer)
+    ctx.fillStyle = '#166534';
+    ctx.fillRect(0, 0, 4, CANVAS_HEIGHT);
+    ctx.fillRect(CANVAS_WIDTH - 4, 0, 4, CANVAS_HEIGHT);
+
+    // Lane Markers (Dashed Lines)
     ctx.fillStyle = '#FFF';
-    ctx.globalAlpha = 0.5;
-    for (let i = -40; i < CANVAS_HEIGHT; i += 40) {
+    ctx.globalAlpha = 0.6;
+    for (let i = -60; i < CANVAS_HEIGHT; i += 60) {
         const y = i + game.roadOffset;
-        // Lane 1
-        ctx.fillRect(LANE_WIDTH, y, 4, 20);
-        // Lane 2
-        ctx.fillRect(LANE_WIDTH * 2, y, 4, 20);
+        // Lane 1 divider
+        ctx.fillRect(LANE_WIDTH - 2, y, 4, 30);
+        // Lane 2 divider
+        ctx.fillRect(LANE_WIDTH * 2 - 2, y, 4, 30);
     }
     ctx.globalAlpha = 1.0;
 
-    // Draw Objects
+    // Draw Objects (Sorted by Y to handle overlap slightly better)
+    // Actually standard z-order is enough here as they don't overlap much
     game.objects.forEach(obj => {
-        ctx.fillStyle = obj.color;
-        
-        if (obj.type === 'car') {
-            // Simple Car Shape
-            ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-            // Taillights
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(obj.x + 2, obj.y + obj.height - 5, 8, 4);
-            ctx.fillRect(obj.x + obj.width - 10, obj.y + obj.height - 5, 8, 4);
-        } else if (obj.type === 'rock') {
-            // Rock Shape
-            ctx.beginPath();
-            ctx.ellipse(obj.x + obj.width/2, obj.y + obj.height/2, obj.width/2, obj.height/2, 0, 0, Math.PI*2);
-            ctx.fill();
-        } else if (obj.type === 'honey') {
-            // Honey Pot
-            ctx.beginPath();
-            ctx.arc(obj.x + obj.width/2, obj.y + obj.height/2, obj.width/2, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = '#000';
-            ctx.font = '12px serif';
-            ctx.fillText('🍯', obj.x + 2, obj.y + 20);
-        } else if (obj.type === 'boost') {
-            // Bolt
-            ctx.beginPath();
-            ctx.arc(obj.x + obj.width/2, obj.y + obj.height/2, obj.width/2, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = '#FFF';
-            ctx.font = '16px serif';
-            ctx.fillText('⚡', obj.x + 5, obj.y + 22);
-        }
+        if (obj.type === 'car') drawEnemyCar(ctx, obj.x, obj.y, obj.width, obj.height);
+        else if (obj.type === 'rock') drawRock(ctx, obj.x, obj.y, obj.width, obj.height);
+        else if (obj.type === 'honey') drawHoney(ctx, obj.x, obj.y, obj.width, obj.height);
+        else if (obj.type === 'boost') drawBoost(ctx, obj.x, obj.y, obj.width, obj.height);
     });
 
     // Draw Player
     drawPlayer(ctx, game.playerX, game.playerY, game.boostTimer > 0);
 
-    // Speed Lines Effect (when boosting)
-    if (game.boostTimer > 0) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-        ctx.lineWidth = 2;
-        for(let i=0; i<5; i++) {
+    // Speed Lines (Visual effect for high speed)
+    if (game.speed > 10) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        for(let i=0; i<3; i++) {
             const lx = Math.random() * CANVAS_WIDTH;
             const ly = Math.random() * CANVAS_HEIGHT;
             ctx.beginPath();
             ctx.moveTo(lx, ly);
-            ctx.lineTo(lx, ly + 50);
+            ctx.lineTo(lx, ly + 100);
             ctx.stroke();
         }
     }
@@ -396,8 +594,6 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   const handleTouch = (e: React.TouchEvent | React.MouseEvent) => {
     if (gameState !== 'PLAYING') return;
     
-    // Simple control: tap left half to move left lane, tap right half to move right lane
-    // Or simpler: tap to steer towards that x
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -413,13 +609,11 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     const scaleX = CANVAS_WIDTH / rect.width;
     const gameX = x * scaleX;
 
-    // Set target slightly offset from tap to make it feel responsive but not instant teleport
     gameRef.current.targetX = gameX - PLAYER_WIDTH / 2;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
       if (gameState !== 'PLAYING') return;
-      // Allow mouse follow for desktop testing
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -429,57 +623,80 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto aspect-[9/16] bg-gray-800 rounded-xl overflow-hidden shadow-2xl border-4 border-indigo-500 select-none touch-none">
+    <div className="relative w-full max-w-md mx-auto aspect-[9/16] bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-4 border-[#333] select-none touch-none ring-4 ring-black">
       
       <canvas 
         ref={canvasRef} 
         width={320} 
         height={550} 
-        className="w-full h-full block cursor-crosshair"
+        className="w-full h-full block cursor-none"
         onTouchStart={handleTouch}
         onTouchMove={handleTouch}
         onMouseMove={handleMouseMove}
       />
 
-      {/* HUD */}
-      <div className="absolute top-4 left-4 z-10 flex gap-4 pointer-events-none">
-         <div className="bg-black/60 text-white px-3 py-1 rounded-lg border border-white/20 flex items-center gap-2 backdrop-blur-sm">
-            <Trophy size={16} className="text-yellow-400" />
-            <span className="font-bold font-mono text-lg">{score}</span>
-         </div>
-         <div className="bg-black/60 text-white px-3 py-1 rounded-lg border border-white/20 flex items-center gap-2 backdrop-blur-sm">
-            <Zap size={16} className="text-blue-400" />
-            <span className="font-bold font-mono text-lg">{speedDisplay} <span className="text-xs text-neutral-400">km/h</span></span>
+      {/* HUD: Dashboard Style */}
+      <div className="absolute top-0 left-0 w-full p-4 pointer-events-none bg-gradient-to-b from-black/80 to-transparent">
+         <div className="flex justify-between items-center">
+             
+             {/* Score */}
+             <div className="flex flex-col">
+                <div className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                    <Trophy size={12} /> Score
+                </div>
+                <div className="font-mono font-black text-2xl text-yellow-400 leading-none">
+                    {score.toString().padStart(5, '0')}
+                </div>
+             </div>
+
+             {/* Speed Gauge */}
+             <div className="relative">
+                 <div className="w-24 h-12 overflow-hidden relative">
+                     <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border-8 border-neutral-700"></div>
+                     <div 
+                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border-8 border-transparent border-t-blue-500 border-r-blue-500 transition-all duration-200"
+                        style={{ transform: `translateX(-50%) rotate(${ -135 + (speedDisplay / 300) * 270 }deg)` }}
+                     ></div>
+                 </div>
+                 <div className="absolute bottom-0 w-full text-center">
+                     <span className="font-black text-white text-xl italic">{speedDisplay}</span>
+                     <span className="text-[10px] text-neutral-400 ml-1">KM/H</span>
+                 </div>
+             </div>
          </div>
       </div>
 
       {/* Start Screen */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20">
-          <div className="text-4xl font-black mb-2 text-indigo-400 drop-shadow-lg italic transform -skew-x-12">Bee Racing</div>
-          <p className="mb-8 font-bold text-center text-neutral-300 text-sm">
-            拖动或点击屏幕控制方向。<br/>
-            躲避<span className="text-red-500">车辆</span>和<span className="text-gray-400">石头</span>。<br/>
-            收集 <span className="text-yellow-400">蜂蜜</span> 和 <span className="text-blue-400">闪电</span>！
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20 backdrop-blur-sm">
+          <div className="text-5xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-orange-600 drop-shadow-lg italic transform -skew-x-12">
+             TURBO<br/>RACING
+          </div>
+          <p className="mb-10 font-bold text-center text-neutral-400 text-sm leading-relaxed max-w-[240px]">
+            左右滑动控制赛车<br/>
+            收集 <span className="text-blue-400">氮气</span> 进入无敌冲刺<br/>
+            撞击 <span className="text-red-500">敌车</span> 或 <span className="text-stone-400">石头</span> 会失败
           </p>
-          <Button onClick={startGame} className="animate-pulse shadow-xl scale-110 bg-indigo-500 hover:bg-indigo-400 border-none">
-             <Play className="mr-2" /> 启动引擎
+          <Button onClick={startGame} className="animate-pulse shadow-[0_0_25px_rgba(234,179,8,0.6)] scale-110 bg-gradient-to-r from-yellow-500 to-orange-600 border-none text-black font-black px-10 py-4 text-xl">
+             <Play className="mr-2 fill-current" /> GO!!!
           </Button>
         </div>
       )}
 
       {/* Game Over Screen */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-20">
-          <div className="text-3xl font-black mb-4 text-red-500">CRASHED! 💥</div>
+        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-20 backdrop-blur-md">
+          <AlertTriangle size={64} className="text-red-500 mb-4 animate-bounce" />
+          <div className="text-4xl font-black mb-6 text-white italic">WASTED</div>
           
-          <div className="bg-[#1f2937] border border-[#374151] rounded-xl p-6 w-full mb-8 flex flex-col items-center shadow-lg">
-             <div className="text-xs text-neutral-500 uppercase font-bold mb-1">最终得分</div>
-             <div className="text-5xl font-black text-white font-mono">{score}</div>
+          <div className="bg-[#111] border border-[#222] rounded-2xl p-8 w-full mb-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent"></div>
+             <div className="text-xs text-neutral-500 uppercase font-bold mb-1 tracking-[0.2em]">Final Score</div>
+             <div className="text-6xl font-black text-yellow-400 font-mono tracking-tighter">{score}</div>
           </div>
 
-          <Button onClick={startGame} className="w-full mb-3 py-4 text-lg bg-indigo-600 hover:bg-indigo-500 border-none">
-             <RotateCcw className="mr-2" /> 重新发车
+          <Button onClick={startGame} className="w-full mb-3 py-4 text-lg bg-white text-black hover:bg-neutral-200 border-none font-bold">
+             <RotateCcw className="mr-2" /> 再来一局
           </Button>
         </div>
       )}

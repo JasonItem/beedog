@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
@@ -11,6 +12,9 @@ interface BeeJumpProps {
 
 export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const beeDogImgRef = useRef<HTMLImageElement | null>(null);
+  const starsRef = useRef<{x: number, y: number, size: number, alpha: number}[]>([]);
+  
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
 
@@ -35,6 +39,8 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     playerY: CANVAS_HEIGHT - 150,
     playerVy: 0,
     playerVx: 0,
+    playerWidth: 40,  // Base size
+    playerHeight: 40, // Adjusted dynamically
     platforms: [] as { x: number; y: number; type: 'green' | 'red'; isHidden?: boolean; respawnFrame?: number }[],
     cameraY: 0,
     score: 0,
@@ -42,10 +48,35 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     keys: { left: false, right: false },
     animationId: 0,
     frameCount: 0,
-    lastFrameTime: 0
+    lastFrameTime: 0,
+    facingRight: true
   });
 
   useEffect(() => {
+    // Load BeeDog Image
+    const img = new Image();
+    img.src = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/game%2F1%2Fbee.png?alt=media&token=6b13c993-0686-47d8-9fad-63990e10a5fa";
+    img.onload = () => {
+      beeDogImgRef.current = img;
+      // Calculate aspect ratio
+      if (img.naturalHeight > 0) {
+          const ratio = img.naturalWidth / img.naturalHeight;
+          gameRef.current.playerHeight = gameRef.current.playerWidth / ratio;
+      }
+    };
+
+    // Initialize Stars
+    const stars = [];
+    for(let i=0; i<60; i++) {
+        stars.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: Math.random() * CANVAS_HEIGHT,
+            size: Math.random() * 2 + 0.5,
+            alpha: Math.random() * 0.8 + 0.2
+        });
+    }
+    starsRef.current = stars;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') gameRef.current.keys.left = true;
       if (e.key === 'ArrowRight') gameRef.current.keys.right = true;
@@ -92,7 +123,8 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
       isGameOver: false,
       animationId: 0,
       frameCount: 0,
-      lastFrameTime: performance.now()
+      lastFrameTime: performance.now(),
+      facingRight: true
     };
     setScore(0);
     setGameState('PLAYING');
@@ -110,40 +142,31 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     }
   };
 
-  const drawPlayer = (ctx: CanvasRenderingContext2D, x: number, y: number, vy: number) => {
+  const drawPlayer = (ctx: CanvasRenderingContext2D, x: number, y: number, vy: number, facingRight: boolean) => {
     ctx.save();
     ctx.translate(x, y);
     
-    // Simple BeeDog Blob
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 15, 12, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFD700';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
+    // Slight tilt based on velocity y (jump feel)
+    const tilt = vy * 0.05;
+    ctx.rotate(tilt);
 
-    // Face
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(-5, -2, 2, 0, Math.PI * 2); // Left Eye
-    ctx.arc(5, -2, 2, 0, Math.PI * 2);  // Right Eye
-    ctx.fill();
-
-    // Ears (React to velocity)
-    ctx.beginPath();
-    if (vy < 0) {
-       // Jumping up, ears down
-       ctx.ellipse(-12, 0, 4, 8, -0.5, 0, Math.PI * 2);
-       ctx.ellipse(12, 0, 4, 8, 0.5, 0, Math.PI * 2);
-    } else {
-       // Falling, ears up
-       ctx.ellipse(-12, -5, 4, 8, -0.5, 0, Math.PI * 2);
-       ctx.ellipse(12, -5, 4, 8, 0.5, 0, Math.PI * 2);
+    if (!facingRight) {
+        ctx.scale(-1, 1);
     }
-    ctx.fillStyle = '#D97706'; // Darker orange ears
-    ctx.fill();
-    ctx.stroke();
+
+    const w = gameRef.current.playerWidth;
+    const h = gameRef.current.playerHeight;
+
+    if (beeDogImgRef.current) {
+        ctx.drawImage(beeDogImgRef.current, -w/2, -h/2, w, h);
+    } else {
+        // Fallback Blob
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 15, 12, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFD700';
+        ctx.fill();
+        ctx.stroke();
+    }
 
     ctx.restore();
   };
@@ -174,9 +197,15 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     // --- PHYSICS ---
     
     // Horizontal Movement
-    if (game.keys.left) game.playerVx = -MOVEMENT_SPEED;
-    else if (game.keys.right) game.playerVx = MOVEMENT_SPEED;
-    else game.playerVx = 0;
+    if (game.keys.left) {
+        game.playerVx = -MOVEMENT_SPEED;
+        game.facingRight = false;
+    } else if (game.keys.right) {
+        game.playerVx = MOVEMENT_SPEED;
+        game.facingRight = true;
+    } else {
+        game.playerVx = 0;
+    }
 
     game.playerX += game.playerVx;
 
@@ -197,6 +226,15 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
       
       // Move platforms down
       game.platforms.forEach(p => p.y += diff);
+      
+      // Move stars down (Parallax effect)
+      starsRef.current.forEach(s => {
+          s.y += diff * 0.2; // Background moves slower
+          if (s.y > CANVAS_HEIGHT) {
+              s.y = 0;
+              s.x = Math.random() * CANVAS_WIDTH;
+          }
+      });
       
       // Add score based on height climbed
       game.score += Math.floor(diff);
@@ -238,20 +276,16 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
         if (
           game.playerX + 10 > p.x && 
           game.playerX - 10 < p.x + PLATFORM_WIDTH &&
-          game.playerY + 12 > p.y &&
-          game.playerY + 12 < p.y + PLATFORM_HEIGHT + game.playerVy // Ensure we didn't tunnel through
+          game.playerY + 15 > p.y &&
+          game.playerY + 15 < p.y + PLATFORM_HEIGHT + game.playerVy // Ensure we didn't tunnel through
         ) {
           if (p.type === 'red') {
              // RED CANDLE LOGIC:
-             // 1. Jump first! (Provide lift)
              game.playerVy = JUMP_FORCE;
-             
-             // 2. Then break/hide it
              p.isHidden = true;
              p.respawnFrame = game.frameCount + RED_PLATFORM_RESPAWN_FRAMES;
           } else {
              // GREEN CANDLE:
-             // Standard bounce
              game.playerVy = JUMP_FORCE;
           }
           break; // Only collide with one at a time
@@ -266,10 +300,26 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     }
 
     // --- RENDER ---
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // 1. Background (Space Gradient)
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    bgGradient.addColorStop(0, '#020617'); // Slate 950 (Space)
+    bgGradient.addColorStop(1, '#1e1b4b'); // Indigo 950 (Atmosphere)
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Background Grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    // 2. Stars
+    ctx.fillStyle = '#FFF';
+    starsRef.current.forEach(s => {
+        ctx.globalAlpha = s.alpha;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI*2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+
+    // 3. Grid Lines (Faint)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     for(let i=0; i<CANVAS_WIDTH; i+=40) {
         ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, CANVAS_HEIGHT); ctx.stroke();
@@ -278,35 +328,44 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(CANVAS_WIDTH, i); ctx.stroke();
     }
 
-    // Draw Platforms (Candles)
+    // 4. Platforms (Neon Candles)
     game.platforms.forEach(p => {
-      // Don't draw if hidden
-      if (p.isHidden) {
-         // Optional: Draw a faint ghost outline to show where it was/will be?
-         // For now, let's keep it clean and fully hidden.
-         return; 
-      }
+      if (p.isHidden) return; 
 
-      // Main Body
-      ctx.fillStyle = p.type === 'green' ? '#22c55e' : '#ef4444'; // Green-500 or Red-500
-      ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+      const color = p.type === 'green' ? '#22c55e' : '#ef4444';
+      const glowColor = p.type === 'green' ? '#4ade80' : '#f87171';
+
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = glowColor;
       
+      // Main Body
+      ctx.fillStyle = color;
+      ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+      ctx.shadowBlur = 0; // Turn off glow for wick details
+
       // Wick (Candle style)
       ctx.beginPath();
+      // Upper Wick
       ctx.moveTo(p.x + PLATFORM_WIDTH/2, p.y);
-      ctx.lineTo(p.x + PLATFORM_WIDTH/2, p.y - 10);
+      ctx.lineTo(p.x + PLATFORM_WIDTH/2, p.y - 15);
+      // Lower Wick
       ctx.moveTo(p.x + PLATFORM_WIDTH/2, p.y + PLATFORM_HEIGHT);
-      ctx.lineTo(p.x + PLATFORM_WIDTH/2, p.y + PLATFORM_HEIGHT + 10);
-      ctx.strokeStyle = p.type === 'green' ? '#15803d' : '#991b1b';
+      ctx.lineTo(p.x + PLATFORM_WIDTH/2, p.y + PLATFORM_HEIGHT + 15);
+      
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.stroke();
       
-      // Bevel effect
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      // Glass/Bevel effect
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
       ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, 4);
+      
+      ctx.restore();
     });
 
-    drawPlayer(ctx, game.playerX, game.playerY, game.playerVy);
+    // 5. Player
+    drawPlayer(ctx, game.playerX, game.playerY, game.playerVy, game.facingRight);
   };
 
   // Touch Controls
@@ -330,12 +389,14 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto aspect-[9/16] bg-[#111] rounded-xl overflow-hidden shadow-2xl border-4 border-black dark:border-white select-none touch-none">
+    <div className="relative w-full max-w-md mx-auto aspect-[9/16] bg-[#020617] rounded-xl overflow-hidden shadow-2xl border-4 border-black dark:border-white select-none touch-none">
       
       {/* HUD */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none">
-        <div className="text-xs text-neutral-400 font-bold uppercase">Market Cap (Score)</div>
-        <div className="text-3xl font-black text-brand-yellow font-mono">${score}</div>
+        <div className="text-xs text-neutral-400 font-bold uppercase tracking-widest mb-1">Market Cap</div>
+        <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 font-mono drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+            ${score.toLocaleString()}
+        </div>
       </div>
 
       <canvas 
@@ -349,39 +410,39 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
 
       {/* Start Screen */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20">
-          <div className="text-4xl font-black mb-2 text-green-500 drop-shadow-lg">To The Moon! 🚀</div>
-          <p className="mb-8 font-bold text-center text-neutral-400 text-sm">
-            <span className="text-red-500 font-black text-lg">🔥 极速模式 🔥</span><br/>
-            点击屏幕左右两侧控制方向。<br/>
-            踩<span className="text-green-500">绿柱子</span>上涨，<span className="text-red-500">红柱子</span>踩完会碎裂!
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20 backdrop-blur-sm">
+          <div className="text-5xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500 drop-shadow-lg tracking-tighter">MOONSHOT</div>
+          <p className="mb-8 font-bold text-center text-neutral-400 text-sm leading-relaxed">
+            点击屏幕两侧控制方向<br/>
+            踩住 <span className="text-green-400 glow-text">绿色阳线</span> 上涨<br/>
+            小心 <span className="text-red-500 glow-text">红色阴线</span> 会碎裂!
           </p>
-          <Button onClick={initGame} className="animate-bounce shadow-xl scale-125">
-             <Play className="mr-2" /> 开始拉盘
+          <Button onClick={initGame} className="animate-bounce shadow-[0_0_20px_rgba(34,197,94,0.5)] scale-110 border-none bg-green-600 hover:bg-green-500 text-white">
+             <Play className="mr-2 fill-current" /> 开始拉盘
           </Button>
         </div>
       )}
 
       {/* Game Over Screen */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-20">
-          <div className="text-3xl font-black mb-4 text-red-500">PANIC SELL! 📉</div>
+        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-20 backdrop-blur-md">
+          <div className="text-4xl font-black mb-4 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">RECT! 📉</div>
           
-          <div className="bg-[#222] border border-[#333] rounded-xl p-6 w-full mb-8 flex flex-col items-center shadow-lg">
-             <div className="text-xs text-neutral-500 uppercase font-bold mb-1">历史最高市值</div>
-             <div className="text-5xl font-black text-brand-yellow font-mono">${score}</div>
+          <div className="bg-[#111] border border-[#333] rounded-2xl p-8 w-full mb-8 flex flex-col items-center shadow-2xl">
+             <div className="text-xs text-neutral-500 uppercase font-bold mb-2 tracking-widest">历史最高市值 (ATH)</div>
+             <div className="text-5xl font-black text-yellow-500 font-mono">${score.toLocaleString()}</div>
           </div>
 
-          <Button onClick={initGame} className="w-full mb-3 py-4 text-lg">
+          <Button onClick={initGame} className="w-full mb-3 py-4 text-lg bg-white text-black hover:bg-neutral-200 border-none">
              <RotateCcw className="mr-2" /> 再次抄底
           </Button>
-          <p className="text-xs text-neutral-500 mt-4">Diamond Hands Only 💎🙌</p>
+          <p className="text-xs text-neutral-600 mt-4 font-mono">Diamond Hands Only 💎🙌</p>
         </div>
       )}
       
       {/* Mobile Controls Hint */}
       {gameState === 'PLAYING' && (
-        <div className="absolute bottom-4 w-full flex justify-between px-8 opacity-20 pointer-events-none">
+        <div className="absolute bottom-4 w-full flex justify-between px-8 opacity-10 pointer-events-none">
            <ArrowLeft size={48} className="text-white"/>
            <ArrowRight size={48} className="text-white"/>
         </div>

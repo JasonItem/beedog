@@ -1,8 +1,9 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
 import { Button } from '../Button';
-import { Play, RotateCcw, Trophy } from 'lucide-react';
+import { Play, RotateCcw } from 'lucide-react';
 
 interface FlappyBeeProps {
   userProfile: UserProfile | null;
@@ -11,27 +12,32 @@ interface FlappyBeeProps {
 
 export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const birdImgRef = useRef<HTMLImageElement | null>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
 
   // Game Constants - Insane Mode
-  const GRAVITY = 0.8; 
-  const JUMP = -10.0;    
-  const PIPE_SPEED = 7.0; 
-  const PIPE_SPAWN_RATE = 50; 
-  const GAP_SIZE = 150; 
+  const GRAVITY = 0.6; 
+  const JUMP = -9.0;    
+  const PIPE_SPEED = 5.0; 
+  const PIPE_SPAWN_RATE = 70; 
+  const GAP_SIZE = 140; 
+  const GROUND_HEIGHT = 60;
   
   // FPS Control
   const TARGET_FPS = 60;
   const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
-  // Game Refs to maintain state inside requestAnimationFrame without re-renders
+  // Game Refs
   const gameRef = useRef({
     birdY: 200, 
     birdVelocity: 0,
-    birdX: 50,
-    birdSize: 30,
+    birdX: 60,
+    birdWidth: 40,
+    birdHeight: 40, // Will be adjusted on image load
     pipes: [] as { x: number; topHeight: number; passed: boolean }[],
+    clouds: [] as { x: number; y: number; scale: number; speed: number; opacity: number }[],
+    groundOffset: 0,
     frameCount: 0,
     score: 0,
     isGameOver: false,
@@ -40,7 +46,30 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   });
 
   useEffect(() => {
-    // Cleanup on unmount
+    // Load Bird Image
+    const img = new Image();
+    img.src = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/game%2F1%2Fbee.png?alt=media&token=6b13c993-0686-47d8-9fad-63990e10a5fa";
+    img.onload = () => {
+      birdImgRef.current = img;
+      // Calculate aspect ratio to prevent distortion
+      const ratio = img.naturalWidth / img.naturalHeight;
+      gameRef.current.birdWidth = 45; // Slightly larger base width
+      gameRef.current.birdHeight = 45 / ratio;
+    };
+
+    // Initialize Clouds with more variety
+    const clouds = [];
+    for(let i=0; i<6; i++) {
+        clouds.push({
+            x: Math.random() * 320,
+            y: Math.random() * 250,
+            scale: 0.3 + Math.random() * 0.7,
+            speed: 0.2 + Math.random() * 0.5,
+            opacity: 0.4 + Math.random() * 0.4
+        });
+    }
+    gameRef.current.clouds = clouds;
+
     return () => {
       if (gameRef.current.animationId) {
         cancelAnimationFrame(gameRef.current.animationId);
@@ -55,30 +84,27 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
 
     setGameState('PLAYING');
     setScore(0);
-    gameRef.current = {
-      birdY: 200, 
-      birdVelocity: -5, // Gentle initial boost (scaled for new gravity)
-      birdX: 50,
-      birdSize: 30,
-      pipes: [],
-      frameCount: 0,
-      score: 0,
-      isGameOver: false,
-      animationId: 0,
-      lastFrameTime: performance.now()
-    };
+    
+    // Reset Game State
+    gameRef.current.birdY = 200;
+    gameRef.current.birdVelocity = -5;
+    gameRef.current.pipes = [];
+    gameRef.current.frameCount = 0;
+    gameRef.current.score = 0;
+    gameRef.current.isGameOver = false;
+    gameRef.current.lastFrameTime = performance.now();
+    gameRef.current.groundOffset = 0;
+    
     loop();
   };
 
   const jump = (e?: React.MouseEvent | React.TouchEvent) => {
-    // Prevent default touch actions (scrolling)
     if (e) e.preventDefault();
 
     if (gameState === 'PLAYING') {
       gameRef.current.birdVelocity = JUMP;
     } else if (gameState === 'START' || gameState === 'GAME_OVER') {
-      // Optional: Allow tap to start/restart
-      // startGame(); 
+      // Optional: Tap to restart logic handled by button
     }
   };
 
@@ -87,69 +113,61 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
     
-    // Save Score
     if (userProfile && gameRef.current.score > 0) {
       await saveHighScore(userProfile, 'flappy_bee', gameRef.current.score);
-      onGameOver(); // Trigger leaderboard refresh in parent
+      onGameOver();
     }
+  };
+
+  const drawCloud = (ctx: CanvasRenderingContext2D, cloud: { x: number; y: number; scale: number; opacity: number }) => {
+      ctx.save();
+      ctx.translate(cloud.x, cloud.y);
+      ctx.scale(cloud.scale, cloud.scale);
+      ctx.fillStyle = `rgba(255, 255, 255, ${cloud.opacity})`;
+      
+      // Draw fluffy cloud shape
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.arc(25, -10, 25, 0, Math.PI * 2);
+      ctx.arc(50, 0, 20, 0, Math.PI * 2);
+      ctx.arc(25, 10, 20, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
   };
 
   const drawBird = (ctx: CanvasRenderingContext2D, x: number, y: number, velocity: number) => {
     ctx.save();
-    
-    // Rotate bird based on velocity
     ctx.translate(x, y);
-    const rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (velocity * 0.05)));
+    
+    // Rotate based on velocity
+    const rotation = Math.min(Math.PI / 2, Math.max(-Math.PI / 4, (velocity * 0.1)));
     ctx.rotate(rotation);
 
-    // Draw Bee Body (Centered at 0,0 due to translate)
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 20, 15, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFD700'; // Brand Yellow
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
+    const w = gameRef.current.birdWidth;
+    const h = gameRef.current.birdHeight;
 
-    // Stripes
-    ctx.beginPath();
-    ctx.moveTo(-5, -13);
-    ctx.lineTo(-5, 13);
-    ctx.moveTo(5, -13);
-    ctx.lineTo(5, 13);
-    ctx.stroke();
-
-    // Eye
-    ctx.beginPath();
-    ctx.arc(12, -5, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFF';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(14, -5, 2, 0, Math.PI * 2);
-    ctx.fillStyle = '#000';
-    ctx.fill();
-
-    // Wing (Flapping visual)
-    ctx.beginPath();
-    ctx.ellipse(-5, -8, 10, 6, -0.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fill();
-    ctx.stroke();
+    if (birdImgRef.current) {
+        ctx.drawImage(birdImgRef.current, -w/2, -h/2, w, h);
+    } else {
+        // Fallback
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, w/2, h/2, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+    }
 
     ctx.restore();
   };
 
   const loop = () => {
-    // Request next frame immediately to keep loop alive
     gameRef.current.animationId = requestAnimationFrame(loop);
 
     const now = performance.now();
     const elapsed = now - gameRef.current.lastFrameTime;
 
-    // Limit FPS
     if (elapsed < FRAME_INTERVAL) return;
-
-    // Adjust lastFrameTime to target interval (prevents drift)
     gameRef.current.lastFrameTime = now - (elapsed % FRAME_INTERVAL);
 
     const canvas = canvasRef.current;
@@ -160,81 +178,176 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     const game = gameRef.current;
     if (game.isGameOver) return;
 
-    // Clear
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // --- PHYSICS & LOGIC ---
 
-    // Physics
+    // Bird Physics
     game.birdVelocity += GRAVITY;
     game.birdY += game.birdVelocity;
 
-    // Pipe Logic
+    // Ground Scroll
+    game.groundOffset = (game.groundOffset + PIPE_SPEED) % 40; // Larger pattern for road markings
+
+    // Cloud Animation
+    game.clouds.forEach(c => {
+        c.x -= c.speed;
+        if (c.x < -100) c.x = canvas.width + 100;
+    });
+
+    // Pipe Spawning
     game.frameCount++;
     if (game.frameCount % PIPE_SPAWN_RATE === 0) {
       const minHeight = 50;
-      const maxHeight = canvas.height - GAP_SIZE - minHeight;
+      const maxHeight = canvas.height - GROUND_HEIGHT - GAP_SIZE - minHeight;
       const randomHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
       game.pipes.push({ x: canvas.width, topHeight: randomHeight, passed: false });
     }
 
-    // Draw & Move Pipes
+    // Pipe Logic
     for (let i = 0; i < game.pipes.length; i++) {
       const p = game.pipes[i];
       p.x -= PIPE_SPEED;
 
-      // Draw Pipes
-      ctx.fillStyle = '#4ADE80'; // Green-400
-      ctx.strokeStyle = '#166534'; // Green-800
-      ctx.lineWidth = 2;
+      // Hitbox
+      // Tighter hitbox for fairness
+      const paddingX = 8;
+      const paddingY = 8;
+      const birdLeft = game.birdX - game.birdWidth / 2 + paddingX;
+      const birdRight = game.birdX + game.birdWidth / 2 - paddingX;
+      const birdTop = game.birdY - game.birdHeight / 2 + paddingY;
+      const birdBottom = game.birdY + game.birdHeight / 2 - paddingY;
 
-      // Top Pipe
-      ctx.fillRect(p.x, 0, 50, p.topHeight);
-      ctx.strokeRect(p.x, 0, 50, p.topHeight);
+      const pipeLeft = p.x;
+      const pipeRight = p.x + 50;
+      const pipeTopY = p.topHeight;
+      const pipeBottomY = p.topHeight + GAP_SIZE;
 
-      // Bottom Pipe
-      const bottomY = p.topHeight + GAP_SIZE;
-      ctx.fillRect(p.x, bottomY, 50, canvas.height - bottomY);
-      ctx.strokeRect(p.x, bottomY, 50, canvas.height - bottomY);
-
-      // Collision Detection
-      // Bird hitbox is roughly circle center (birdX, birdY) radius 15
-      // Simplified box collision
+      // Collision Check
       if (
-        game.birdX + 15 > p.x && 
-        game.birdX - 15 < p.x + 50 && 
-        (game.birdY - 10 < p.topHeight || game.birdY + 10 > bottomY)
+        birdRight > pipeLeft && 
+        birdLeft < pipeRight && 
+        (birdTop < pipeTopY || birdBottom > pipeBottomY)
       ) {
         endGame();
         return;
       }
 
       // Score
-      if (p.x + 50 < game.birdX && !p.passed) {
+      if (pipeRight < birdLeft && !p.passed) {
         game.score++;
         p.passed = true;
         setScore(game.score);
       }
     }
 
-    // Remove off-screen pipes
+    // Remove old pipes
     game.pipes = game.pipes.filter(p => p.x > -100);
 
     // Ground/Ceiling Collision
-    if (game.birdY + 15 > canvas.height || game.birdY - 15 < 0) {
+    // Hit ground
+    if (game.birdY + game.birdHeight/2 - 5 > canvas.height - GROUND_HEIGHT) {
       endGame();
       return;
     }
+    // Hit ceiling (optional, usually Flappy bird allows skimming ceiling, but let's cap it)
+    if (game.birdY - game.birdHeight/2 < 0) {
+        game.birdY = game.birdHeight/2;
+        game.birdVelocity = 0;
+    }
 
-    // Draw Bird
+    // --- RENDER ---
+    
+    // Sky
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#38bdf8'); // Sky Blue 400
+    gradient.addColorStop(1, '#bae6fd'); // Sky Blue 200
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Clouds
+    game.clouds.forEach(c => drawCloud(ctx, c));
+
+    // Pipes
+    for (let i = 0; i < game.pipes.length; i++) {
+      const p = game.pipes[i];
+      
+      // Pipe Style
+      const pipeGradient = ctx.createLinearGradient(p.x, 0, p.x + 50, 0);
+      pipeGradient.addColorStop(0, '#22c55e');
+      pipeGradient.addColorStop(0.5, '#4ade80'); // Highlight
+      pipeGradient.addColorStop(1, '#15803d'); // Shadow
+
+      ctx.fillStyle = pipeGradient;
+      ctx.strokeStyle = '#14532d'; // Dark Green border
+      ctx.lineWidth = 2;
+
+      // Top Pipe
+      ctx.fillRect(p.x, 0, 50, p.topHeight);
+      ctx.strokeRect(p.x, 0, 50, p.topHeight);
+      // Cap
+      ctx.fillRect(p.x - 2, p.topHeight - 24, 54, 24);
+      ctx.strokeRect(p.x - 2, p.topHeight - 24, 54, 24);
+
+      // Bottom Pipe
+      const bottomY = p.topHeight + GAP_SIZE;
+      const bottomHeight = canvas.height - GROUND_HEIGHT - bottomY;
+      ctx.fillRect(p.x, bottomY, 50, bottomHeight);
+      ctx.strokeRect(p.x, bottomY, 50, bottomHeight);
+      // Cap
+      ctx.fillRect(p.x - 2, bottomY, 54, 24);
+      ctx.strokeRect(p.x - 2, bottomY, 54, 24);
+    }
+
+    // Ground
+    const groundY = canvas.height - GROUND_HEIGHT;
+    
+    // 1. Grass Layer (Top)
+    const grassHeight = 15;
+    ctx.fillStyle = '#4ade80'; // Bright Green
+    ctx.fillRect(0, groundY, canvas.width, grassHeight);
+    
+    // Grass detail
+    ctx.fillStyle = '#22c55e';
+    for(let i=0; i<canvas.width; i+=10) {
+        // Little grass tufts
+        ctx.beginPath();
+        ctx.moveTo(i, groundY);
+        ctx.lineTo(i+5, groundY+5);
+        ctx.lineTo(i+10, groundY);
+        ctx.fill();
+    }
+    
+    // 2. Road/Dirt Layer (Bottom)
+    ctx.fillStyle = '#dcdcdc'; // Road Gray
+    ctx.fillRect(0, groundY + grassHeight, canvas.width, GROUND_HEIGHT - grassHeight);
+    
+    // Road Markings (Moving)
+    ctx.fillStyle = '#a0a0a0'; // Darker gray details
+    ctx.beginPath();
+    // Diagonal asphalt texture
+    for(let i = -40; i < canvas.width; i += 40) {
+        const x = i - game.groundOffset;
+        ctx.moveTo(x, groundY + grassHeight);
+        ctx.lineTo(x - 20, canvas.height);
+        ctx.lineTo(x - 15, canvas.height);
+        ctx.lineTo(x + 5, groundY + grassHeight);
+    }
+    ctx.fill();
+    
+    // Top Border of Road
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY + grassHeight);
+    ctx.lineTo(canvas.width, groundY + grassHeight);
+    ctx.stroke();
+
+    // Bird
     drawBird(ctx, game.birdX, game.birdY, game.birdVelocity);
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto aspect-[3/4] bg-sky-300 rounded-xl overflow-hidden shadow-2xl border-4 border-black dark:border-white select-none touch-none">
-      {/* Background Clouds (CSS) */}
-      <div className="absolute top-10 left-10 text-white/50 text-6xl opacity-50 select-none pointer-events-none">☁️</div>
-      <div className="absolute top-40 right-10 text-white/50 text-4xl opacity-40 select-none pointer-events-none">☁️</div>
-      <div className="absolute bottom-10 left-20 text-white/50 text-5xl opacity-60 select-none pointer-events-none">☁️</div>
-
+    <div className="relative w-full max-w-md mx-auto aspect-[3/4] bg-neutral-200 rounded-xl overflow-hidden shadow-2xl border-4 border-black dark:border-white select-none touch-none">
+      
       <canvas 
         ref={canvasRef} 
         width={320} 
@@ -245,18 +358,18 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
       />
 
       {/* Score Overlay */}
-      <div className="absolute top-4 left-0 w-full text-center pointer-events-none">
-        <span className="text-4xl font-black text-white stroke-black drop-shadow-md font-comic">
+      <div className="absolute top-8 left-0 w-full text-center pointer-events-none">
+        <span className="text-6xl font-black text-white stroke-black drop-shadow-xl font-comic" style={{ WebkitTextStroke: '2px black' }}>
           {score}
         </span>
       </div>
 
       {/* Start Screen */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white p-6 z-10">
-          <div className="text-4xl font-black mb-2 text-brand-yellow drop-shadow-lg stroke-black">笨鸟先飞</div>
-          <p className="mb-6 font-bold text-center">点击屏幕飞行<br/><span className="text-red-500 font-black">🔥 极速模式 🔥</span></p>
-          <Button onClick={startGame} className="animate-bounce shadow-xl">
+        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white p-6 z-10 backdrop-blur-sm">
+          <div className="text-4xl font-black mb-2 text-brand-yellow drop-shadow-lg stroke-black" style={{ textShadow: '2px 2px 0 #000' }}>笨鸟先飞</div>
+          <p className="mb-6 font-bold text-center text-lg">点击屏幕飞行</p>
+          <Button onClick={startGame} className="animate-bounce shadow-xl scale-110">
              <Play className="mr-2" /> 开始挑战
           </Button>
         </div>
@@ -264,14 +377,16 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
 
       {/* Game Over Screen */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-10">
-          <div className="text-3xl font-black mb-2 text-red-500">GAME OVER</div>
-          <div className="bg-white text-black rounded-xl p-4 w-full mb-6 flex flex-col items-center shadow-lg">
-             <div className="text-sm text-neutral-500 uppercase font-bold">本局得分</div>
-             <div className="text-5xl font-black mb-2">{score}</div>
-             {!userProfile && <p className="text-xs text-red-500">登录后记录成绩!</p>}
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-10 backdrop-blur-sm">
+          <div className="text-4xl font-black mb-4 text-red-500" style={{ textShadow: '2px 2px 0 #fff' }}>GAME OVER</div>
+          
+          <div className="bg-white text-black rounded-2xl p-6 w-full max-w-xs mb-6 flex flex-col items-center shadow-2xl border-4 border-brand-yellow">
+             <div className="text-sm text-neutral-500 uppercase font-bold tracking-widest mb-1">本局得分</div>
+             <div className="text-6xl font-black mb-2">{score}</div>
+             {!userProfile && <p className="text-xs text-red-500 font-bold bg-red-50 px-2 py-1 rounded">登录后记录成绩!</p>}
           </div>
-          <Button onClick={startGame} className="w-full mb-2">
+          
+          <Button onClick={startGame} className="w-full max-w-xs py-4 text-lg font-bold shadow-lg hover:scale-105 transition-transform">
              <RotateCcw className="mr-2" /> 再玩一次
           </Button>
         </div>

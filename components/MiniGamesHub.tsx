@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
 import { BeeDefense } from './games/BeeDefense';
 import { BeeRacing } from './games/BeeRacing';
 import { BeeSnake } from './games/BeeSnake';
+import { BeeVolley } from './games/BeeVolley';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { Button } from './Button';
@@ -57,6 +58,13 @@ const GAMES = [
     description: '经典回归！吃蜂蜜变长，小心别咬到尾巴！',
     image: '',
     color: 'bg-yellow-600'
+  },
+  {
+    id: 'bee_volley',
+    name: '沙滩排球',
+    description: '阳光、沙滩、排球！你能同时顶起几个球？',
+    image: '',
+    color: 'bg-blue-400'
   }
 ];
 
@@ -109,6 +117,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
         return <BeeRacing userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_snake':
         return <BeeSnake userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_volley':
+        return <BeeVolley userProfile={userProfile} onGameOver={handleGameOver} />;
       default:
         return null;
     }
@@ -231,6 +241,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                        <CarFront size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:scale-110" />
                     ) : game.id === 'bee_snake' ? (
                        <Activity size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
+                    ) : game.id === 'bee_volley' ? (
+                       <Volleyball size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-translate-y-4" />
                     ) : (
                        <Gamepad2 size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
                     )}

@@ -26,6 +26,7 @@ interface Particle {
 
 export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const headImgRef = useRef<HTMLImageElement | null>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
 
@@ -44,8 +45,8 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     food: { x: 0, y: 0 } as Point,
     foodType: 'honey' as 'honey' | 'diamond',
     particles: [] as Particle[],
-    speed: 10, // Frames per move (Lower is faster)
-    baseSpeed: 10,
+    speed: 18, // Frames per move (Start slower: 18 frames = ~3.3 moves/sec)
+    baseSpeed: 18,
     frameCount: 0,
     score: 0,
     isGameOver: false,
@@ -53,6 +54,13 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
   });
 
   useEffect(() => {
+    // Load Snake Head Image
+    const img = new Image();
+    img.src = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce";
+    img.onload = () => {
+      headImgRef.current = img;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       switch(e.key) {
         case 'ArrowUp': changeDirection('UP'); break;
@@ -124,8 +132,8 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
       food: { x: 0, y: 0 }, // Will spawn immediately
       foodType: 'honey',
       particles: [],
-      speed: 12,
-      baseSpeed: 12,
+      speed: 18, // Reset to slow speed (18 frames per move)
+      baseSpeed: 18,
       frameCount: 0,
       score: 0,
       isGameOver: false,
@@ -145,6 +153,19 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
       await saveHighScore(userProfile, 'bee_snake', gameRef.current.score);
       onGameOver();
     }
+  };
+
+  const drawHex = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = 2 * Math.PI / 6 * i;
+      const x_i = x + size * Math.cos(angle);
+      const y_i = y + size * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x_i, y_i);
+      else ctx.lineTo(x_i, y_i);
+    }
+    ctx.closePath();
+    ctx.stroke();
   };
 
   const loop = () => {
@@ -200,8 +221,10 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
             // Effects
             createParticles(head.x, head.y, game.foodType === 'diamond' ? '#60a5fa' : '#fbbf24');
 
-            // Increase speed every 50 points
-            if (game.score % 50 === 0 && game.speed > 4) {
+            // NEW SPEED LOGIC: Gradual acceleration
+            // Start at 18 frames/move. Decrease by 0.5 per eat.
+            // Cap at 6 frames/move (normal human limit, fast but playable)
+            if (game.speed > 6) {
                 game.speed -= 0.5;
             }
 
@@ -215,49 +238,83 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     // --- RENDER ---
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Background Grid (Subtle)
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    // Background (Dark Honeycomb)
+    ctx.fillStyle = '#18181b'; // Zinc 900
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.05)'; // Very faint amber
     ctx.lineWidth = 1;
-    for (let x = 0; x <= COLS; x++) {
-        ctx.beginPath(); ctx.moveTo(x * CELL_SIZE, 0); ctx.lineTo(x * CELL_SIZE, CANVAS_HEIGHT); ctx.stroke();
-    }
-    for (let y = 0; y <= ROWS; y++) {
-        ctx.beginPath(); ctx.moveTo(0, y * CELL_SIZE); ctx.lineTo(CANVAS_WIDTH, y * CELL_SIZE); ctx.stroke();
+    // Draw subtle hex pattern
+    const r = 16;
+    const h = r * Math.sqrt(3);
+    for (let y = 0; y < CANVAS_HEIGHT + h; y += h) {
+        for (let x = 0; x < CANVAS_WIDTH + r*3; x += r * 3) {
+            drawHex(ctx, x, y, r);
+            drawHex(ctx, x + r * 1.5, y + h / 2, r);
+        }
     }
 
     // Draw Food
     const fx = game.food.x * CELL_SIZE + CELL_SIZE/2;
     const fy = game.food.y * CELL_SIZE + CELL_SIZE/2;
-    ctx.font = `${CELL_SIZE}px serif`;
+    
+    // Glow under food
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = game.foodType === 'diamond' ? '#60a5fa' : '#f59e0b';
+    ctx.font = `${CELL_SIZE * 1.2}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(game.foodType === 'diamond' ? '💎' : '🍯', fx, fy);
+    ctx.shadowBlur = 0;
 
     // Draw Snake
     game.snake.forEach((seg, index) => {
         const sx = seg.x * CELL_SIZE;
         const sy = seg.y * CELL_SIZE;
+        const cx = sx + CELL_SIZE / 2;
+        const cy = sy + CELL_SIZE / 2;
         
-        ctx.fillStyle = index === 0 ? '#FFD700' : (index % 2 === 0 ? '#fbbf24' : '#1f2937'); // Head gold, Body yellow/black
-        
-        // Rounded rect for style
-        const radius = 4;
-        ctx.beginPath();
-        ctx.roundRect(sx, sy, CELL_SIZE - 1, CELL_SIZE - 1, radius);
-        ctx.fill();
-
-        // Eyes on head
         if (index === 0) {
-            ctx.fillStyle = '#000';
-            let ex1 = 0, ey1 = 0, ex2 = 0, ey2 = 0;
-            const offset = 4;
-            if (game.direction === 'UP') { ex1=sx+4; ey1=sy+4; ex2=sx+12; ey2=sy+4; }
-            if (game.direction === 'DOWN') { ex1=sx+4; ey1=sy+12; ex2=sx+12; ey2=sy+12; }
-            if (game.direction === 'LEFT') { ex1=sx+4; ey1=sy+4; ex2=sx+4; ey2=sy+12; }
-            if (game.direction === 'RIGHT') { ex1=sx+12; ey1=sy+4; ex2=sx+12; ey2=sy+12; }
+            // HEAD (BeeDog Image)
+            if (headImgRef.current) {
+                ctx.save();
+                ctx.translate(cx, cy);
+                
+                // Rotate based on direction
+                let angle = 0;
+                switch(game.direction) {
+                    case 'UP': angle = 0; break;
+                    case 'RIGHT': angle = Math.PI / 2; break;
+                    case 'DOWN': angle = Math.PI; break;
+                    case 'LEFT': angle = -Math.PI / 2; break;
+                }
+                ctx.rotate(angle);
+                
+                // Draw Head (Slightly larger than cell)
+                const size = CELL_SIZE * 2.2;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 5;
+                ctx.drawImage(headImgRef.current, -size/2, -size/2, size, size);
+                ctx.restore();
+            } else {
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath(); ctx.arc(cx, cy, CELL_SIZE/2, 0, Math.PI*2); ctx.fill();
+            }
+        } else {
+            // BODY (Bee Stripes)
+            ctx.shadowBlur = 0;
+            // Alternating Yellow/Black for Bee effect
+            const isYellow = index % 2 !== 0; // Segment 1 (neck) is yellow, 2 is black...
             
-            ctx.beginPath(); ctx.arc(ex1, ey1, 2, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(ex2, ey2, 2, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = isYellow ? '#fbbf24' : '#1f2937'; // Amber-400 / Gray-800
+            ctx.beginPath();
+            ctx.arc(cx, cy, CELL_SIZE/2, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Highlight on body
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath();
+            ctx.arc(cx - 2, cy - 2, 2, 0, Math.PI*2);
+            ctx.fill();
         }
     });
 
@@ -296,7 +353,7 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
 
         {/* Start Screen */}
         {gameState === 'START' && (
-            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20">
+            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20 backdrop-blur-sm">
             <div className="text-4xl font-black mb-2 text-yellow-400 drop-shadow-lg">Bee Snake</div>
             <p className="mb-8 font-bold text-center text-neutral-300 text-sm">
                 吃掉蜂蜜变长。<br/>
@@ -311,7 +368,7 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
 
         {/* Game Over Screen */}
         {gameState === 'GAME_OVER' && (
-            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-20">
+            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-20 backdrop-blur-md">
             <div className="text-3xl font-black mb-4 text-red-500">OUCH! 💀</div>
             
             <div className="bg-[#1f2937] border border-[#374151] rounded-xl p-6 w-full mb-8 flex flex-col items-center shadow-lg">
