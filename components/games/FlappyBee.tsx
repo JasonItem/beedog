@@ -14,12 +14,12 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
 
-  // Game Constants - Tuned for slower, floatier gameplay
-  const GRAVITY = 0.15; // Reduced gravity for slower falling
-  const JUMP = -3.8;    // Reduced jump force to match lower gravity
-  const PIPE_SPEED = 1.5; 
-  const PIPE_SPAWN_RATE = 200; 
-  const GAP_SIZE = 170; 
+  // Game Constants - INSANE Mode
+  const GRAVITY = 0.8; 
+  const JUMP = -10.0;    
+  const PIPE_SPEED = 7.0; 
+  const PIPE_SPAWN_RATE = 50; 
+  const GAP_SIZE = 150; 
   
   // FPS Control
   const TARGET_FPS = 60;
@@ -57,7 +57,7 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     setScore(0);
     gameRef.current = {
       birdY: 200, 
-      birdVelocity: -2, // Gentle initial boost
+      birdVelocity: -5, // Stronger initial boost
       birdX: 50,
       birdSize: 30,
       pipes: [],
@@ -99,7 +99,8 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     
     // Rotate bird based on velocity
     ctx.translate(x, y);
-    const rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (velocity * 0.1)));
+    const kvMultiplier = 0.05; // Reduced rotation sensitivity for smoother look at high speed
+    const rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (velocity * kvMultiplier)));
     ctx.rotate(rotation);
 
     // Draw Bee Body (Centered at 0,0 due to translate)
@@ -184,23 +185,23 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
       // Draw Pipes
       ctx.fillStyle = '#4ADE80'; // Green-400
       ctx.strokeStyle = '#166534'; // Green-800
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3; // Thicker border for cartoon look
 
       // Top Pipe
-      ctx.fillRect(p.x, 0, 50, p.topHeight);
-      ctx.strokeRect(p.x, 0, 50, p.topHeight);
+      ctx.fillRect(p.x, 0, 52, p.topHeight);
+      ctx.strokeRect(p.x, 0, 52, p.topHeight);
 
       // Bottom Pipe
       const bottomY = p.topHeight + GAP_SIZE;
-      ctx.fillRect(p.x, bottomY, 50, canvas.height - bottomY);
-      ctx.strokeRect(p.x, bottomY, 50, canvas.height - bottomY);
+      ctx.fillRect(p.x, bottomY, 52, canvas.height - bottomY);
+      ctx.strokeRect(p.x, bottomY, 52, canvas.height - bottomY);
 
       // Collision Detection
       // Bird hitbox is roughly circle center (birdX, birdY) radius 15
       // Simplified box collision
       if (
         game.birdX + 15 > p.x && 
-        game.birdX - 15 < p.x + 50 && 
+        game.birdX - 15 < p.x + 52 && 
         (game.birdY - 10 < p.topHeight || game.birdY + 10 > bottomY)
       ) {
         endGame();
@@ -208,7 +209,7 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
       }
 
       // Score
-      if (p.x + 50 < game.birdX && !p.passed) {
+      if (p.x + 52 < game.birdX && !p.passed) {
         game.score++;
         p.passed = true;
         setScore(game.score);
@@ -255,9 +256,12 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
       {gameState === 'START' && (
         <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white p-6 z-10">
           <div className="text-4xl font-black mb-2 text-brand-yellow drop-shadow-lg stroke-black">笨鸟先飞</div>
-          <p className="mb-6 font-bold text-lg text-center">点击屏幕飞行</p>
+          <p className="mb-6 font-bold text-lg text-center text-white drop-shadow-md">
+            地狱难度：专治不服<br/>
+            <span className="text-sm opacity-80">点击屏幕飞行</span>
+          </p>
           <Button onClick={startGame} className="animate-bounce shadow-xl">
-             <Play className="mr-2" /> 开始游戏
+             <Play className="mr-2" /> 开始挑战
           </Button>
         </div>
       )}

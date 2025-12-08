@@ -1,27 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
-// --- API KEY HANDLING (Vite vs Cloud) ---
-const getApiKey = (): string => {
-  // 1. Try Vite (Local Dev) - import.meta.env.VITE_API_KEY
-  // @ts-ignore: import.meta is available in Vite/ESM environments
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-    // @ts-ignore
-    return import.meta.env.VITE_API_KEY;
-  }
-
-  // 2. Try Cloud/Node (Standard) - process.env.API_KEY
-  // @ts-ignore: process might be undefined in pure browser environments without polyfills
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    // @ts-ignore
-    return process.env.API_KEY;
-  }
-
-  return '';
-};
-
-// Initialize Gemini with the detected key
-const API_KEY = getApiKey();
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Initialize Gemini with the API key from process.env
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const BEEDOG_SYSTEM_INSTRUCTION = `
 你是 BeeDog（蜜蜂狗），是加密货币世界最“肿”的吉祥物。
@@ -54,7 +34,7 @@ export const chatWithBeeDog = async (userMessage: string): Promise<string> => {
         systemInstruction: BEEDOG_SYSTEM_INSTRUCTION,
         temperature: 1.2, // Higher creativity for meme persona
         topK: 40,
-        maxOutputTokens: 200,
+        // Removed maxOutputTokens to prevent blocking response without thinkingBudget
       },
     });
 
@@ -127,8 +107,8 @@ export const generatePfpVariation = async (
     customApiKey?: string
 ): Promise<string> => {
   try {
-    // Use custom key if provided, otherwise default to helper
-    const currentApiKey = customApiKey || getApiKey();
+    // Use custom key if provided, otherwise default to process.env.API_KEY
+    const currentApiKey = customApiKey || process.env.API_KEY;
 
     if (!currentApiKey) {
       throw new Error("Missing API Key. Check .env (VITE_API_KEY) or environment variables.");
@@ -259,7 +239,7 @@ export const generateSingleSticker = async (
     customApiKey?: string
 ): Promise<string> => {
   try {
-    const currentApiKey = customApiKey || getApiKey();
+    const currentApiKey = customApiKey || process.env.API_KEY;
     if (!currentApiKey) throw new Error("Missing API Key");
 
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
@@ -326,7 +306,7 @@ export const generateGroupSelfie = async (
     customApiKey?: string
 ): Promise<string> => {
   try {
-    const currentApiKey = customApiKey || getApiKey();
+    const currentApiKey = customApiKey || process.env.API_KEY;
     if (!currentApiKey) throw new Error("Missing API Key");
 
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
