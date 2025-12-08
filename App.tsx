@@ -234,7 +234,7 @@ const App: React.FC = () => {
       <nav className={`fixed top-0 w-full z-40 transition-all duration-300 ${scrolled ? 'glass shadow-sm py-3' : 'bg-transparent py-6'}`}>
         <div className="container mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
-            <img src="logo.png" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg transform hover:rotate-12 transition-transform" />
+            <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg transform hover:rotate-12 transition-transform" />
             <span className="text-xl font-black tracking-tight dark:text-white">蜜蜂狗</span>
           </div>
 
@@ -355,19 +355,19 @@ const App: React.FC = () => {
                 <div className="relative z-10 grid grid-cols-3 gap-4 items-end animate-float">
                     <div className="transform translate-y-12 -rotate-6 transition-transform hover:scale-105 duration-300">
                       <div className="bg-white dark:bg-[#161616] p-2 rounded-2xl shadow-xl transform rotate-3">
-                          <img src="image/site/beedog2.png" alt="Bee Dog" className="rounded-xl grayscale-[50%] hover:grayscale-0 transition-all" />
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog2.png?alt=media&token=dc5a47ef-573b-4b0a-bbb9-1876767a2147" alt="Bee Dog" className="rounded-xl grayscale-[50%] hover:grayscale-0 transition-all" />
                           <div className="p-2 text-center text-xs font-bold text-neutral-500">蜜蜂狗</div>
                       </div>
                     </div>
                     <div className="z-20 transform scale-125 transition-transform hover:scale-150 duration-300">
                       <div className="bg-white dark:bg-[#161616] p-2 rounded-2xl shadow-2xl border-4 border-brand-yellow">
-                          <img src="image/site/beedog.jpg" alt="Bee Dog" className="rounded-xl" />
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog.jpg?alt=media&token=a4a2e58d-a413-422d-aa1f-98ae61af5d8b" alt="Bee Dog" className="rounded-xl" />
                           <div className="p-2 text-center text-sm font-black bg-brand-yellow text-black mt-2 rounded-lg">蜜蜂狗!!</div>
                       </div>
                     </div>
                     <div className="transform translate-y-12 rotate-6 transition-transform hover:scale-105 duration-300">
                       <div className="bg-white dark:bg-[#161616] p-2 rounded-2xl shadow-xl transform -rotate-3">
-                          <img src="image/site/beedog3.png" alt="Meme Dog" className="rounded-xl grayscale-[50%] hover:grayscale-0 transition-all" />
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog3.png?alt=media&token=492461bc-6c44-4a69-bd59-d33736e1bce7" alt="Meme Dog" className="rounded-xl grayscale-[50%] hover:grayscale-0 transition-all" />
                           <div className="p-2 text-center text-xs font-bold text-neutral-500">这也是蜜蜂狗!</div>
                       </div>
                     </div>
@@ -409,7 +409,7 @@ const App: React.FC = () => {
                           <Heart className="fill-red-500 text-red-500" /> <span className="text-xs">1.2M</span>
                           <MessageCircle /> <span className="text-xs">50k</span>
                         </div>
-                        <img src="image/site/dybg.png" className="w-full h-full object-cover" />
+                        <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fdybg.png?alt=media&token=d6139884-4351-4795-91ae-895a02f8cbfa" className="w-full h-full object-cover" />
                     </div>
                   </div>
                 </div>
@@ -418,11 +418,11 @@ const App: React.FC = () => {
                   <div className="order-2 md:order-1 grid grid-cols-2 gap-4">
                       <div className="bg-white dark:bg-[#161616] p-4 rounded-xl shadow-lg rounded-tl-none border border-neutral-100 dark:border-[#333]">
                         <p className="text-sm font-bold mb-2">朋友：你是说你一觉睡醒就这样了?</p>
-                        <img src="image/site/bq1.png" className="rounded-lg mb-1 w-24 h-24 object-cover" />
+                        <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq1.png?alt=media&token=fe995021-c7d9-4306-95db-feb1b45a5f2c" className="rounded-lg mb-1 w-24 h-24 object-cover" />
                       </div>
                       <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-xl shadow-lg rounded-tr-none border border-green-200 dark:border-green-800 mt-8">
                         <p className="text-sm font-bold mb-2">亲爱的：我错了原谅我吧！</p>
-                        <img src="image/site/bq2.png" className="rounded-lg mb-1 w-24 h-24 object-cover" />
+                        <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq2.png?alt=media&token=65fe4349-b3e4-451e-a4ca-ca61700de56d" className="rounded-lg mb-1 w-24 h-24 object-cover" />
                       </div>
                   </div>
                   <div className="order-1 md:order-2 space-y-6">
