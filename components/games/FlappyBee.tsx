@@ -98,8 +98,12 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     loop();
   };
 
-  const jump = (e?: React.MouseEvent | React.TouchEvent) => {
-    if (e) e.preventDefault();
+  const jump = (e?: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
+    // FIX: Prevent double-firing and browser zooming/scrolling
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
 
     if (gameState === 'PLAYING') {
       gameRef.current.birdVelocity = JUMP;
@@ -109,6 +113,8 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   };
 
   const endGame = async () => {
+    if (gameRef.current.isGameOver) return; // Prevent double trigger
+    
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -256,45 +262,56 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
 
     // --- RENDER ---
     
-    // Sky
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#38bdf8'); // Sky Blue 400
-    gradient.addColorStop(1, '#bae6fd'); // Sky Blue 200
-    ctx.fillStyle = gradient;
+    // Sky (Simplified fill for performance)
+    ctx.fillStyle = '#38bdf8'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Clouds
     game.clouds.forEach(c => drawCloud(ctx, c));
 
-    // Pipes
+    // Pipes - OPTIMIZATION: Removed gradients in loop
     for (let i = 0; i < game.pipes.length; i++) {
       const p = game.pipes[i];
       
-      // Pipe Style
-      const pipeGradient = ctx.createLinearGradient(p.x, 0, p.x + 50, 0);
-      pipeGradient.addColorStop(0, '#22c55e');
-      pipeGradient.addColorStop(0.5, '#4ade80'); // Highlight
-      pipeGradient.addColorStop(1, '#15803d'); // Shadow
-
-      ctx.fillStyle = pipeGradient;
-      ctx.strokeStyle = '#14532d'; // Dark Green border
+      // Main Green Body
+      ctx.fillStyle = '#22c55e'; // Green-500
+      ctx.strokeStyle = '#14532d'; // Green-900 (Border)
       ctx.lineWidth = 2;
 
       // Top Pipe
       ctx.fillRect(p.x, 0, 50, p.topHeight);
       ctx.strokeRect(p.x, 0, 50, p.topHeight);
-      // Cap
+      
+      // Top Pipe Highlight (Left edge)
+      ctx.fillStyle = '#4ade80'; // Green-400
+      ctx.fillRect(p.x + 2, 0, 6, p.topHeight);
+      
+      // Top Pipe Cap
+      ctx.fillStyle = '#22c55e';
       ctx.fillRect(p.x - 2, p.topHeight - 24, 54, 24);
       ctx.strokeRect(p.x - 2, p.topHeight - 24, 54, 24);
+      // Cap Highlight
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(p.x, p.topHeight - 24, 6, 24);
 
       // Bottom Pipe
       const bottomY = p.topHeight + GAP_SIZE;
       const bottomHeight = canvas.height - GROUND_HEIGHT - bottomY;
+      
+      ctx.fillStyle = '#22c55e';
       ctx.fillRect(p.x, bottomY, 50, bottomHeight);
       ctx.strokeRect(p.x, bottomY, 50, bottomHeight);
-      // Cap
+      // Bottom Pipe Highlight
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(p.x + 2, bottomY, 6, bottomHeight);
+
+      // Bottom Pipe Cap
+      ctx.fillStyle = '#22c55e';
       ctx.fillRect(p.x - 2, bottomY, 54, 24);
       ctx.strokeRect(p.x - 2, bottomY, 54, 24);
+      // Cap Highlight
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(p.x, bottomY, 6, 24);
     }
 
     // Ground
@@ -305,25 +322,23 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     ctx.fillStyle = '#4ade80'; // Bright Green
     ctx.fillRect(0, groundY, canvas.width, grassHeight);
     
-    // Grass detail
+    // Grass Detail (Tufts) - OPTIMIZATION: Batch drawing
     ctx.fillStyle = '#22c55e';
+    ctx.beginPath();
     for(let i=0; i<canvas.width; i+=10) {
-        // Little grass tufts
-        ctx.beginPath();
         ctx.moveTo(i, groundY);
         ctx.lineTo(i+5, groundY+5);
         ctx.lineTo(i+10, groundY);
-        ctx.fill();
     }
+    ctx.fill();
     
     // 2. Road/Dirt Layer (Bottom)
     ctx.fillStyle = '#dcdcdc'; // Road Gray
     ctx.fillRect(0, groundY + grassHeight, canvas.width, GROUND_HEIGHT - grassHeight);
     
-    // Road Markings (Moving)
-    ctx.fillStyle = '#a0a0a0'; // Darker gray details
+    // Road Markings (Moving) - OPTIMIZATION: Batch drawing
+    ctx.fillStyle = '#a0a0a0'; 
     ctx.beginPath();
-    // Diagonal asphalt texture
     for(let i = -40; i < canvas.width; i += 40) {
         const x = i - game.groundOffset;
         ctx.moveTo(x, groundY + grassHeight);
@@ -346,15 +361,16 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   };
 
   return (
-    <div className="relative w-full max-w-md mx-auto aspect-[3/4] bg-neutral-200 rounded-xl overflow-hidden shadow-2xl border-4 border-black dark:border-white select-none touch-none">
-      
+    <div 
+      className="relative w-full max-w-md mx-auto aspect-[3/4] bg-neutral-200 rounded-xl overflow-hidden shadow-2xl border-4 border-black dark:border-white select-none touch-none"
+      style={{ touchAction: 'none' }} // CRITICAL: Fixes lag on mobile
+    >
       <canvas 
         ref={canvasRef} 
         width={320} 
         height={480} 
         className="w-full h-full block cursor-pointer"
-        onMouseDown={jump}
-        onTouchStart={jump}
+        onPointerDown={jump} // CRITICAL: Fixes double-jump bug
       />
 
       {/* Score Overlay */}
@@ -366,18 +382,20 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
 
       {/* Start Screen */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white p-6 z-10 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white p-6 z-10 backdrop-blur-sm pointer-events-none">
           <div className="text-4xl font-black mb-2 text-brand-yellow drop-shadow-lg stroke-black" style={{ textShadow: '2px 2px 0 #000' }}>笨鸟先飞</div>
           <p className="mb-6 font-bold text-center text-lg">点击屏幕飞行</p>
-          <Button onClick={startGame} className="animate-bounce shadow-xl scale-110">
-             <Play className="mr-2" /> 开始挑战
-          </Button>
+          <div className="pointer-events-auto">
+            <Button onClick={startGame} className="animate-bounce shadow-xl scale-110">
+              <Play className="mr-2" /> 开始挑战
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Game Over Screen */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-10 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 animate-in fade-in zoom-in z-10 backdrop-blur-sm pointer-events-none">
           <div className="text-4xl font-black mb-4 text-red-500" style={{ textShadow: '2px 2px 0 #fff' }}>GAME OVER</div>
           
           <div className="bg-white text-black rounded-2xl p-6 w-full max-w-xs mb-6 flex flex-col items-center shadow-2xl border-4 border-brand-yellow">
@@ -386,9 +404,11 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
              {!userProfile && <p className="text-xs text-red-500 font-bold bg-red-50 px-2 py-1 rounded">登录后记录成绩!</p>}
           </div>
           
-          <Button onClick={startGame} className="w-full max-w-xs py-4 text-lg font-bold shadow-lg hover:scale-105 transition-transform">
-             <RotateCcw className="mr-2" /> 再玩一次
-          </Button>
+          <div className="pointer-events-auto w-full flex justify-center">
+            <Button onClick={startGame} className="w-full max-w-xs py-4 text-lg font-bold shadow-lg hover:scale-105 transition-transform">
+              <RotateCcw className="mr-2" /> 再玩一次
+            </Button>
+          </div>
         </div>
       )}
     </div>

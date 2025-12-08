@@ -26,6 +26,7 @@ interface Particle {
 
 export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgCanvasRef = useRef<HTMLCanvasElement | null>(null); // For pre-rendering background
   const headImgRef = useRef<HTMLImageElement | null>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
@@ -37,6 +38,10 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
   const CANVAS_WIDTH = COLS * CELL_SIZE;
   const CANVAS_HEIGHT = ROWS * CELL_SIZE;
 
+  // FPS Control
+  const TARGET_FPS = 60;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
   // Game State Ref
   const gameRef = useRef({
     snake: [] as Point[],
@@ -45,13 +50,41 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     food: { x: 0, y: 0 } as Point,
     foodType: 'honey' as 'honey' | 'diamond',
     particles: [] as Particle[],
-    speed: 18, // Frames per move (Start slower: 18 frames = ~3.3 moves/sec)
-    baseSpeed: 18,
-    frameCount: 0,
+    
+    // TIME-BASED MOVEMENT VARIABLES
+    lastMoveTime: 0,
+    moveInterval: 150, // Faster Start (Was 300ms)
+    minMoveInterval: 60, // Cap speed (Was 80ms)
+    
     score: 0,
     isGameOver: false,
-    animationId: 0
+    animationId: 0,
+    lastFrameTime: 0
   });
+
+  // Pre-render Background Grid
+  useEffect(() => {
+    if (!bgCanvasRef.current) {
+        const bg = document.createElement('canvas');
+        bg.width = CANVAS_WIDTH;
+        bg.height = CANVAS_HEIGHT;
+        const bctx = bg.getContext('2d');
+        if (bctx) {
+            // Background
+            bctx.fillStyle = '#18181b'; // Zinc 900
+            bctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // Grid Dots (Draw once, reuse forever)
+            bctx.fillStyle = '#27272a'; // Zinc 800
+            for(let x=0; x<CANVAS_WIDTH; x+=CELL_SIZE) {
+               for(let y=0; y<CANVAS_HEIGHT; y+=CELL_SIZE) {
+                  bctx.fillRect(x + CELL_SIZE/2 - 1, y + CELL_SIZE/2 - 1, 2, 2);
+               }
+            }
+        }
+        bgCanvasRef.current = bg;
+    }
+  }, []);
 
   useEffect(() => {
     // Load Snake Head Image
@@ -132,12 +165,16 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
       food: { x: 0, y: 0 }, // Will spawn immediately
       foodType: 'honey',
       particles: [],
-      speed: 18, // Reset to slow speed (18 frames per move)
-      baseSpeed: 18,
-      frameCount: 0,
+      
+      // Reset Speed
+      lastMoveTime: performance.now(),
+      moveInterval: 150, // Faster start 
+      minMoveInterval: 60,
+
       score: 0,
       isGameOver: false,
-      animationId: 0
+      animationId: 0,
+      lastFrameTime: performance.now()
     };
     
     spawnFood();
@@ -155,22 +192,16 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     }
   };
 
-  const drawHex = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const angle = 2 * Math.PI / 6 * i;
-      const x_i = x + size * Math.cos(angle);
-      const y_i = y + size * Math.sin(angle);
-      if (i === 0) ctx.moveTo(x_i, y_i);
-      else ctx.lineTo(x_i, y_i);
-    }
-    ctx.closePath();
-    ctx.stroke();
-  };
-
   const loop = () => {
     gameRef.current.animationId = requestAnimationFrame(loop);
     
+    const now = performance.now();
+    const elapsed = now - gameRef.current.lastFrameTime;
+
+    // Limit FPS to 60
+    if (elapsed < FRAME_INTERVAL) return;
+    gameRef.current.lastFrameTime = now - (elapsed % FRAME_INTERVAL);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -179,10 +210,10 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     if (gameRef.current.isGameOver) return;
 
     const game = gameRef.current;
-    game.frameCount++;
 
-    // --- LOGIC UPDATE (Based on speed) ---
-    if (game.frameCount % Math.floor(game.speed) === 0) {
+    // --- TIME-BASED MOVEMENT LOGIC ---
+    if (now - game.lastMoveTime > game.moveInterval) {
+        game.lastMoveTime = now;
         
         // Update Direction
         game.direction = game.nextDirection;
@@ -221,11 +252,9 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
             // Effects
             createParticles(head.x, head.y, game.foodType === 'diamond' ? '#60a5fa' : '#fbbf24');
 
-            // NEW SPEED LOGIC: Gradual acceleration
-            // Start at 18 frames/move. Decrease by 0.5 per eat.
-            // Cap at 6 frames/move (normal human limit, fast but playable)
-            if (game.speed > 6) {
-                game.speed -= 0.5;
+            // SPEED LOGIC: Decrease interval (Move faster)
+            if (game.moveInterval > game.minMoveInterval) {
+                game.moveInterval -= 2; // Gradual speed up
             }
 
             spawnFood();
@@ -238,19 +267,13 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     // --- RENDER ---
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Background (Dark Honeycomb)
-    ctx.fillStyle = '#18181b'; // Zinc 900
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.strokeStyle = 'rgba(251, 191, 36, 0.05)'; // Very faint amber
-    ctx.lineWidth = 1;
-    // Draw subtle hex pattern
-    const r = 16;
-    const h = r * Math.sqrt(3);
-    for (let y = 0; y < CANVAS_HEIGHT + h; y += h) {
-        for (let x = 0; x < CANVAS_WIDTH + r*3; x += r * 3) {
-            drawHex(ctx, x, y, r);
-            drawHex(ctx, x + r * 1.5, y + h / 2, r);
-        }
+    // Background (Use Pre-rendered canvas)
+    if (bgCanvasRef.current) {
+        ctx.drawImage(bgCanvasRef.current, 0, 0);
+    } else {
+        // Fallback
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     // Draw Food

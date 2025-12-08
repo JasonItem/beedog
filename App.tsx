@@ -24,7 +24,8 @@ import {
   UserCircle,
   Bot,
   Gamepad2,
-  View, ChartNoAxesColumn, Send
+  View, ChartNoAxesColumn, Send,
+  ChevronLeft, MoreHorizontal, Mic, Smile
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { StatsChart } from './components/StatsChart';
@@ -233,8 +234,8 @@ const App: React.FC = () => {
       {/* Navbar */}
       <nav className={`fixed top-0 w-full z-40 transition-all duration-300 ${scrolled ? 'glass shadow-sm py-3' : 'bg-transparent py-6'}`}>
         <div className="container mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
-            <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg transform hover:rotate-12 transition-transform" />
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
+            <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 transform hover:rotate-12 transition-transform" />
             <span className="text-xl font-black tracking-tight dark:text-white">蜜蜂狗</span>
           </div>
 
@@ -388,7 +389,7 @@ const App: React.FC = () => {
                   </h2>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
+                <div className="grid md:grid-cols-2 gap-12 items-center mb-24">
                   <div className="space-y-6">
                     <h3 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
                         <TrendingUp className="text-red-500" /> 抖音/TikTok 爆火起源
@@ -415,16 +416,78 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-12 items-center md:flex-row-reverse">
-                  <div className="order-2 md:order-1 grid grid-cols-2 gap-4">
-                      <div className="bg-white dark:bg-[#161616] p-4 rounded-xl shadow-lg rounded-tl-none border border-neutral-100 dark:border-[#333]">
-                        <p className="text-sm font-bold mb-2">朋友：你是说你一觉睡醒就这样了?</p>
-                        <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq1.png?alt=media&token=fe995021-c7d9-4306-95db-feb1b45a5f2c" className="rounded-lg mb-1 w-24 h-24 object-cover" />
-                      </div>
-                      <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-xl shadow-lg rounded-tr-none border border-green-200 dark:border-green-800 mt-8">
-                        <p className="text-sm font-bold mb-2">亲爱的：我错了原谅我吧！</p>
-                        <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq2.png?alt=media&token=65fe4349-b3e4-451e-a4ca-ca61700de56d" className="rounded-lg mb-1 w-24 h-24 object-cover" />
-                      </div>
+                  
+                  {/* Chat Interface Mockup */}
+                  <div className="order-2 md:order-1 relative">
+                    {/* Chat Window 1 (Top Left - Friend) */}
+                    <div className="bg-[#f5f5f5] dark:bg-[#111] rounded-[1.5rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-2xl max-w-[280px] absolute -top-10 -left-4 z-0 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                        {/* Status Bar */}
+                        <div className="bg-neutral-100 dark:bg-[#222] p-3 border-b border-neutral-200 dark:border-[#333] flex justify-between items-center text-[10px] text-neutral-500">
+                           <div className="flex items-center gap-1"><ChevronLeft size={12}/> <span>死党 (Bestie)</span></div>
+                           <MoreHorizontal size={12}/>
+                        </div>
+                        {/* Messages */}
+                        <div className="p-3 space-y-3 text-xs bg-[#ededed] dark:bg-[#000] h-48 flex flex-col">
+                           <div className="flex gap-2">
+                              <div className="w-8 h-8 rounded bg-blue-100 flex-shrink-0 flex items-center justify-center">‍♂</div>
+                              <div className="bg-white dark:bg-[#222] p-2 rounded-lg rounded-tl-none text-neutral-800 dark:text-neutral-200 shadow-sm max-w-[80%]">
+                                 卧槽，你脸咋肿成这样了？😂
+                              </div>
+                           </div>
+                           <div className="flex gap-2 flex-row-reverse">
+                              <div className="w-8 h-8 rounded bg-yellow-400 flex-shrink-0 flex items-center justify-center">🐶</div>
+                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-1 rounded-lg rounded-tr-none shadow-sm">
+                                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq1.png?alt=media&token=fe995021-c7d9-4306-95db-feb1b45a5f2c" className="w-16 h-16 rounded object-cover" />
+                              </div>
+                           </div>
+                           <div className="flex gap-2 flex-row-reverse">
+                              <div className="w-8 h-8 rounded opacity-0"></div>
+                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-2 rounded-lg rounded-tr-none text-neutral-800 dark:text-white shadow-sm">
+                                 别提了... 🐝
+                              </div>
+                           </div>
+                        </div>
+                    </div>
+
+                    {/* Chat Window 2 (Bottom Right - Main Focus) */}
+                    <div className="bg-[#f5f5f5] dark:bg-[#111] rounded-[1.5rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-2xl max-w-[300px] relative z-10 transform rotate-2 hover:rotate-0 transition-transform duration-300 ml-auto mt-16">
+                        {/* Status Bar */}
+                        <div className="bg-neutral-100 dark:bg-[#222] p-3 border-b border-neutral-200 dark:border-[#333] flex justify-between items-center text-[10px] text-neutral-500">
+                           <div className="flex items-center gap-1"><ChevronLeft size={12}/> <span>宝贝 (Babe) ❤️</span></div>
+                           <MoreHorizontal size={12}/>
+                        </div>
+                        {/* Messages */}
+                        <div className="p-3 space-y-3 text-xs bg-[#ededed] dark:bg-[#000] h-64 flex flex-col">
+                           <div className="text-center text-[10px] text-neutral-400 py-1">Yesterday 9:41 AM</div>
+                           <div className="flex gap-2 flex-row-reverse">
+                              <div className="w-8 h-8 rounded bg-yellow-400 flex-shrink-0 flex items-center justify-center">🐶</div>
+                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-2 rounded-lg rounded-tr-none text-neutral-800 dark:text-white shadow-sm">
+                                 我错了嘛... 原谅我好不好 🥺
+                              </div>
+                           </div>
+                           <div className="flex gap-2 flex-row-reverse">
+                              <div className="w-8 h-8 rounded bg-yellow-400 flex-shrink-0 flex items-center justify-center">🐶</div>
+                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-1 rounded-lg rounded-tr-none shadow-sm">
+                                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq2.png?alt=media&token=65fe4349-b3e4-451e-a4ca-ca61700de56d" className="w-20 h-20 rounded object-cover" />
+                              </div>
+                           </div>
+                           <div className="flex gap-2">
+                              <div className="w-8 h-8 rounded bg-pink-100 flex-shrink-0 flex items-center justify-center">👩</div>
+                              <div className="bg-white dark:bg-[#222] p-2 rounded-lg rounded-tl-none text-neutral-800 dark:text-neutral-200 shadow-sm max-w-[80%]">
+                                 看在你这么可怜的份上... 勉强原谅你 😒
+                              </div>
+                           </div>
+                        </div>
+                        {/* Input Area */}
+                        <div className="bg-[#f5f5f5] dark:bg-[#161616] p-2 border-t border-neutral-200 dark:border-[#333] flex items-center gap-2">
+                           <Mic size={16} className="text-neutral-400"/>
+                           <div className="flex-1 bg-white dark:bg-[#222] h-8 rounded px-2 flex items-center text-xs text-neutral-400">爱你...</div>
+                           <Smile size={16} className="text-neutral-400"/>
+                           <div className="bg-green-500 text-white rounded-full p-1"><Send size={12}/></div>
+                        </div>
+                    </div>
                   </div>
+
                   <div className="order-1 md:order-2 space-y-6">
                     <h3 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
                         <MessageCircle className="text-green-500" /> 微信社交货币
@@ -432,7 +495,7 @@ const App: React.FC = () => {
                     <p className="text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed">
                         在微信上，蜜蜂狗已经成为了年轻人的<b>“赛博替身”</b>。
                         <br/><br/>
-                        当你不想上班时，当你被生活“蛰”了一下时，当你需要朋友的安慰时，一张蜜蜂狗表情包胜过千言万语。、它是我们表达情绪的一种方式。
+                        当你不想上班时，当你被生活“蛰”了一下时，当你需要朋友的安慰时，一张蜜蜂狗表情包胜过千言万语。它是我们表达情绪的一种方式。
                     </p>
                   </div>
                 </div>
@@ -644,6 +707,20 @@ const App: React.FC = () => {
       
       {/* Auth Modal */}
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} mode={authMode} />
+      
+      {/* Global Chat Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+         {/* Replaced by BeeDogChat component which is already rendered inside App in original file? 
+             Wait, BeeDogChat was in the original imports but not used in the original JSX. 
+             Ah, I missed it in the original huge App.tsx paste. 
+             Actually, let's look at the original App.tsx provided. 
+             It didn't import BeeDogChat. It used a simple button in the corner in the original design? 
+             No, looking at file list, `components/BeeDogChat.tsx` exists. 
+             But `App.tsx` provided by user does NOT import it. 
+             I should probably add it back if I want the floating chat, but the user didn't ask for that specific change.
+             I will stick to the requested change only. 
+         */}
+      </div>
     </div>
   );
 };
