@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Menu,
@@ -25,7 +26,9 @@ import {
   Bot,
   Gamepad2,
   View, ChartNoAxesColumn, Send,
-  ChevronLeft, MoreHorizontal, Mic, Smile, Plus
+  ChevronLeft, MoreHorizontal, Mic, Smile, Plus,
+  Globe,
+  Sparkles
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { StatsChart } from './components/StatsChart';
@@ -33,6 +36,7 @@ import { RoadmapPhase, SectionId } from './types';
 import { AuthModal } from './components/AuthModal';
 import { AIToolbox } from './components/AIToolbox';
 import { MiniGamesHub } from './components/MiniGamesHub';
+import { BeeDogChat } from './components/BeeDogChat';
 import { useAuth } from './context/AuthContext';
 
 // --- DATA ---
@@ -46,7 +50,7 @@ const ROADMAP_DATA: RoadmapPhase[] = [
   {
     phase: "成长阶段",
     title: "文化输出",
-    items: ["BeeDog 周边实体玩偶", "KOL 病毒式传播", "持有者突破 10,00+", "Meme创意大赛"],
+    items: ["蜜蜂狗 周边实体玩偶", "KOL 病毒式传播", "持有者突破 10,00+", "Meme创意大赛"],
     status: 'current'
   },
   {
@@ -184,18 +188,13 @@ const App: React.FC = () => {
   const navigateToSection = (id: string) => {
     if (currentView !== 'landing') {
       setCurrentView('landing');
-      // Small delay to allow render before scrolling
       setTimeout(() => {
         const element = document.getElementById(id);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
+        if (element) element.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     } else {
       const element = document.getElementById(id);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
+      if (element) element.scrollIntoView({ behavior: 'smooth' });
     }
     setIsMenuOpen(false);
   };
@@ -229,85 +228,85 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen text-neutral-900 dark:text-neutral-100 overflow-x-hidden transition-colors duration-300 honey-pattern font-sans selection:bg-brand-yellow selection:text-black">
+    <div className={`min-h-screen text-neutral-900 dark:text-white transition-colors duration-500 font-sans ${currentView === 'landing' ? 'honey-pattern' : ''}`}>
       
       {/* Navbar */}
-      <nav className={`fixed top-0 w-full z-40 transition-all duration-300 ${scrolled ? 'glass shadow-sm py-3' : 'bg-transparent py-6'}`}>
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
-            <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 transform hover:rotate-12 transition-transform" />
-            <span className="text-xl font-black tracking-tight dark:text-white">蜜蜂狗</span>
-          </div>
+      <nav className={`fixed top-4 left-0 right-0 z-[60] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${scrolled ? 'px-4' : 'px-4 md:px-8'}`}>
+        <div 
+          className={`
+            max-w-7xl mx-auto rounded-full border transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+            ${scrolled 
+              ? 'bg-white/70 dark:bg-black/70 backdrop-blur-xl border-white/20 dark:border-white/10 shadow-lg py-3 px-6' 
+              : 'bg-transparent border-transparent py-4 px-2'
+            }
+          `}
+        >
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
+              <div className="relative group">
+                <div className="absolute inset-0 bg-brand-yellow/50 rounded-full blur-md group-hover:blur-lg transition-all"></div>
+                <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" />
+              </div>
+              <span className="text-xl font-display font-black tracking-tight hidden sm:block">蜜蜂狗</span>
+            </div>
 
-          <div className="hidden md:flex gap-8 text-sm font-semibold items-center text-neutral-600 dark:text-neutral-300">
-            <button onClick={() => navigateToSection('narrative')} className="hover:text-brand-yellow transition-colors">起源故事</button>
-            <button onClick={() => navigateToSection('community')} className="hover:text-brand-yellow transition-colors">社区力量</button>
-            <button onClick={() => navigateToSection('social')} className="hover:text-brand-yellow transition-colors">社媒热议</button>
-            
-            {/* New Games Link */}
-            <button 
-              onClick={navigateToGames} 
-              className={`flex items-center gap-1 transition-colors ${currentView === 'games' ? 'text-brand-yellow' : 'text-neutral-600 dark:text-neutral-300 hover:text-brand-yellow'}`}
-            >
-              <Gamepad2 size={18} /> 小游戏
-            </button>
+            <div className="hidden md:flex gap-1 bg-white/50 dark:bg-black/20 p-1 rounded-full backdrop-blur-md border border-white/20 dark:border-white/5">
+              <button onClick={() => navigateToSection('narrative')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">起源</button>
+              <button onClick={() => navigateToSection('community')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">社区</button>
+              <button onClick={() => navigateToSection('social')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">社媒</button>
+              <button 
+                onClick={navigateToGames} 
+                className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'games' ? 'bg-brand-yellow text-black shadow-md' : 'hover:bg-white dark:hover:bg-white/10'}`}
+              >
+                <Gamepad2 size={16} /> 游戏
+              </button>
+              <button 
+                onClick={navigateToToolbox} 
+                className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'toolbox' ? 'bg-brand-yellow text-black shadow-md' : 'text-brand-orange hover:bg-white dark:hover:bg-white/10'}`}
+              >
+                <Bot size={16} /> AI 工具
+              </button>
+            </div>
 
-            {/* AI Toolbox Link */}
-            <button 
-              onClick={navigateToToolbox} 
-              className={`flex items-center gap-1 transition-colors ${currentView === 'toolbox' ? 'text-brand-yellow' : 'text-brand-orange hover:text-brand-yellow'}`}
-            >
-              <Bot size={18} /> AI 工具箱
-            </button>
-            
-            <div className="h-4 w-px bg-neutral-300 dark:bg-neutral-700"></div>
-            
-            <button onClick={toggleTheme} className="p-2 hover:bg-neutral-100 dark:hover:bg-[#222] rounded-full transition">
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={toggleTheme} className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-neutral-600 dark:text-neutral-300">
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
 
-            {/* Auth Button */}
-            {user ? (
-               <div className="flex items-center gap-2 cursor-pointer hover:bg-neutral-100 dark:hover:bg-[#222] p-1 pr-3 rounded-full transition" onClick={openProfile}>
-                  <div className="w-8 h-8 rounded-full bg-brand-yellow flex items-center justify-center overflow-hidden border border-neutral-200">
-                    {userProfile?.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover" /> : '🐶'}
-                  </div>
-                  <span className="font-bold max-w-[100px] truncate">{userProfile?.nickname || '蜜蜂狗'}</span>
-               </div>
-            ) : (
-              <Button variant="secondary" size="sm" onClick={openLogin}>
-                登录
-              </Button>
-            )}
-          </div>
-
-          <div className="md:hidden flex items-center gap-4">
-            <button onClick={toggleTheme}>
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+              {user ? (
+                 <div className="flex items-center gap-2 cursor-pointer pl-1 pr-1.5 py-1 rounded-full hover:bg-white dark:hover:bg-neutral-800 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700" onClick={openProfile}>
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-yellow to-orange-400 p-0.5">
+                      <div className="w-full h-full rounded-full bg-white dark:bg-black overflow-hidden">
+                        {userProfile?.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center">🐶</div>}
+                      </div>
+                    </div>
+                 </div>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={openLogin} className="hidden sm:flex">
+                  登录
+                </Button>
+              )}
+              
+              <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full glass border-b border-neutral-200 dark:border-[#222] p-6 flex flex-col gap-4 animate-in slide-in-from-top-5">
-            <button onClick={() => navigateToSection('narrative')} className="text-lg font-bold text-left">起源故事</button>
-            <button onClick={() => navigateToSection('community')} className="text-lg font-bold text-left">社区力量</button>
-            <button onClick={navigateToGames} className="text-lg font-bold text-left flex items-center gap-2">
-              <Gamepad2 size={20} /> 小游戏
-            </button>
-            <button onClick={navigateToToolbox} className="text-lg font-bold text-brand-orange text-left flex items-center gap-2">
-              <Bot size={20} /> AI 工具箱
-            </button>
+          <div className="md:hidden absolute top-full left-4 right-4 mt-2 p-4 rounded-3xl glass shadow-2xl animate-in slide-in-from-top-5 space-y-2 origin-top">
+            <button onClick={() => navigateToSection('narrative')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">起源故事</button>
+            <button onClick={() => navigateToSection('community')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">社区力量</button>
+            <button onClick={navigateToGames} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2"><Gamepad2 size={18}/> 小游戏</button>
+            <button onClick={navigateToToolbox} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-brand-orange flex items-center gap-2"><Bot size={18}/> AI 工具箱</button>
              {user ? (
-               <button onClick={openProfile} className="flex items-center gap-2 text-lg font-bold">
-                  <UserCircle /> 个人中心 ({userProfile?.nickname})
+               <button onClick={openProfile} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2 border-t border-black/5 dark:border-white/5 mt-2 pt-4">
+                  <UserCircle size={20} /> 个人中心 ({userProfile?.nickname})
                </button>
              ) : (
-                <Button onClick={openLogin} className="w-full">立即登录</Button>
+                <Button onClick={openLogin} className="w-full mt-4">立即登录</Button>
              )}
           </div>
         )}
@@ -322,324 +321,273 @@ const App: React.FC = () => {
       ) : (
         <>
           {/* Hero Section */}
-          <section id={SectionId.HERO} className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] md:w-[800px] md:h-[800px] bg-yellow-400/20 rounded-full blur-[100px] -z-10 animate-blob"></div>
+          <section id={SectionId.HERO} className="relative min-h-screen flex items-center justify-center pt-24 overflow-hidden">
+            {/* Background Gradients */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-brand-yellow/20 rounded-full blur-[120px] -z-10 animate-blob mix-blend-screen"></div>
+            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-brand-orange/20 rounded-full blur-[100px] -z-10 animate-blob animation-delay-2000 mix-blend-screen"></div>
             
-            <div className="container mx-auto px-4 text-center relative z-10">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs font-bold uppercase tracking-wider mb-6 animate-fade-in-up border border-orange-200 dark:border-orange-800">
-                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                火爆全网的狗狗表情包
-              </div>
+            <div className="container mx-auto px-4 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
               
-              <h1 className="text-5xl md:text-8xl font-black mb-6 leading-tight tracking-tight">
-                脸肿了，<br className="md:hidden"/>但
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-600 mx-2">更强了</span>
-              </h1>
-              
-              <p className="text-xl md:text-2xl text-neutral-600 dark:text-neutral-300 max-w-2xl mx-auto mb-10 leading-relaxed">
-                从抖音热榜到加密世界。我们是 <span className="font-bold text-brand-yellow">$蜜蜂狗</span>。
-                <br/>
-                生活虽然有时候会蛰你一下，但我们依然微笑面对。
-              </p>
-              
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Button onClick={() => window.open(`https://gmgn.ai/bsc/token/0x2eb08a8fe215f72e01e089c1cd8c4c4937414444`, "_blank")} size="lg" className="text-lg px-8 py-4 shadow-xl shadow-yellow-500/20 hover:shadow-yellow-500/40 transition-shadow">
-                  <Zap className="mr-2 fill-current" /> 立即购买
-                </Button>
-                <Button onClick={() => window.open(`https://t.me/mifenggoutg`, "_blank")} variant="outline" size="lg" className="text-lg px-8 py-4 backdrop-blur-sm">
-                  <MessageCircle className="mr-2" /> 加入电报群
-                </Button>
+              <div className="text-center lg:text-left space-y-8">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-white/5 border border-brand-orange/30 backdrop-blur-md animate-fade-in-up">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-orange opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-orange"></span>
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-orange">火爆全网的狗狗表情包</span>
+                </div>
+                
+                <h1 className="text-6xl sm:text-7xl lg:text-8xl font-display font-black leading-[0.9] tracking-tighter animate-fade-in-up [animation-delay:200ms]">
+                  脸肿了<br/>
+                  <span className="clip-text-image">但更强了</span>
+                </h1>
+                
+                <p className="text-xl text-neutral-600 dark:text-neutral-400 max-w-xl mx-auto lg:mx-0 leading-relaxed animate-fade-in-up [animation-delay:400ms]">
+                  从抖音热榜到加密世界。我们是 <span className="font-bold text-brand-yellow">$蜜蜂狗</span>。
+                  生活虽然有时候会蛰你一下，但我们依然微笑面对。
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up [animation-delay:600ms]">
+                  <Button onClick={() => window.open(`https://gmgn.ai/bsc/token/0x2eb08a8fe215f72e01e089c1cd8c4c4937414444`, "_blank")} size="lg" className="px-8 shadow-yellow-500/40">
+                    <Zap className="mr-2 fill-current" /> 立即购买
+                  </Button>
+                  <Button onClick={() => window.open(`https://t.me/mifenggoutg`, "_blank")} variant="outline" size="lg" className="px-8">
+                    <MessageCircle className="mr-2" /> 加入电报群
+                  </Button>
+                </div>
               </div>
 
-              {/* Hero Visuals */}
-              <div className="mt-24 relative max-w-4xl mx-auto">
-                <div className="relative z-10 grid grid-cols-3 gap-4 items-end animate-float">
-                    <div className="transform translate-y-12 -rotate-6 transition-transform hover:scale-105 duration-300">
-                      <div className="bg-white dark:bg-[#161616] p-2 rounded-2xl shadow-xl transform rotate-3">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog2.png?alt=media&token=dc5a47ef-573b-4b0a-bbb9-1876767a2147" alt="Bee Dog" className="rounded-xl grayscale-[50%] hover:grayscale-0 transition-all" />
-                          <div className="p-2 text-center text-xs font-bold text-neutral-500">蜜蜂狗</div>
-                      </div>
+              {/* Hero Visuals - 3D Floating Composition */}
+              <div className="relative h-[500px] w-full flex items-center justify-center perspective-1000 animate-fade-in-up [animation-delay:800ms]">
+                 <div className="relative w-[300px] h-[400px] sm:w-[350px] sm:h-[450px]">
+                    {/* Back Card (Left) */}
+                    <div className="group absolute top-12 -left-20 sm:-left-32 w-[90%] h-[90%] z-10 transition-all duration-500 transform -rotate-12 hover:rotate-0 hover:scale-105 hover:z-30">
+                       <div className="w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-2xl p-3 border border-white/20 animate-float-delayed opacity-90">
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog2.png?alt=media&token=dc5a47ef-573b-4b0a-bbb9-1876767a2147" className="w-full h-[85%] object-cover rounded-2xl grayscale-[30%] group-hover:grayscale-0 transition-all" />
+                          <div className="mt-3 flex items-center gap-2 px-2">
+                              <Heart size={16} className="text-red-500 fill-red-500" />
+                              <span className="text-xs font-bold text-neutral-400">12.5k Likes</span>
+                          </div>
+                       </div>
                     </div>
-                    <div className="z-20 transform scale-125 transition-transform hover:scale-150 duration-300">
-                      <div className="bg-white dark:bg-[#161616] p-2 rounded-2xl shadow-2xl border-4 border-brand-yellow">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog.jpg?alt=media&token=a4a2e58d-a413-422d-aa1f-98ae61af5d8b" alt="Bee Dog" className="rounded-xl" />
-                          <div className="p-2 text-center text-sm font-black bg-brand-yellow text-black mt-2 rounded-lg">蜜蜂狗!!</div>
-                      </div>
-                    </div>
-                    <div className="transform translate-y-12 rotate-6 transition-transform hover:scale-105 duration-300">
-                      <div className="bg-white dark:bg-[#161616] p-2 rounded-2xl shadow-xl transform -rotate-3">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog3.png?alt=media&token=492461bc-6c44-4a69-bd59-d33736e1bce7" alt="Meme Dog" className="rounded-xl grayscale-[50%] hover:grayscale-0 transition-all" />
-                          <div className="p-2 text-center text-xs font-bold text-neutral-500">这也是蜜蜂狗!</div>
-                      </div>
-                    </div>
-                </div>
-                {/* Background decorative elements */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-32 bg-yellow-400/20 blur-3xl rounded-[100%] -z-10"></div>
-              </div>
-            </div>
-          </section>
-
-          {/* Narrative & Cultural Impact */}
-          <section id="narrative" className="py-24 relative bg-white/50 dark:bg-black/20">
-            <div className="container mx-auto px-4">
-              <div className="max-w-4xl mx-auto">
-                <div className="text-center mb-16">
-                  <h2 className="text-3xl md:text-5xl font-black mb-6 dark:text-white">
-                    不仅仅是一个 Meme<br/>这是我们的<span className="text-brand-yellow">精神图腾</span>
-                  </h2>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-12 items-center mb-24">
-                  <div className="space-y-6">
-                    <h3 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
-                        <TrendingUp className="text-red-500" /> 抖音/TikTok 爆火起源
-                    </h3>
-                    <p className="text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                        一切始于一只好奇心太重的修勾。它只是想尝尝蜂蜜的味道，结果变成了全网最“圆润”的狗子。
-                        #蜜蜂狗标签在抖音和 TikTok 上获得了十亿次播放，它那种<b>“滑稽但又无辜”</b>的眼神，击中了无数人的心。
-                    </p>
-                  </div>
-                  <div className="bg-black rounded-2xl p-4 rotate-2 shadow-2xl">
-                    <div className="aspect-[9/16] bg-[#161616] rounded-xl flex items-center justify-center text-neutral-500 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10"></div>
-                        <div className="absolute bottom-16 left-4 z-20 text-white">
-                          <p className="font-bold text-sm">@蜜蜂狗</p>
-                          <p className="text-xs opacity-80">脸肿了... 求安慰 🍯 #蜜蜂狗 #萌宠 #搞笑 #小狗</p>
-                        </div>
-                        <div className="absolute right-2 bottom-20 z-20 flex flex-col gap-4 text-white items-center">
-                          <Heart className="fill-red-500 text-red-500" /> <span className="text-xs">1.2M</span>
-                          <MessageCircle /> <span className="text-xs">50k</span>
-                        </div>
-                        <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fdybg.png?alt=media&token=d6139884-4351-4795-91ae-895a02f8cbfa" className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-12 items-center md:flex-row-reverse">
-                  
-                  {/* Chat Interface Mockup - Optimized WeChat Style */}
-                  <div className="order-2 md:order-1 relative h-[500px] w-full flex items-center justify-center md:block">
                     
-                    {/* Chat Window 1 (Background - Work Group) */}
-                    <div className="absolute top-0 left-4 md:left-0 w-[260px] md:w-[280px] bg-[#f5f5f5] dark:bg-[#111] rounded-[20px] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-xl transform -rotate-6 hover:rotate-0 transition-all duration-500 z-0 opacity-90">
-                        {/* Header */}
-                        <div className="bg-[#ededed] dark:bg-[#1f1f1f] px-3 py-2.5 flex justify-between items-center border-b border-neutral-200 dark:border-[#333]">
-                          <div className="flex items-center gap-1 text-neutral-800 dark:text-neutral-200">
-                            <ChevronLeft size={18} />
-                            <span className="font-medium text-xs">摸鱼小分队 (8)</span>
+                    {/* Back Card (Right) */}
+                    <div className="group absolute top-24 -right-20 sm:-right-32 w-[90%] h-[90%] z-10 transition-all duration-500 transform rotate-12 hover:rotate-0 hover:scale-105 hover:z-30">
+                       <div className="w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-2xl p-3 border border-white/20 animate-float opacity-90">
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog3.png?alt=media&token=492461bc-6c44-4a69-bd59-d33736e1bce7" className="w-full h-[85%] object-cover rounded-2xl grayscale-[30%] group-hover:grayscale-0 transition-all" />
+                          <div className="mt-3 flex items-center gap-2 px-2">
+                              <MessageCircle size={16} className="text-blue-500 fill-blue-500" />
+                              <span className="text-xs font-bold text-neutral-400">8.2k Comments</span>
                           </div>
-                          <MoreHorizontal size={18} className="text-neutral-600" />
-                        </div>
-                        
-                        {/* Body */}
-                        <div className="p-3 space-y-3 h-[280px] overflow-hidden bg-[#f2f2f2] dark:bg-[#000]">
-                            {/* Msg 1 */}
-                            <div className="flex gap-2">
-                                <div className="w-8 h-8 rounded-md bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">PM</div>
-                                <div>
-                                    <div className="text-[10px] text-neutral-400 mb-0.5">产品经理</div>
-                                    <div className="bg-white dark:bg-[#222] p-2 rounded-lg rounded-tl-none text-xs shadow-sm dark:text-white max-w-[160px]">
-                                        今晚那个方案改不完别走啊 @所有人
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Msg 2 */}
-                            <div className="flex gap-2 flex-row-reverse">
-                                <div className="w-8 h-8 rounded-md bg-yellow-400 flex items-center justify-center text-black text-xs font-bold flex-shrink-0 overflow-hidden">
-                                    <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-full h-full object-cover"/>
-                                </div>
-                                <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-1 rounded-lg rounded-tr-none shadow-sm">
-                                     <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq1.png?alt=media&token=fe995021-c7d9-4306-95db-feb1b45a5f2c" className="w-20 rounded mix-blend-multiply dark:mix-blend-normal" />
-                                </div>
-                            </div>
-                        </div>
+                       </div>
                     </div>
 
-                    {/* Chat Window 2 (Foreground - Girlfriend) */}
-                    <div className="absolute bottom-4 right-4 md:right-0 w-[280px] md:w-[300px] bg-[#f5f5f5] dark:bg-[#111] rounded-[24px] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-[0_20px_50px_rgba(0,0,0,0.2)] transform rotate-3 hover:rotate-0 transition-all duration-500 z-10">
-                        {/* Header */}
-                        <div className="bg-[#ededed] dark:bg-[#1f1f1f] px-4 py-3 flex justify-between items-center border-b border-neutral-200 dark:border-[#333]">
-                          <div className="flex items-center gap-1 text-neutral-800 dark:text-neutral-200">
-                            <ChevronLeft size={20} />
-                            <span className="font-medium text-sm">宝宝 ❤️</span>
-                          </div>
-                          <MoreHorizontal size={20} className="text-neutral-600" />
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-4 space-y-4 h-[340px] bg-[#f2f2f2] dark:bg-[#000] flex flex-col">
-                            <div className="text-center text-[10px] text-neutral-400 py-1">下午 2:30</div>
-                            
-                            {/* Her */}
-                            <div className="flex gap-2">
-                                <div className="w-9 h-9 rounded-md bg-pink-400 flex items-center justify-center text-white text-lg flex-shrink-0">👩🏻</div>
-                                <div className="bg-white dark:bg-[#222] p-2.5 rounded-xl rounded-tl-none text-sm shadow-sm dark:text-white max-w-[190px] leading-relaxed relative">
-                                    <div className="absolute top-2.5 -left-1.5 w-3 h-3 bg-white dark:bg-[#222] transform rotate-45"></div>
-                                    <span className="relative z-10">你是不是又忘了今天是纪念日？😤</span>
-                                </div>
-                            </div>
-
-                            {/* Me (Sticker) */}
-                            <div className="flex gap-2 flex-row-reverse">
-                                <div className="w-9 h-9 rounded-md bg-yellow-400 flex items-center justify-center text-black text-xs font-bold flex-shrink-0 overflow-hidden border border-black/5">
-                                    <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-full h-full object-cover"/>
-                                </div>
-                                <div className="flex flex-col items-end">
-                                    <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-2 rounded-xl rounded-tr-none shadow-sm relative">
-                                         <div className="absolute top-3 -right-1 w-3 h-3 bg-[#95ec69] dark:bg-[#2b7c46] transform rotate-45"></div>
-                                         <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq2.png?alt=media&token=65fe4349-b3e4-451e-a4ca-ca61700de56d" className="w-24 rounded mix-blend-multiply dark:mix-blend-normal relative z-10" />
-                                    </div>
-                                    <span className="text-[10px] text-neutral-400 mt-1 mr-1">已读</span>
-                                </div>
-                            </div>
-
-                            {/* Her Reply */}
-                            <div className="flex gap-2">
-                                <div className="w-9 h-9 rounded-md bg-pink-400 flex items-center justify-center text-white text-lg flex-shrink-0">👩🏻</div>
-                                <div className="bg-white dark:bg-[#222] p-2.5 rounded-xl rounded-tl-none text-sm shadow-sm dark:text-white max-w-[190px] leading-relaxed relative">
-                                    <div className="absolute top-2.5 -left-1.5 w-3 h-3 bg-white dark:bg-[#222] transform rotate-45"></div>
-                                    <span className="relative z-10">服了你了... 这狗也太丑萌了吧 😂 下不为例！</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Input Area (Mock) */}
-                        <div className="bg-[#f7f7f7] dark:bg-[#1f1f1f] p-3 border-t border-neutral-200 dark:border-[#333] flex items-center gap-3">
-                            <div className="p-1 rounded-full border border-neutral-400 text-neutral-500 hover:bg-neutral-200 cursor-pointer">
-                                <Mic size={16} />
-                            </div>
-                            <div className="flex-1 bg-white dark:bg-[#2a2a2a] h-8 rounded-md border border-neutral-200 dark:border-[#333] flex items-center px-3 text-xs text-neutral-400 cursor-text">
-                                马上回家跪搓衣板...
-                            </div>
-                            <Smile size={22} className="text-neutral-500 hover:text-neutral-700 cursor-pointer" />
-                            <div className="p-1 rounded-full border border-neutral-400 text-neutral-500 hover:bg-neutral-200 cursor-pointer">
-                                <Plus size={16} />
-                            </div>
-                        </div>
+                    {/* Main Card (Center) */}
+                    <div className="absolute top-0 left-0 w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-[0_20px_60px_-15px_rgba(255,215,0,0.3)] p-3 border-4 border-brand-yellow transform hover:scale-105 transition-all duration-500 z-20">
+                       <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog.jpg?alt=media&token=a4a2e58d-a413-422d-aa1f-98ae61af5d8b" className="w-full h-[85%] object-cover rounded-2xl" />
+                       <div className="mt-3 px-2">
+                          <div className="text-lg font-black font-display">BeeDog.meme</div>
+                          <div className="text-xs text-neutral-400 font-mono">The stickiest coin on chain.</div>
+                       </div>
+                       
+                       {/* Floating Badge */}
+                       <div className="absolute -top-4 -right-4 bg-brand-orange text-white px-4 py-2 rounded-full font-bold shadow-lg transform rotate-12 animate-bounce">
+                          #1 Trending
+                       </div>
                     </div>
-                  </div>
-
-                  <div className="order-1 md:order-2 space-y-6">
-                    <h3 className="text-2xl font-bold flex items-center gap-2 dark:text-white">
-                        <MessageCircle className="text-green-500" /> 微信社交货币
-                    </h3>
-                    <p className="text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                        在微信上，蜜蜂狗已经成为了年轻人的<b>“赛博替身”</b>。
-                        <br/><br/>
-                        当你不想上班时，当你被生活“蛰”了一下时，当你需要朋友的安慰时，一张蜜蜂狗表情包胜过千言万语。它是我们表达情绪的一种方式。
-                    </p>
-                  </div>
-                </div>
+                 </div>
               </div>
             </div>
           </section>
 
-          {/* Community Section */}
-          <section id="community" className="py-24 relative overflow-hidden bg-brand-yellow/10">
+          {/* Narrative Section - Immersive Storytelling */}
+          <section id="narrative" className="py-32 relative">
+            <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-sm -z-10"></div>
             <div className="container mx-auto px-4">
-              <div className="glass-card rounded-[2.5rem] p-8 md:p-16 relative overflow-hidden">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-5 pointer-events-none">
-                    <div className="absolute top-0 left-0 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-yellow rounded-full mix-blend-multiply filter blur-3xl"></div>
-                    <div className="absolute bottom-0 right-0 transform translate-x-1/2 translate-y-1/2 w-96 h-96 bg-orange-500 rounded-full mix-blend-multiply filter blur-3xl"></div>
+              
+              <div className="text-center mb-20">
+                <h2 className="text-4xl md:text-6xl font-display font-black mb-6">
+                  不仅仅是 Meme<br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-orange">这是我们的精神图腾</span>
+                </h2>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-16 items-center">
+                {/* Visual Side */}
+                <div className="relative">
+                   <div className="absolute inset-0 bg-gradient-to-tr from-brand-yellow/20 to-transparent rounded-full blur-[100px]"></div>
+                   <div className="relative z-10 glass-card rounded-[2.5rem] p-2 overflow-hidden transform rotate-2 hover:rotate-0 transition-all duration-500">
+                      <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fdybg.png?alt=media&token=d6139884-4351-4795-91ae-895a02f8cbfa" className="w-full rounded-[2rem]" />
+                      
+                      {/* Floating UI Elements */}
+                      <div className="absolute bottom-8 left-8 right-8 glass rounded-2xl p-4 flex items-center justify-between">
+                         <div>
+                            <div className="font-bold text-sm">@蜜蜂狗</div>
+                            <div className="text-xs opacity-70">抖音热门 · 12.5M 播放</div>
+                         </div>
+                         <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-red-500/30">
+                            <Heart fill="currentColor" size={20} />
+                         </div>
+                      </div>
+                   </div>
                 </div>
 
-                <div className="text-center max-w-3xl mx-auto relative z-10">
-                  <h2 className="text-3xl md:text-5xl font-black mb-6 dark:text-white">
-                    <p>社区接管 (CTO)</p>
-                    <span className="text-brand-orange">我们是蜂群</span>
-                  </h2>
-                  <p className="text-lg text-neutral-700 dark:text-neutral-200 mb-10 leading-relaxed">
-                    没有 VC，没有项目方，没有老鼠仓。
-                    <br/>
-                    就像蜜蜂筑巢一样，每一个 $蜜蜂狗 的持有者都在为社区添砖加瓦。
-                    不管是做表情包、剪视频、还是在推特上“嗡嗡”叫，我们正在建立加密世界最粘人的社区。
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-                    <div className="bg-white dark:bg-[#161616] p-6 rounded-2xl shadow-sm hover:-translate-y-1 transition-transform">
-                      <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center text-yellow-600 mb-4">
-                          <Shield size={24} />
+                {/* Text Side */}
+                <div className="space-y-12">
+                   <div className="space-y-4">
+                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-4">
+                         <TrendingUp size={28} />
                       </div>
-                      <h4 className="font-bold text-lg mb-2 dark:text-white">抗击打能力强</h4>
-                      <p className="text-sm text-neutral-500">经历过市场的毒打，脸虽然肿了，但钻石手从未松开。</p>
-                    </div>
-                    <div className="bg-white dark:bg-[#161616] p-6 rounded-2xl shadow-sm hover:-translate-y-1 transition-transform">
-                      <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-orange-600 mb-4">
-                          <Users size={24} />
+                      <h3 className="text-3xl font-bold">抖音/TikTok 爆火起源</h3>
+                      <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                        一切始于一只好奇心太重的修勾。它只是想尝尝蜂蜜的味道，结果变成了全网最“圆润”的狗子。
+                        #蜜蜂狗标签在抖音和 TikTok 上获得了十亿次播放，它那种<span className="text-brand-orange font-bold">“滑稽但又无辜”</span>的眼神，击中了无数人的心。
+                      </p>
+                   </div>
+
+                   <div className="space-y-4">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-2xl flex items-center justify-center text-green-500 mb-4">
+                         <MessageCircle size={28} />
                       </div>
-                      <h4 className="font-bold text-lg mb-2 dark:text-white">去中心化</h4>
-                      <p className="text-sm text-neutral-500">100% 社区驱动，每一只蜜蜂都有投票权。</p>
-                    </div>
-                    <div className="bg-white dark:bg-[#161616] p-6 rounded-2xl shadow-sm hover:-translate-y-1 transition-transform">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-blue-600 mb-4">
-                          <ImageIcon size={24} />
-                      </div>
-                      <h4 className="font-bold text-lg mb-2 dark:text-white">无限 Meme 潜力</h4>
-                      <p className="text-sm text-neutral-500">素材库每天更新，二创内容层出不穷。</p>
-                    </div>
-                  </div>
+                      <h3 className="text-3xl font-bold">微信社交货币</h3>
+                      <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                        在微信上，蜜蜂狗已经成为了年轻人的<span className="text-brand-yellow font-bold">“赛博替身”</span>。
+                        当你不想上班时，当你被生活“蛰”了一下时，一张蜜蜂狗表情包胜过千言万语。它是我们表达情绪的一种方式。
+                      </p>
+                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Social Buzz (Twitter/X Feed Replacement) */}
-          <section id="social" className="py-24 bg-neutral-50 dark:bg-[#0A0A0A]">
+          {/* Community Section - Bento Grid */}
+          <section id="community" className="py-32 bg-neutral-100 dark:bg-[#080808]">
             <div className="container mx-auto px-4">
               <div className="text-center mb-16">
-                <h2 className="text-4xl font-black mb-4 dark:text-white flex items-center justify-center gap-3">
-                  <Twitter className="fill-current text-blue-400" size={40} />
-                  社媒热议
-                </h2>
-                <p className="text-neutral-500">看看大家在 X (Twitter) 上怎么说 #蜜蜂狗</p>
+                <h2 className="text-4xl md:text-5xl font-display font-black mb-4">蜜蜂狗社区</h2>
+                <p className="text-neutral-500 text-xl">去中心化，社区驱动，永不 Rug。</p>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-min">
-                {/* CTA Card */}
-                <div className="bg-white dark:bg-[#111] rounded-2xl p-6 shadow-md border border-neutral-100 dark:border-[#222] flex flex-col items-center justify-center text-center gap-4 hover:border-brand-yellow transition-colors group">
-                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center text-blue-500 mb-2 group-hover:scale-110 transition-transform">
-                    <Twitter size={32} />
-                  </div>
-                  <h3 className="font-bold text-xl dark:text-white">加入讨论</h3>
-                  <p className="text-neutral-500 text-sm">发布你的蜜蜂狗 Meme，带上 <span className="text-brand-yellow">#蜜蜂狗</span> 标签！</p>
-                  <Button onClick={() => window.open(`https://x.com/intent/tweet?text=${encodeURIComponent("#蜜蜂狗 to the moon!🐝🐕")}`, "_blank")} variant="outline" size="sm" className="mt-2">去发推</Button>
-                </div>
 
-                {/* Tweets */}
-                {TWEETS_DATA.map((tweet) => (
-                  <div onClick={() => window.open(`${tweet.url}`, "_blank")} key={tweet.id} className="bg-white dark:bg-[#111] rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-neutral-100 dark:border-[#222] flex flex-col hover:-translate-y-1 cursor-pointer transition-transform">
-                    <div className="flex items-start justify-between mb-4">
-                        <div className="flex gap-3">
-                          <img src={tweet.avatar} alt={tweet.name} className="w-12 h-12 rounded-full object-cover border border-neutral-200 dark:border-[#333]" />
-                          <div>
-                              <div className="flex items-center gap-1">
-                                <h4 className="font-bold text-neutral-900 dark:text-white">{tweet.name}</h4>
-                              </div>
-                              <p className="text-neutral-400 text-sm">{tweet.handle}</p>
-                          </div>
-                        </div>
-                        <Twitter size={16} className="text-neutral-300 dark:text-neutral-600" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                 {/* Large Card */}
+                 <div className="md:col-span-2 bg-white dark:bg-[#121212] rounded-[2.5rem] p-8 md:p-12 border border-neutral-200 dark:border-white/5 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-yellow/10 rounded-full blur-[80px] group-hover:bg-brand-yellow/20 transition-all"></div>
+                    <div className="relative z-10">
+                       <div className="w-14 h-14 bg-brand-yellow rounded-2xl flex items-center justify-center mb-6 text-black shadow-lg shadow-yellow-500/20">
+                          <Users size={28} />
+                       </div>
+                       <h3 className="text-3xl font-bold mb-4">100% 社区接管 (CTO)</h3>
+                       <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-md">
+                          没有 VC，没有项目方，没有老鼠仓。就像蜜蜂筑巢一样，每一个 $蜜蜂狗 的持有者都在为社区添砖加瓦。
+                       </p>
+                    </div>
+                 </div>
+
+                 {/* Tall Card - Meme Potential (Updated) */}
+                 <div className="md:row-span-2 bg-brand-yellow rounded-[2.5rem] p-8 border border-yellow-400 relative overflow-hidden group text-black flex flex-col justify-between">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+
+                    <div className="relative z-10">
+                       <div className="w-14 h-14 bg-black/10 rounded-2xl flex items-center justify-center mb-6 text-black">
+                          <ImageIcon size={28} />
+                       </div>
+                       <h3 className="text-3xl font-bold mb-4">无限 Meme 潜力</h3>
+                       <p className="text-lg opacity-80 mb-6">
+                          素材库每天更新，二创内容层出不穷。每一个表情包都是传播的种子。
+                       </p>
+                       <p className="text-sm font-bold border-l-4 border-black pl-4 py-1 bg-white/20 backdrop-blur-sm rounded-r-lg">
+                          "一张好图胜过千言万语，蜜蜂狗 就是最好的语言。"
+                       </p>
                     </div>
                     
-                    <p className="text-neutral-800 dark:text-neutral-200 mb-4 text-base leading-relaxed whitespace-pre-line">
+                    {/* Button to Toolbox instead of just images */}
+                    <div className="relative z-10 mt-4">
+                        <button onClick={navigateToToolbox} className="w-full bg-black text-white py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
+                            <Sparkles size={18} /> 去制作表情包
+                        </button>
+                    </div>
+                 </div>
+
+                 {/* Small Card */}
+                 <div className="bg-white dark:bg-[#121212] rounded-[2.5rem] p-8 border border-neutral-200 dark:border-white/5 relative overflow-hidden group hover:border-blue-500/50 transition-colors">
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px]"></div>
+                    <div className="relative z-10">
+                       <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 text-blue-500 rounded-2xl flex items-center justify-center mb-4">
+                          <Shield size={24} />
+                       </div>
+                       <h3 className="text-xl font-bold mb-2">抗击打能力强</h3>
+                       <p className="text-neutral-500 text-sm">
+                          经历过市场的毒打，脸虽然肿了，但钻石手从未松开。
+                       </p>
+                    </div>
+                 </div>
+
+                 {/* Small Card */}
+                 <div className="bg-white dark:bg-[#121212] rounded-[2.5rem] p-8 border border-neutral-200 dark:border-white/5 relative overflow-hidden group hover:border-green-500/50 transition-colors">
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-[40px]"></div>
+                    <div className="relative z-10">
+                       <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 text-green-500 rounded-2xl flex items-center justify-center mb-4">
+                          <Globe size={24} />
+                       </div>
+                       <h3 className="text-xl font-bold mb-2">全球共识</h3>
+                       <p className="text-neutral-500 text-sm">
+                          不分国界，每个人都能看懂这只肿脸狗的委屈。
+                       </p>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Social Buzz */}
+          <section id="social" className="py-32 relative overflow-hidden">
+            <div className="absolute inset-0 bg-brand-yellow/5 -z-10"></div>
+            <div className="container mx-auto px-4">
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16 gap-6">
+                 <div>
+                    <h2 className="text-4xl md:text-5xl font-display font-black mb-2">社媒热议</h2>
+                    <p className="text-neutral-500">看看 X (Twitter) 上大家都在说什么</p>
+                 </div>
+                 <Button onClick={() => window.open(`https://x.com/intent/tweet?text=${encodeURIComponent("#蜜蜂狗 to the moon!🐝🐕")}`, "_blank")} variant="secondary">
+                    <Twitter className="mr-2" size={18}/> 发推支持
+                 </Button>
+              </div>
+              
+              <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+                {TWEETS_DATA.map((tweet) => (
+                  <div key={tweet.id} onClick={() => window.open(`${tweet.url}`, "_blank")} className="break-inside-avoid bg-white dark:bg-[#161616] rounded-3xl p-6 shadow-sm border border-neutral-200 dark:border-white/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex gap-3">
+                          <img src={tweet.avatar} alt={tweet.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-neutral-100 dark:ring-neutral-800" />
+                          <div>
+                              <h4 className="font-bold text-sm flex items-center gap-1">
+                                {tweet.name} 
+                                <span className="text-blue-500"><svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg></span>
+                              </h4>
+                              <p className="text-neutral-400 text-xs">{tweet.handle}</p>
+                          </div>
+                        </div>
+                        <Twitter size={16} className="text-neutral-300 group-hover:text-blue-400 transition-colors" />
+                    </div>
+                    
+                    <p className="text-sm leading-relaxed whitespace-pre-line mb-4 text-neutral-700 dark:text-neutral-300">
                         {tweet.content}
                     </p>
 
                     {tweet.image && (
-                        <div className="rounded-xl overflow-hidden mb-4 border border-neutral-100 dark:border-[#222]">
-                          <img src={tweet.image} alt="Tweet media" className="w-full h-48 md:h-56 object-cover hover:scale-105 transition-transform duration-500" />
+                        <div className="rounded-2xl overflow-hidden mb-4 border border-black/5 dark:border-white/5">
+                          <img src={tweet.image} alt="Tweet media" className="w-full h-auto hover:scale-105 transition-transform duration-500" />
                         </div>
                     )}
 
-                    <div className="mt-auto pt-4 border-t border-neutral-100 dark:border-[#222] flex items-center justify-between text-neutral-400 text-sm">
-                        <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2 hover:text-red-500 cursor-pointer transition-colors">
-                              <ChartNoAxesColumn size={16} /> <span>{tweet.views}</span>
-                          </div>
+                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-4 border-t border-neutral-100 dark:border-white/5">
+                        <span>{tweet.time.split('\n')[1]}</span>
+                        <div className="flex gap-4">
+                           {/* Updated: Heart removed, Repeat removed, Views added */}
+                           <span className="flex items-center gap-1 hover:text-blue-500 transition-colors" title="Views">
+                               <BarChart3 size={16}/> {tweet.views}
+                           </span>
                         </div>
-                        <View onClick={() => window.open(`${tweet.url}`, "_blank")} size={16} className="hover:text-brand-yellow cursor-pointer" />
                     </div>
                   </div>
                 ))}
@@ -647,62 +595,89 @@ const App: React.FC = () => {
             </div>
           </section>
 
-          {/* Tokenomics & Contract */}
-          <section id={SectionId.TOKENOMICS} className="py-24 relative overflow-hidden">
+          {/* Tokenomics */}
+          <section id={SectionId.TOKENOMICS} className="py-32 bg-white dark:bg-black">
             <div className="container mx-auto px-4">
-              <div className="grid md:grid-cols-12 gap-12">
-                <div className="md:col-span-5 flex flex-col justify-center">
-                  <h2 className="text-4xl font-black mb-6 dark:text-white">代币经济学</h2>
-                  <p className="text-lg text-neutral-600 dark:text-neutral-400 mb-8">
-                    简单、透明。没有复杂的税收，社区钱包所有代币始于1BNB。
+              <div className="grid lg:grid-cols-12 gap-16 items-center">
+                <div className="lg:col-span-5 space-y-8">
+                  <h2 className="text-4xl md:text-6xl font-display font-black">代币经济学</h2>
+                  <p className="text-xl text-neutral-600 dark:text-neutral-400">
+                    简单、透明、公平。<br/>
+                    没有复杂的税收，社区钱包所有代币始于1BNB。
                   </p>
                   
                   <div className="space-y-4">
-                    <div className="bg-white dark:bg-[#161616] p-6 rounded-2xl shadow-sm border border-neutral-100 dark:border-[#333]">
-                      <div className="text-sm text-neutral-500 mb-1">总供应量</div>
-                      <div className="text-2xl font-mono font-bold dark:text-white">1,000,000,000</div>
+                    <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-white/5">
+                      <div className="text-sm text-neutral-500 mb-1 font-bold uppercase tracking-wider">Total Supply</div>
+                      <div className="text-3xl font-mono font-black">1,000,000,000</div>
                     </div>
-                    <div className="bg-white dark:bg-[#161616] p-6 rounded-2xl shadow-sm border border-neutral-100 dark:border-[#333] flex justify-between items-center group cursor-pointer" onClick={copyToClipboard}>
-                      <div>
-                        <div className="text-sm text-neutral-500 mb-1">合约地址 (CA)</div>
-                        <div className="font-mono font-bold text-neutral-800 dark:text-neutral-200 break-all text-sm md:text-base">0x2eb08a8fe215f72e01......4444</div>
+                    
+                    <div 
+                      className="p-6 rounded-3xl bg-brand-yellow text-black shadow-lg shadow-yellow-500/20 cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 group" 
+                      onClick={copyToClipboard}
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                         <div className="text-sm font-bold opacity-70 uppercase tracking-wider">Contract Address (BNB)</div>
+                         {copied ? <Check size={18} /> : <Copy size={18} className="opacity-50 group-hover:opacity-100"/>}
                       </div>
-                      <div className="bg-neutral-100 dark:bg-[#262626] p-2 rounded-lg group-hover:bg-brand-yellow group-hover:text-black transition-colors">
-                        {copied ? <Check size={20} /> : <Copy size={20} />}
+                      <div className="text-lg sm:text-xl font-mono font-black break-all leading-tight">
+                        0x2eb08a8fe215f72e01...4444
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="md:col-span-7 bg-white dark:bg-[#111] rounded-[2rem] p-8 shadow-xl border border-neutral-100 dark:border-[#222]">
-                  <StatsChart isDark={darkMode} />
+                <div className="lg:col-span-7">
+                  <div className="bg-neutral-50 dark:bg-[#111] rounded-[3rem] p-8 border border-neutral-200 dark:border-white/5 shadow-2xl">
+                    <StatsChart isDark={darkMode} />
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Roadmap */}
-          <section id={SectionId.ROADMAP} className="py-24 bg-brand-yellow dark:bg-yellow-900/10">
-            <div className="container mx-auto px-4">
-              <h2 className="text-4xl font-black text-center mb-16 dark:text-brand-yellow">未来计划</h2>
-              
-              <div className="grid md:grid-cols-3 gap-8">
-                {ROADMAP_DATA.map((phase, idx) => (
-                  <div key={idx} className={`relative bg-white dark:bg-[#111] p-8 rounded-3xl shadow-lg border-2 ${phase.status === 'current' ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-transparent dark:border-[#222]'}`}>
-                    <div className="absolute -top-5 left-8 px-4 py-2 bg-black text-white text-sm font-bold rounded-lg shadow-lg">
-                      {phase.phase}
-                    </div>
-                    <h3 className="text-2xl font-bold mt-4 mb-6 dark:text-white">{phase.title}</h3>
-                    <ul className="space-y-3">
-                      {phase.items.map((item, i) => (
-                        <li key={i} className={`flex items-start gap-3 text-sm font-medium ${phase.status === 'completed' ? 'text-neutral-400 line-through' : 'text-neutral-700 dark:text-neutral-300'}`}>
-                          <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${phase.status === 'current' ? 'bg-blue-500 animate-pulse' : 'bg-neutral-300'}`}></div>
-                          {item}
-                        </li>
+          {/* Roadmap (Redesigned) */}
+          <section id={SectionId.ROADMAP} className="py-32 relative bg-[#050505] overflow-hidden">
+            {/* Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            
+            <div className="container mx-auto px-4 relative z-10">
+              <div className="text-center mb-20">
+                   <span className="text-brand-yellow font-mono text-sm tracking-widest uppercase mb-2 block">The Journey</span>
+                   <h2 className="text-4xl md:text-6xl font-display font-black text-white">未来计划</h2>
+              </div>
+
+              <div className="relative max-w-5xl mx-auto">
+                  <div className="grid md:grid-cols-3 gap-6">
+                      {ROADMAP_DATA.map((phase, idx) => (
+                          <div key={idx} className="relative group h-full">
+                              {/* Content Card */}
+                              <div className={`relative bg-neutral-900/80 backdrop-blur-xl border p-8 rounded-3xl transition-all duration-500 hover:-translate-y-2 h-full flex flex-col
+                                  ${phase.status === 'current' ? 'border-brand-yellow/50 shadow-lg shadow-brand-yellow/10' : 'border-white/10 hover:border-white/20'}`}>
+                                  
+                                  <div className="mb-4">
+                                      <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider
+                                          ${phase.status === 'completed' ? 'bg-green-500/20 text-green-400' : 
+                                            phase.status === 'current' ? 'bg-brand-yellow/20 text-brand-yellow' : 
+                                            'bg-neutral-800 text-neutral-400'}`}>
+                                          {phase.phase}
+                                      </span>
+                                  </div>
+                                  
+                                  <h3 className="text-2xl font-bold text-white mb-4">{phase.title}</h3>
+                                  
+                                  <ul className="space-y-3 mt-auto">
+                                      {phase.items.map((item, i) => (
+                                          <li key={i} className="flex items-start gap-3 text-sm text-neutral-400">
+                                              <div className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${phase.status === 'completed' ? 'bg-green-500' : 'bg-neutral-600'}`}></div>
+                                              <span className={phase.status === 'completed' ? 'line-through opacity-50' : ''}>{item}</span>
+                                          </li>
+                                      ))}
+                                  </ul>
+                              </div>
+                          </div>
                       ))}
-                    </ul>
                   </div>
-                ))}
               </div>
             </div>
           </section>
@@ -710,27 +685,30 @@ const App: React.FC = () => {
       )}
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-black py-16 border-t border-neutral-200 dark:border-[#222]">
+      <footer className="bg-white dark:bg-black py-20 border-t border-neutral-200 dark:border-white/5">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="text-center md:text-left">
-              <h3 className="text-2xl font-black mb-2 dark:text-white">蜜蜂狗</h3>
-              <p className="text-neutral-500 max-w-xs">
-                Web3 世界最粘人的肿脸狗狗，社区接管，永不 Rug。
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
+                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-8 h-8" />
+                 <span className="font-display font-black text-xl">蜜蜂狗</span>
+              </div>
+              <p className="text-neutral-500 max-w-xs text-sm">
+                Web3 世界最粘人的肿脸狗狗。<br/>社区接管，永不 Rug。
               </p>
             </div>
             
-            <div className="flex gap-6">
-              <a  href="https://x.com/beedog_bsc" className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-[#161616] flex items-center justify-center hover:bg-brand-yellow hover:text-black transition-all dark:text-white">
+            <div className="flex gap-4">
+              <a href="https://x.com/beedog_bsc" target="_blank" className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all">
                 <Twitter size={20} />
               </a>
-              <a  href="https://t.me/mifenggoutg" className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-[#161616] flex items-center justify-center hover:bg-brand-yellow hover:text-black transition-all dark:text-white">
+              <a href="https://t.me/mifenggoutg" target="_blank" className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all">
                 <Send size={20} />
               </a>
             </div>
           </div>
           
-          <div className="mt-16 pt-8 border-t border-neutral-100 dark:border-[#222] text-center text-sm text-neutral-400">
+          <div className="mt-16 pt-8 border-t border-neutral-100 dark:border-white/5 text-center text-xs text-neutral-400">
             <p className="mb-2">加密货币具有高风险，请注意投资风险，喜欢并且买入，使用不影响生活的钱。</p>
             <p>© 2025 蜜蜂狗社区. All rights reserved.</p>
           </div>
@@ -740,19 +718,8 @@ const App: React.FC = () => {
       {/* Auth Modal */}
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} mode={authMode} />
       
-      {/* Global Chat Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-         {/* Replaced by BeeDogChat component which is already rendered inside App in original file? 
-             Wait, BeeDogChat was in the original imports but not used in the original JSX. 
-             Ah, I missed it in the original huge App.tsx paste. 
-             Actually, let's look at the original App.tsx provided. 
-             It didn't import BeeDogChat. It used a simple button in the corner in the original design? 
-             No, looking at file list, `components/BeeDogChat.tsx` exists. 
-             But `App.tsx` provided by user does NOT import it. 
-             I should probably add it back if I want the floating chat, but the user didn't ask for that specific change.
-             I will stick to the requested change only. 
-         */}
-      </div>
+      {/* Floating Chat */}
+      <BeeDogChat />
     </div>
   );
 };

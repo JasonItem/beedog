@@ -21,38 +21,39 @@ export const StatsChart: React.FC<StatsChartProps> = ({ isDark }) => {
             data={data}
             cx="50%"
             cy="50%"
-            innerRadius={60}
-            outerRadius={100}
+            innerRadius={80}
+            outerRadius={120}
             paddingAngle={5}
             dataKey="value"
-            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-            className="text-xs md:text-sm font-bold font-sans"
             stroke="none"
+            cornerRadius={8}
           >
             {data.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
                 fill={entry.color} 
-                className="hover:opacity-80 transition-opacity cursor-pointer"
+                className="hover:opacity-80 transition-opacity cursor-pointer filter drop-shadow-md"
               />
             ))}
           </Pie>
           <Tooltip 
             contentStyle={{ 
-              backgroundColor: isDark ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)', 
-              borderColor: 'transparent',
+              backgroundColor: isDark ? 'rgba(20, 20, 20, 0.8)' : 'rgba(255, 255, 255, 0.8)', 
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
               borderRadius: '16px',
               color: isDark ? '#FFF' : '#000',
-              backdropFilter: 'blur(8px)',
-              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+              backdropFilter: 'blur(12px)',
+              boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.2)',
+              padding: '12px'
             }} 
-            itemStyle={{ color: isDark ? '#FFF' : '#000', fontWeight: 600 }}
+            itemStyle={{ color: isDark ? '#FFF' : '#000', fontWeight: 600, fontSize: '14px' }}
+            cursor={false}
           />
           <Legend 
             verticalAlign="bottom" 
             height={36} 
             iconType="circle"
-            formatter={(value) => <span className="mx-2 font-medium">{value}</span>}
+            formatter={(value) => <span className="mx-2 font-bold text-sm text-neutral-600 dark:text-neutral-300">{value}</span>}
           />
         </PieChart>
       </ResponsiveContainer>

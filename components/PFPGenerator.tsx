@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { generatePfpVariation } from '../services/geminiService';
@@ -43,6 +44,8 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
   const refFileInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  const COST = 2;
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isRef = false) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -75,9 +78,9 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
     }, 100);
 
     try {
-      const allowed = await deductCredit(user.uid);
+      const allowed = await deductCredit(user.uid, COST);
       if (!allowed) {
-        setError("蜂蜜额度不足！请在个人中心每日签到获取更多额度。");
+        setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
         setLoading(false);
         return;
       }
@@ -156,7 +159,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
   );
 
   return (
-    <div id="pfp-generator" className="py-24 bg-white dark:bg-[#0A0A0A] border-t border-neutral-100 dark:border-[#222]">
+    <div id="pfp-generator" className="py-24 bg-white dark:bg-[#0A0A0A] border-t rounded-2xl border-neutral-100 dark:border-[#222]">
       <div className="container mx-auto px-4 max-w-6xl">
         
         {/* Header */}
@@ -165,7 +168,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
             <Sparkles size={14} /> AI 创意工坊
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 dark:text-white">
-             BeeDog <span className="text-brand-yellow">PFP 生成器</span>
+             蜜蜂狗 <span className="text-brand-yellow">PFP 生成器</span>
           </h2>
           <p className="text-lg text-neutral-500 max-w-2xl mx-auto">
             上传你的照片，一键 Cosplay 或自由穿搭。保持原图构图，只换造型。
@@ -420,7 +423,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                 <div className="absolute bottom-6 right-6 z-20">
                    <div className="bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg border border-white/20 dark:text-white flex items-center gap-2">
                       <Zap size={12} className="text-brand-yellow fill-brand-yellow"/>
-                      可用额度: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                      剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
             </div>
@@ -441,7 +444,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   className="flex-1 bg-brand-yellow hover:bg-yellow-300 text-black font-black text-lg py-4 rounded-2xl shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/40 hover:-translate-y-1 active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                  >
                    {loading ? <RefreshCw className="animate-spin" /> : <Wand2 />}
-                   立即生成 <span className="text-xs font-normal opacity-70 ml-1">(-1 额度)</span>
+                   立即生成 <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 蜂蜜)</span>
                  </button>
                ) : (
                  <>

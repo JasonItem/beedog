@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { generateGroupSelfie } from '../services/geminiService';
@@ -53,6 +54,8 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
 
+  const COST = 3;
+
   const handleSlotClick = (id: string) => {
     setActiveSlotId(id);
     fileInputRef.current?.click();
@@ -106,9 +109,9 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
     }, 100);
 
     try {
-      const allowed = await deductCredit(user.uid);
+      const allowed = await deductCredit(user.uid, COST);
       if (!allowed) {
-        setError("蜂蜜额度不足！请在个人中心每日签到获取更多额度。");
+        setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
         setLoading(false);
         return;
       }
@@ -147,7 +150,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
   };
 
   return (
-    <div className="py-24 bg-white dark:bg-[#0A0A0A] border-t border-neutral-100 dark:border-[#222]">
+    <div className="py-24 bg-white rounded-2xl dark:bg-[#0A0A0A] border-t border-neutral-100 dark:border-[#222]">
       <div className="container mx-auto px-4 max-w-6xl">
         
         {/* Header */}
@@ -338,7 +341,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                 <div className="absolute bottom-6 right-6 z-20">
                    <div className="bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg border border-white/20 dark:text-white flex items-center gap-2">
                       <Zap size={12} className="text-brand-yellow fill-brand-yellow"/>
-                      可用额度: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                      剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
             </div>
@@ -359,7 +362,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                   className="flex-1 bg-pink-500 hover:bg-pink-400 text-white font-black text-lg py-4 rounded-2xl shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-1 active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                  >
                    {loading ? <RefreshCw className="animate-spin" /> : <Camera />}
-                   生成合影 <span className="text-xs font-normal opacity-70 ml-1">(-1 额度)</span>
+                   生成合影 <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 蜂蜜)</span>
                  </button>
                ) : (
                  <>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   signInWithPopup,
@@ -375,7 +376,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
   const isCheckedInToday = userProfile?.lastCheckInDate === new Date().toISOString().split('T')[0];
 
   return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
         <div className="bg-white dark:bg-[#161616] rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-neutral-200 dark:border-[#333] relative flex flex-col max-h-[90vh]">
 
           {/* Header Button */}

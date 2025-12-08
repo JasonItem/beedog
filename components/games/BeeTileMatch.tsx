@@ -395,9 +395,9 @@ export const BeeTileMatch: React.FC<BeeTileMatchProps> = ({ userProfile, onGameO
           </div>
       </div>
 
-      {/* Start Screen */}
+      {/* Start Screen - Lowered z-index to avoid blocking navbar */}
       {gameState === 'START' && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 z-50 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 z-30 backdrop-blur-sm">
           <div className="text-5xl font-black mb-2 text-green-400 drop-shadow-lg text-center">Bee Match<br/><span className="text-2xl text-white">消消乐</span></div>
           <p className="mb-8 font-bold text-center text-neutral-200 text-sm leading-relaxed max-w-[240px]">
             点击三个相同的图案消除<br/>
@@ -410,9 +410,9 @@ export const BeeTileMatch: React.FC<BeeTileMatchProps> = ({ userProfile, onGameO
         </div>
       )}
 
-      {/* Won Screen */}
+      {/* Won Screen - Lowered z-index */}
       {gameState === 'WON' && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-50 animate-in fade-in zoom-in">
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-30 animate-in fade-in zoom-in">
           <Trophy size={64} className="text-yellow-400 mb-4 animate-bounce" />
           <div className="text-4xl font-black mb-2 text-white">YOU WIN!</div>
           <p className="mb-6 text-green-300 font-bold">蜜蜂狗为你点赞！</p>
@@ -422,9 +422,9 @@ export const BeeTileMatch: React.FC<BeeTileMatchProps> = ({ userProfile, onGameO
         </div>
       )}
 
-      {/* Game Over Screen */}
+      {/* Game Over Screen - Lowered z-index */}
       {gameState === 'GAME_OVER' && (
-        <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-white p-6 z-50 animate-in fade-in zoom-in">
+        <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-white p-6 z-30 animate-in fade-in zoom-in">
           <div className="text-4xl font-black mb-6 text-red-500">卡槽满了! 😭</div>
           
           <div className="bg-[#1f2937] border border-[#374151] rounded-2xl p-8 w-full mb-8 flex flex-col items-center shadow-2xl">

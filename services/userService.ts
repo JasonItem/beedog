@@ -1,3 +1,4 @@
+
 import { db, storage } from "../firebaseConfig";
 import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -109,9 +110,11 @@ export const uploadUserAvatar = async (uid: string, file: File): Promise<string>
 };
 
 /**
- * Deducts 1 credit from the user. Returns true if successful, false if insufficient funds.
+ * Deducts credits from the user. Returns true if successful, false if insufficient funds.
+ * @param uid User ID
+ * @param amount Amount to deduct (default 1)
  */
-export const deductCredit = async (uid: string): Promise<boolean> => {
+export const deductCredit = async (uid: string, amount: number = 1): Promise<boolean> => {
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
 
@@ -120,9 +123,9 @@ export const deductCredit = async (uid: string): Promise<boolean> => {
   const data = docSnap.data();
   const currentCredits = typeof data.credits === 'number' ? data.credits : 0;
 
-  if (currentCredits > 0) {
+  if (currentCredits >= amount) {
     await updateDoc(docRef, {
-      credits: increment(-1)
+      credits: increment(-amount)
     });
     return true;
   }
@@ -139,7 +142,13 @@ export const performDailyCheckIn = async (uid: string): Promise<{ success: boole
   if (!docSnap.exists()) return { success: false, message: "用户不存在" };
 
   const data = docSnap.data() as UserProfile;
-  const today = new Date().toISOString().split('T')[0];
+  
+  // Get Local Date String (YYYY-MM-DD) to fix timezone issue
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const today = `${year}-${month}-${day}`;
 
   if (data.lastCheckInDate === today) {
     return { success: false, message: "今天已经签到过了，明天再来吧！" };
@@ -150,5 +159,5 @@ export const performDailyCheckIn = async (uid: string): Promise<{ success: boole
     lastCheckInDate: today
   });
 
-  return { success: true, message: "签到成功！获得 10 个蜂蜜额度！" };
+  return { success: true, message: "签到成功！获得 10 罐蜂蜜！" };
 };

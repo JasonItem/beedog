@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { generateSingleSticker } from '../services/geminiService';
@@ -52,6 +53,8 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+
+  const COST = 6;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,9 +117,9 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
 
     try {
       // Deduct credit once for the batch
-      const allowed = await deductCredit(user.uid);
+      const allowed = await deductCredit(user.uid, COST);
       if (!allowed) {
-        setError("蜂蜜额度不足！请在个人中心每日签到获取更多额度。");
+        setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
         setIsGenerating(false);
         setResults([]);
         return;
@@ -189,13 +192,13 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
   const successCount = results.filter(r => r.status === 'success').length;
 
   return (
-    <div id="meme-generator" className="py-24 bg-white dark:bg-[#0A0A0A] border-t border-neutral-100 dark:border-[#222]">
+    <div id="meme-generator" className="py-24 bg-white rounded-2xl dark:bg-[#0A0A0A] border-t border-neutral-100 dark:border-[#222]">
       <div className="container mx-auto px-4 max-w-6xl">
         
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-100 dark:border-purple-800">
-            <Sparkles size={14} /> TG 表情包神器
+            <Sparkles size={14} /> 表情包神器
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 dark:text-white">
              BeeDog <span className="text-purple-500">Meme 制造机</span>
@@ -340,7 +343,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                 >
                   {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
                   {isGenerating ? '正在逐个生成...' : '开始制作'} 
-                  {!isGenerating && <span className="text-xs font-normal opacity-70 ml-1">(-1 额度)</span>}
+                  {!isGenerating && <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 蜂蜜)</span>}
                 </button>
               </div>
 
@@ -362,7 +365,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                    {/* Credit Badge */}
                    <div className="bg-white dark:bg-black px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border border-neutral-200 dark:border-[#333] dark:text-white flex items-center gap-2">
                       <Zap size={12} className="text-brand-yellow fill-brand-yellow"/>
-                      可用额度: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                      剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
 
