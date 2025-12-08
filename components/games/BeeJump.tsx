@@ -14,17 +14,17 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
 
-  // Game Constants - Tuned for INSANE Speed
-  const GRAVITY = 0.6;
-  const JUMP_FORCE = -14.0; 
+  // Game Constants - Insane Mode
+  const GRAVITY = 0.6; 
+  const JUMP_FORCE = -14.0;
   const MOVEMENT_SPEED = 10.0; 
   const CANVAS_WIDTH = 320;
   const CANVAS_HEIGHT = 550;
   
   // Platform settings
-  const PLATFORM_WIDTH = 55;
+  const PLATFORM_WIDTH = 60;
   const PLATFORM_HEIGHT = 15;
-  const RED_PLATFORM_RESPAWN_FRAMES = 180;
+  const RED_PLATFORM_RESPAWN_FRAMES = 180; // ~3 seconds at 60fps
 
   // FPS Control
   const TARGET_FPS = 60;
@@ -74,9 +74,9 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     // Random platforms upwards
     let y = CANVAS_HEIGHT - 50;
     while (y > -CANVAS_HEIGHT * 2) {
-      y -= 70 + Math.random() * 50; // Increased gap for difficulty
+      y -= 70 + Math.random() * 40; // Gap between platforms
       const x = Math.random() * (CANVAS_WIDTH - PLATFORM_WIDTH);
-      const isRed = Math.random() > 0.75; 
+      const isRed = Math.random() > 0.8; // 20% chance of red (breakable) platform
       platforms.push({ x, y, type: isRed ? 'red' : 'green' });
     }
 
@@ -110,7 +110,7 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     }
   };
 
-  const drawPlayer = (ctx: CanvasRenderingContext2D, x: number, y: number,Vy: number) => {
+  const drawPlayer = (ctx: CanvasRenderingContext2D, x: number, y: number, vy: number) => {
     ctx.save();
     ctx.translate(x, y);
     
@@ -132,7 +132,7 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
 
     // Ears (React to velocity)
     ctx.beginPath();
-    if (Vy < 0) {
+    if (vy < 0) {
        // Jumping up, ears down
        ctx.ellipse(-12, 0, 4, 8, -0.5, 0, Math.PI * 2);
        ctx.ellipse(12, 0, 4, 8, 0.5, 0, Math.PI * 2);
@@ -206,10 +206,10 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
       const highestPlatformY = Math.min(...game.platforms.map(p => p.y));
       if (highestPlatformY > 50) {
          const x = Math.random() * (CANVAS_WIDTH - PLATFORM_WIDTH);
-         const isRed = Math.random() > 0.75;
+         const isRed = Math.random() > 0.8;
          game.platforms.push({ 
            x, 
-           y: highestPlatformY - (70 + Math.random() * 50), 
+           y: highestPlatformY - (70 + Math.random() * 40), 
            type: isRed ? 'red' : 'green' 
          });
       }
@@ -282,6 +282,8 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     game.platforms.forEach(p => {
       // Don't draw if hidden
       if (p.isHidden) {
+         // Optional: Draw a faint ghost outline to show where it was/will be?
+         // For now, let's keep it clean and fully hidden.
          return; 
       }
 
@@ -348,10 +350,11 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
       {/* Start Screen */}
       {gameState === 'START' && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-6 z-20">
-          <div className="text-4xl font-black mb-2 text-green-500 drop-shadow-lg text-center">To The Moon! 🚀</div>
+          <div className="text-4xl font-black mb-2 text-green-500 drop-shadow-lg">To The Moon! 🚀</div>
           <p className="mb-8 font-bold text-center text-neutral-400 text-sm">
-            速度升级！<br/>
-            左右点击极速移动，踩<span className="text-green-500">绿柱</span>暴涨。
+            <span className="text-red-500 font-black text-lg">🔥 极速模式 🔥</span><br/>
+            点击屏幕左右两侧控制方向。<br/>
+            踩<span className="text-green-500">绿柱子</span>上涨，<span className="text-red-500">红柱子</span>踩完会碎裂!
           </p>
           <Button onClick={initGame} className="animate-bounce shadow-xl scale-125">
              <Play className="mr-2" /> 开始拉盘
