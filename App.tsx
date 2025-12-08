@@ -244,7 +244,7 @@ const App: React.FC = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
               <div className="relative group">
-                <div className="absolute inset-0 bg-brand-yellow/50 rounded-full blur-md group-hover:blur-lg transition-all"></div>
+                <div className="absolute inset-0 rounded-full blur-md group-hover:blur-lg transition-all"></div>
                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" />
               </div>
               <span className="text-xl font-display font-black tracking-tight hidden sm:block">蜜蜂狗</span>
@@ -544,7 +544,7 @@ const App: React.FC = () => {
           </section>
 
           {/* Social Buzz */}
-          <section id="social" className="py-32 relative overflow-hidden">
+          <section id="social" className="py-32 relative overflow-hidden bg-neutral-100 dark:bg-[#080808]">
             <div className="absolute inset-0 bg-brand-yellow/5 -z-10"></div>
             <div className="container mx-auto px-4">
               <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16 gap-6">
