@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Sparkles } from 'lucide-react';
 import { chatWithBeeDog } from '../services/geminiService';
 import { ChatMessage } from '../types';
-import ReactMarkdown from 'react-markdown';
 
 export const BeeDogChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -98,39 +97,7 @@ export const BeeDogChat: React.FC = () => {
                         : 'bg-white dark:bg-[#1e1e1e] text-neutral-800 dark:text-neutral-200 rounded-2xl rounded-tl-none border border-neutral-100 dark:border-white/5'
                     }`}
                   >
-                    {msg.role === 'user' ? (
-                      msg.text
-                    ) : (
-                      /* Markdown Rendering for AI */
-                      <ReactMarkdown
-                        components={{
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
-                          a: ({node, ...props}) => <a className="text-blue-500 hover:underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
-                          strong: ({node, ...props}) => <strong className="font-bold text-black dark:text-white" {...props} />,
-                          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
-                          li: ({node, ...props}) => <li className="text-neutral-700 dark:text-neutral-300" {...props} />,
-                          code: ({node, inline, className, children, ...props}: any) => {
-                            return inline ? (
-                              <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px] text-pink-600 dark:text-pink-400 border border-black/5 dark:border-white/5" {...props}>{children}</code>
-                            ) : (
-                              <div className="my-2 rounded-lg overflow-hidden bg-[#1e1e1e] border border-white/10 shadow-lg">
-                                <div className="px-3 py-1.5 bg-white/5 border-b border-white/5 flex items-center gap-1.5">
-                                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
-                                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
-                                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
-                                </div>
-                                <pre className="p-3 overflow-x-auto text-xs font-mono text-neutral-300 custom-scrollbar">
-                                  <code className={className} {...props}>{children}</code>
-                                </pre>
-                              </div>
-                            )
-                          }
-                        }}
-                      >
-                        {msg.text}
-                      </ReactMarkdown>
-                    )}
+                    <div className="whitespace-pre-wrap">{msg.text}</div>
                   </div>
                 </div>
               </div>
