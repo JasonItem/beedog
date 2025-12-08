@@ -55,6 +55,8 @@ export const chatWithBeeDog = async (userMessage: string): Promise<string> => {
         temperature: 1.2, // Higher creativity for meme persona
         topK: 40,
         maxOutputTokens: 200,
+        // Disable thinking for this character chat to avoid empty response with maxOutputTokens set
+        thinkingConfig: { thinkingBudget: 0 }, 
       },
     });
 

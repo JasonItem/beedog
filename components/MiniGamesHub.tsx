@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
+import { BeeDefense } from './games/BeeDefense';
+import { BeeRacing } from './games/BeeRacing';
+import { BeeSnake } from './games/BeeSnake';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { Button } from './Button';
@@ -17,14 +20,14 @@ const GAMES = [
     id: 'flappy_bee',
     name: '笨鸟先飞',
     description: '控制 BeeDog 穿越障碍，飞得越远越好！',
-    image: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=300', // Placeholder
+    image: '', 
     color: 'bg-sky-400'
   },
   {
     id: 'bee_jump',
     name: '飞向月球',
     description: '踩着绿色蜡烛图冲向月球！千万别踩空！',
-    image: '', // Placeholder handled by CSS in render
+    image: '', 
     color: 'bg-green-500'
   },
   {
@@ -33,6 +36,27 @@ const GAMES = [
     description: '60秒限时挑战！抓取蜂蜜和钻石，避开垃圾资产。',
     image: '', 
     color: 'bg-amber-700'
+  },
+  {
+    id: 'bee_defense',
+    name: '保卫狗头',
+    description: '点击拍死来袭的蜜蜂！别让 BeeDog 的脸再肿了！',
+    image: '', 
+    color: 'bg-red-500'
+  },
+  {
+    id: 'bee_racing',
+    name: '极速狂飙',
+    description: '老司机带带我！左右闪避障碍，收集油桶冲刺！',
+    image: '',
+    color: 'bg-indigo-500'
+  },
+  {
+    id: 'bee_snake',
+    name: '贪吃蛇',
+    description: '经典回归！吃蜂蜜变长，小心别咬到尾巴！',
+    image: '',
+    color: 'bg-yellow-600'
   }
 ];
 
@@ -79,6 +103,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
         return <BeeJump userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_miner':
         return <HoneyMiner userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_defense':
+        return <BeeDefense userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_racing':
+        return <BeeRacing userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_snake':
+        return <BeeSnake userProfile={userProfile} onGameOver={handleGameOver} />;
       default:
         return null;
     }
@@ -195,6 +225,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                        <Rocket size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-translate-y-4 group-hover:translate-x-4" />
                     ) : game.id === 'honey_miner' ? (
                        <Pickaxe size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-rotate-12" />
+                    ) : game.id === 'bee_defense' ? (
+                       <Shield size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:rotate-12" />
+                    ) : game.id === 'bee_racing' ? (
+                       <CarFront size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:scale-110" />
+                    ) : game.id === 'bee_snake' ? (
+                       <Activity size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
                     ) : (
                        <Gamepad2 size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
                     )}
