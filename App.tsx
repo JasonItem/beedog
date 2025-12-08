@@ -25,7 +25,7 @@ import {
   Bot,
   Gamepad2,
   View, ChartNoAxesColumn, Send,
-  ChevronLeft, MoreHorizontal, Mic, Smile
+  ChevronLeft, MoreHorizontal, Mic, Smile, Plus
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { StatsChart } from './components/StatsChart';
@@ -417,73 +417,105 @@ const App: React.FC = () => {
 
                 <div className="grid md:grid-cols-2 gap-12 items-center md:flex-row-reverse">
                   
-                  {/* Chat Interface Mockup */}
-                  <div className="order-2 md:order-1 relative">
-                    {/* Chat Window 1 (Top Left - Friend) */}
-                    <div className="bg-[#f5f5f5] dark:bg-[#111] rounded-[1.5rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-2xl max-w-[280px] absolute -top-10 -left-4 z-0 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                        {/* Status Bar */}
-                        <div className="bg-neutral-100 dark:bg-[#222] p-3 border-b border-neutral-200 dark:border-[#333] flex justify-between items-center text-[10px] text-neutral-500">
-                           <div className="flex items-center gap-1"><ChevronLeft size={12}/> <span>死党 (Bestie)</span></div>
-                           <MoreHorizontal size={12}/>
+                  {/* Chat Interface Mockup - Optimized WeChat Style */}
+                  <div className="order-2 md:order-1 relative h-[500px] w-full flex items-center justify-center md:block">
+                    
+                    {/* Chat Window 1 (Background - Work Group) */}
+                    <div className="absolute top-0 left-4 md:left-0 w-[260px] md:w-[280px] bg-[#f5f5f5] dark:bg-[#111] rounded-[20px] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-xl transform -rotate-6 hover:rotate-0 transition-all duration-500 z-0 opacity-90">
+                        {/* Header */}
+                        <div className="bg-[#ededed] dark:bg-[#1f1f1f] px-3 py-2.5 flex justify-between items-center border-b border-neutral-200 dark:border-[#333]">
+                          <div className="flex items-center gap-1 text-neutral-800 dark:text-neutral-200">
+                            <ChevronLeft size={18} />
+                            <span className="font-medium text-xs">摸鱼小分队 (8)</span>
+                          </div>
+                          <MoreHorizontal size={18} className="text-neutral-600" />
                         </div>
-                        {/* Messages */}
-                        <div className="p-3 space-y-3 text-xs bg-[#ededed] dark:bg-[#000] h-48 flex flex-col">
-                           <div className="flex gap-2">
-                              <div className="w-8 h-8 rounded bg-blue-100 flex-shrink-0 flex items-center justify-center">‍♂</div>
-                              <div className="bg-white dark:bg-[#222] p-2 rounded-lg rounded-tl-none text-neutral-800 dark:text-neutral-200 shadow-sm max-w-[80%]">
-                                 卧槽，你脸咋肿成这样了？😂
-                              </div>
-                           </div>
-                           <div className="flex gap-2 flex-row-reverse">
-                              <div className="w-8 h-8 rounded bg-yellow-400 flex-shrink-0 flex items-center justify-center">🐶</div>
-                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-1 rounded-lg rounded-tr-none shadow-sm">
-                                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq1.png?alt=media&token=fe995021-c7d9-4306-95db-feb1b45a5f2c" className="w-16 h-16 rounded object-cover" />
-                              </div>
-                           </div>
-                           <div className="flex gap-2 flex-row-reverse">
-                              <div className="w-8 h-8 rounded opacity-0"></div>
-                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-2 rounded-lg rounded-tr-none text-neutral-800 dark:text-white shadow-sm">
-                                 别提了... 🐝
-                              </div>
-                           </div>
+                        
+                        {/* Body */}
+                        <div className="p-3 space-y-3 h-[280px] overflow-hidden bg-[#f2f2f2] dark:bg-[#000]">
+                            {/* Msg 1 */}
+                            <div className="flex gap-2">
+                                <div className="w-8 h-8 rounded-md bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">PM</div>
+                                <div>
+                                    <div className="text-[10px] text-neutral-400 mb-0.5">产品经理</div>
+                                    <div className="bg-white dark:bg-[#222] p-2 rounded-lg rounded-tl-none text-xs shadow-sm dark:text-white max-w-[160px]">
+                                        今晚那个方案改不完别走啊 @所有人
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Msg 2 */}
+                            <div className="flex gap-2 flex-row-reverse">
+                                <div className="w-8 h-8 rounded-md bg-yellow-400 flex items-center justify-center text-black text-xs font-bold flex-shrink-0 overflow-hidden">
+                                    <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-full h-full object-cover"/>
+                                </div>
+                                <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-1 rounded-lg rounded-tr-none shadow-sm">
+                                     <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq1.png?alt=media&token=fe995021-c7d9-4306-95db-feb1b45a5f2c" className="w-20 rounded mix-blend-multiply dark:mix-blend-normal" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Chat Window 2 (Bottom Right - Main Focus) */}
-                    <div className="bg-[#f5f5f5] dark:bg-[#111] rounded-[1.5rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-2xl max-w-[300px] relative z-10 transform rotate-2 hover:rotate-0 transition-transform duration-300 ml-auto mt-16">
-                        {/* Status Bar */}
-                        <div className="bg-neutral-100 dark:bg-[#222] p-3 border-b border-neutral-200 dark:border-[#333] flex justify-between items-center text-[10px] text-neutral-500">
-                           <div className="flex items-center gap-1"><ChevronLeft size={12}/> <span>宝贝 (Babe) ❤️</span></div>
-                           <MoreHorizontal size={12}/>
+                    {/* Chat Window 2 (Foreground - Girlfriend) */}
+                    <div className="absolute bottom-4 right-4 md:right-0 w-[280px] md:w-[300px] bg-[#f5f5f5] dark:bg-[#111] rounded-[24px] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-[0_20px_50px_rgba(0,0,0,0.2)] transform rotate-3 hover:rotate-0 transition-all duration-500 z-10">
+                        {/* Header */}
+                        <div className="bg-[#ededed] dark:bg-[#1f1f1f] px-4 py-3 flex justify-between items-center border-b border-neutral-200 dark:border-[#333]">
+                          <div className="flex items-center gap-1 text-neutral-800 dark:text-neutral-200">
+                            <ChevronLeft size={20} />
+                            <span className="font-medium text-sm">宝宝 ❤️</span>
+                          </div>
+                          <MoreHorizontal size={20} className="text-neutral-600" />
                         </div>
-                        {/* Messages */}
-                        <div className="p-3 space-y-3 text-xs bg-[#ededed] dark:bg-[#000] h-64 flex flex-col">
-                           <div className="text-center text-[10px] text-neutral-400 py-1">Yesterday 9:41 AM</div>
-                           <div className="flex gap-2 flex-row-reverse">
-                              <div className="w-8 h-8 rounded bg-yellow-400 flex-shrink-0 flex items-center justify-center">🐶</div>
-                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-2 rounded-lg rounded-tr-none text-neutral-800 dark:text-white shadow-sm">
-                                 我错了嘛... 原谅我好不好 🥺
-                              </div>
-                           </div>
-                           <div className="flex gap-2 flex-row-reverse">
-                              <div className="w-8 h-8 rounded bg-yellow-400 flex-shrink-0 flex items-center justify-center">🐶</div>
-                              <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-1 rounded-lg rounded-tr-none shadow-sm">
-                                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq2.png?alt=media&token=65fe4349-b3e4-451e-a4ca-ca61700de56d" className="w-20 h-20 rounded object-cover" />
-                              </div>
-                           </div>
-                           <div className="flex gap-2">
-                              <div className="w-8 h-8 rounded bg-pink-100 flex-shrink-0 flex items-center justify-center">👩</div>
-                              <div className="bg-white dark:bg-[#222] p-2 rounded-lg rounded-tl-none text-neutral-800 dark:text-neutral-200 shadow-sm max-w-[80%]">
-                                 看在你这么可怜的份上... 勉强原谅你 😒
-                              </div>
-                           </div>
+
+                        {/* Body */}
+                        <div className="p-4 space-y-4 h-[340px] bg-[#f2f2f2] dark:bg-[#000] flex flex-col">
+                            <div className="text-center text-[10px] text-neutral-400 py-1">下午 2:30</div>
+                            
+                            {/* Her */}
+                            <div className="flex gap-2">
+                                <div className="w-9 h-9 rounded-md bg-pink-400 flex items-center justify-center text-white text-lg flex-shrink-0">👩🏻</div>
+                                <div className="bg-white dark:bg-[#222] p-2.5 rounded-xl rounded-tl-none text-sm shadow-sm dark:text-white max-w-[190px] leading-relaxed relative">
+                                    <div className="absolute top-2.5 -left-1.5 w-3 h-3 bg-white dark:bg-[#222] transform rotate-45"></div>
+                                    <span className="relative z-10">你是不是又忘了今天是纪念日？😤</span>
+                                </div>
+                            </div>
+
+                            {/* Me (Sticker) */}
+                            <div className="flex gap-2 flex-row-reverse">
+                                <div className="w-9 h-9 rounded-md bg-yellow-400 flex items-center justify-center text-black text-xs font-bold flex-shrink-0 overflow-hidden border border-black/5">
+                                    <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-full h-full object-cover"/>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <div className="bg-[#95ec69] dark:bg-[#2b7c46] p-2 rounded-xl rounded-tr-none shadow-sm relative">
+                                         <div className="absolute top-3 -right-1 w-3 h-3 bg-[#95ec69] dark:bg-[#2b7c46] transform rotate-45"></div>
+                                         <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbq2.png?alt=media&token=65fe4349-b3e4-451e-a4ca-ca61700de56d" className="w-24 rounded mix-blend-multiply dark:mix-blend-normal relative z-10" />
+                                    </div>
+                                    <span className="text-[10px] text-neutral-400 mt-1 mr-1">已读</span>
+                                </div>
+                            </div>
+
+                            {/* Her Reply */}
+                            <div className="flex gap-2">
+                                <div className="w-9 h-9 rounded-md bg-pink-400 flex items-center justify-center text-white text-lg flex-shrink-0">👩🏻</div>
+                                <div className="bg-white dark:bg-[#222] p-2.5 rounded-xl rounded-tl-none text-sm shadow-sm dark:text-white max-w-[190px] leading-relaxed relative">
+                                    <div className="absolute top-2.5 -left-1.5 w-3 h-3 bg-white dark:bg-[#222] transform rotate-45"></div>
+                                    <span className="relative z-10">服了你了... 这狗也太丑萌了吧 😂 下不为例！</span>
+                                </div>
+                            </div>
                         </div>
-                        {/* Input Area */}
-                        <div className="bg-[#f5f5f5] dark:bg-[#161616] p-2 border-t border-neutral-200 dark:border-[#333] flex items-center gap-2">
-                           <Mic size={16} className="text-neutral-400"/>
-                           <div className="flex-1 bg-white dark:bg-[#222] h-8 rounded px-2 flex items-center text-xs text-neutral-400">爱你...</div>
-                           <Smile size={16} className="text-neutral-400"/>
-                           <div className="bg-green-500 text-white rounded-full p-1"><Send size={12}/></div>
+
+                        {/* Input Area (Mock) */}
+                        <div className="bg-[#f7f7f7] dark:bg-[#1f1f1f] p-3 border-t border-neutral-200 dark:border-[#333] flex items-center gap-3">
+                            <div className="p-1 rounded-full border border-neutral-400 text-neutral-500 hover:bg-neutral-200 cursor-pointer">
+                                <Mic size={16} />
+                            </div>
+                            <div className="flex-1 bg-white dark:bg-[#2a2a2a] h-8 rounded-md border border-neutral-200 dark:border-[#333] flex items-center px-3 text-xs text-neutral-400 cursor-text">
+                                马上回家跪搓衣板...
+                            </div>
+                            <Smile size={22} className="text-neutral-500 hover:text-neutral-700 cursor-pointer" />
+                            <div className="p-1 rounded-full border border-neutral-400 text-neutral-500 hover:bg-neutral-200 cursor-pointer">
+                                <Plus size={16} />
+                            </div>
                         </div>
                     </div>
                   </div>

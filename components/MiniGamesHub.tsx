@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3 } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -8,6 +8,11 @@ import { BeeDefense } from './games/BeeDefense';
 import { BeeRacing } from './games/BeeRacing';
 import { BeeSnake } from './games/BeeSnake';
 import { BeeVolley } from './games/BeeVolley';
+import { BeeRun } from './games/BeeRun';
+import { HoneyStack } from './games/HoneyStack';
+import { FudBuster } from './games/FudBuster';
+import { BeeEvolution } from './games/BeeEvolution';
+import { BeeTileMatch } from './games/BeeTileMatch';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { Button } from './Button';
@@ -18,11 +23,46 @@ interface MiniGamesHubProps {
 
 const GAMES = [
   {
+    id: 'bee_match',
+    name: '蜜蜂消消乐',
+    description: '羊了个羊同款玩法！在堆叠的牌中找出三张相同的消除，挑战高难度！',
+    image: '', 
+    color: 'bg-emerald-500'
+  },
+  {
+    id: 'bee_evolution',
+    name: 'BeeDog 进化论',
+    description: '合成大西瓜玩法！从蜜蜂卵开始，一步步合成出巨大的 BeeDog！',
+    image: '', 
+    color: 'bg-amber-400'
+  },
+  {
+    id: 'fud_buster',
+    name: 'FUD 粉碎者',
+    description: '切碎空头和 FUD 新闻，保卫牛市！千万别切绿色蜡烛！',
+    image: '', 
+    color: 'bg-red-600'
+  },
+  {
     id: 'flappy_bee',
     name: '笨鸟先飞',
     description: '控制 BeeDog 穿越障碍，飞得越远越好！',
     image: '', 
     color: 'bg-sky-400'
+  },
+  {
+    id: 'honey_stack',
+    name: '蜂蜜叠叠乐',
+    description: '解压神作！看准时机堆叠蛋糕，挑战最高塔！',
+    image: '',
+    color: 'bg-amber-500'
+  },
+  {
+    id: 'bee_run',
+    name: '重力暴走',
+    description: '点击反转重力！在天花板和地板之间极速奔跑，躲避尖刺！',
+    image: '',
+    color: 'bg-blue-600'
   },
   {
     id: 'bee_jump',
@@ -105,8 +145,18 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (activeGameId) {
+      case 'bee_match':
+        return <BeeTileMatch userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_evolution':
+        return <BeeEvolution userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'fud_buster':
+        return <FudBuster userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'flappy_bee':
         return <FlappyBee userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_stack':
+        return <HoneyStack userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_run':
+        return <BeeRun userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_jump':
         return <BeeJump userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_miner':
@@ -231,7 +281,14 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
               >
                  <div className={`h-40 ${game.color} flex items-center justify-center relative overflow-hidden`}>
                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                    {game.id === 'bee_jump' ? (
+                    {/* Unique Icons per Game */}
+                    {game.id === 'bee_match' ? (
+                       <Grid3X3 size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
+                    ) : game.id === 'bee_evolution' ? (
+                       <CircleDashed size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:rotate-180" />
+                    ) : game.id === 'fud_buster' ? (
+                       <Scissors size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:rotate-12" />
+                    ) : game.id === 'bee_jump' ? (
                        <Rocket size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-translate-y-4 group-hover:translate-x-4" />
                     ) : game.id === 'honey_miner' ? (
                        <Pickaxe size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-rotate-12" />
@@ -243,6 +300,10 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                        <Activity size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
                     ) : game.id === 'bee_volley' ? (
                        <Volleyball size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-translate-y-4" />
+                    ) : game.id === 'bee_run' ? (
+                       <ChevronsUp size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
+                    ) : game.id === 'honey_stack' ? (
+                       <Layers size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500 group-hover:-rotate-12" />
                     ) : (
                        <Gamepad2 size={64} className="text-white opacity-80 group-hover:scale-110 transition-transform duration-500" />
                     )}
@@ -263,7 +324,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
            <div className="bg-neutral-100 dark:bg-[#111] rounded-3xl p-8 border border-neutral-200 dark:border-[#333] opacity-60 flex flex-col items-center justify-center text-center min-h-[300px]">
               <Star size={48} className="text-neutral-400 mb-4" />
               <h3 className="text-xl font-bold text-neutral-400 mb-2">更多游戏制作中...</h3>
-              <p className="text-neutral-500 text-sm">敬请期待 BeeDog 跑酷、消除等新游戏</p>
+              <p className="text-neutral-500 text-sm">敬请期待 BeeDog 更多新游戏</p>
            </div>
         </div>
 
