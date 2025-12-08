@@ -322,9 +322,13 @@ const App: React.FC = () => {
         <>
           {/* Hero Section */}
           <section id={SectionId.HERO} className="relative min-h-screen flex items-center justify-center pt-24 overflow-hidden">
-            {/* Background Gradients */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-brand-yellow/20 rounded-full blur-[120px] -z-10 animate-blob mix-blend-screen"></div>
-            <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-brand-orange/20 rounded-full blur-[100px] -z-10 animate-blob animation-delay-2000 mix-blend-screen"></div>
+            {/* Improved Aurora Mesh Gradient Background */}
+            <div className="absolute inset-0 -z-10 overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-yellow/30 rounded-full blur-[80px] animate-blob mix-blend-multiply dark:mix-blend-screen opacity-70"></div>
+                <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-brand-orange/30 rounded-full blur-[80px] animate-blob animation-delay-2000 mix-blend-multiply dark:mix-blend-screen opacity-70"></div>
+                <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply dark:mix-blend-screen opacity-60"></div>
+                <div className="absolute top-[40%] left-[40%] w-[300px] h-[300px] bg-pink-500/20 rounded-full blur-[60px] animate-pulse-glow mix-blend-multiply dark:mix-blend-screen opacity-50"></div>
+            </div>
             
             <div className="container mx-auto px-4 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
               
