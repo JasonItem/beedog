@@ -3,13 +3,14 @@ import React, { useState } from 'react';
 import { PFPGenerator } from './PFPGenerator';
 import { MemeGenerator } from './MemeGenerator';
 import { GroupSelfieGenerator } from './GroupSelfieGenerator';
-import { ArrowLeft, Sparkles, Image as ImageIcon, SmilePlus, Users, ArrowRight } from 'lucide-react';
+import { AIDivination } from './AIDivination';
+import { ArrowLeft, Sparkles, Image as ImageIcon, SmilePlus, Users, ArrowRight, Compass } from 'lucide-react';
 
 interface AIToolboxProps {
   onLoginRequest: () => void;
 }
 
-type ToolId = 'pfp' | 'meme' | 'selfie' | null;
+type ToolId = 'pfp' | 'meme' | 'selfie' | 'fortune' | null;
 
 export const AIToolbox: React.FC<AIToolboxProps> = ({ onLoginRequest }) => {
   const [activeTool, setActiveTool] = useState<ToolId>(null);
@@ -59,6 +60,17 @@ export const AIToolbox: React.FC<AIToolboxProps> = ({ onLoginRequest }) => {
     );
   }
 
+  if (activeTool === 'fortune') {
+    return (
+      <div className="min-h-screen pt-24 pb-12 bg-white dark:bg-[#050505]">
+        {renderBackHeader()}
+        <div className="container mx-auto px-4 animate-in fade-in slide-in-from-bottom-4">
+           <AIDivination onLoginRequest={onLoginRequest} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pt-32 pb-20 bg-white dark:bg-[#050505]">
       <div className="container mx-auto px-4">
@@ -78,7 +90,7 @@ export const AIToolbox: React.FC<AIToolboxProps> = ({ onLoginRequest }) => {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           
-          {/* Tool 1 */}
+          {/* Tool 1: PFP */}
           <div 
             onClick={() => setActiveTool('pfp')}
             className="group relative bg-white dark:bg-[#161616] rounded-[2.5rem] p-8 border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden"
@@ -97,7 +109,7 @@ export const AIToolbox: React.FC<AIToolboxProps> = ({ onLoginRequest }) => {
             </div>
           </div>
 
-          {/* Tool 2 */}
+          {/* Tool 2: Meme */}
           <div 
             onClick={() => setActiveTool('meme')}
             className="group relative bg-white dark:bg-[#161616] rounded-[2.5rem] p-8 border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden"
@@ -119,7 +131,7 @@ export const AIToolbox: React.FC<AIToolboxProps> = ({ onLoginRequest }) => {
             </div>
           </div>
 
-          {/* Tool 3 */}
+          {/* Tool 3: Selfie */}
           <div 
             onClick={() => setActiveTool('selfie')}
             className="group relative bg-white dark:bg-[#161616] rounded-[2.5rem] p-8 border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden"
@@ -137,6 +149,28 @@ export const AIToolbox: React.FC<AIToolboxProps> = ({ onLoginRequest }) => {
               上传最多5个角色，AI 自动生成高角度俯拍自拍合影。
             </p>
             <div className="flex items-center text-pink-500 font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform">
+              立即使用 <ArrowRight size={16} className="ml-2" />
+            </div>
+          </div>
+
+          {/* Tool 4: AI Divination */}
+          <div 
+            onClick={() => setActiveTool('fortune')}
+            className="group relative bg-white dark:bg-[#161616] rounded-[2.5rem] p-8 border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[40px] group-hover:bg-indigo-500/20 transition-all"></div>
+            
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl flex items-center justify-center text-white mb-8 shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform">
+              <Compass size={32} />
+            </div>
+            <div className="flex justify-between items-start mb-3">
+               <h3 className="text-2xl font-bold dark:text-white">AI 算一卦</h3>
+               <span className="bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">DAILY</span>
+            </div>
+            <p className="text-neutral-500 mb-8 min-h-[48px]">
+              输入生日，蜜蜂狗大师为你预测今日运势与财富密码。
+            </p>
+            <div className="flex items-center text-indigo-500 font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform">
               立即使用 <ArrowRight size={16} className="ml-2" />
             </div>
           </div>

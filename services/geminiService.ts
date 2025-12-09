@@ -422,3 +422,197 @@ export const generateGroupSelfie = async (
     throw error;
   }
 };
+
+export interface DivinationResult {
+  fortuneLevel: string; // 大吉, 中吉, 小吉, 平, 凶
+  luckyColor: string;
+  luckyNumber: number;
+  luckyDirection: string;
+  scores: {
+    wealth: number; // 0-100
+    health: number;
+    love: number;
+  };
+  analysis: string; // The detailed text
+}
+
+export interface BirthDetails {
+  date: string; // YYYY-MM-DD
+  type: 'solar' | 'lunar';
+  time?: string;
+  location?: string;
+}
+
+/**
+ * AI 算一卦 (Professional/Traditional Style)
+ * Generates a daily fortune based on birthday/name using BaZi and Astrology logic.
+ */
+export const getAIDivination = async (
+  birthDetails: BirthDetails,
+  name: string = "User",
+  customApiKey?: string
+): Promise<DivinationResult> => {
+  try {
+    const currentApiKey = customApiKey || getApiKey();
+    if (!currentApiKey) throw new Error("Missing API Key");
+
+    const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
+
+    const prompt = `
+      Role: You are a highly respected Master of Traditional Chinese Metaphysics (I Ching, BaZi, Feng Shui).
+      Tone: Professional, authoritative, mystical, deep, and grounded in traditional theory. Do NOT be funny. Do NOT use internet slang. Speak like an old wise sage.
+      
+      User Info:
+      - Name: ${name}
+      - Birth Date: ${birthDetails.date}
+      - Calendar Type: ${birthDetails.type === 'solar' ? 'Gregorian (Solar/阳历)' : 'Chinese Lunar (阴历)'}
+      - Birth Time: ${birthDetails.time || "Unknown (不详)"}
+      - Birth Location: ${birthDetails.location || "Unknown (不详)"}
+      - Current Date: ${new Date().toLocaleDateString()}
+      
+      Task: 
+      1. BaZi Calculation: Accurately determine the Four Pillars (Year, Month, Day, Hour) based on the birth data provided. If the user provided a Lunar date, convert it mentally to determine the Pillars. Adjust for solar time if location is provided.
+      2. Daily Fortune: Analyze the interaction between the user's BaZi (Day Master) and Today's Stem/Branch (Liunian/Liuyue/Liuri).
+      3. Determine the fortune based on this interaction (e.g., Clash, Combine, Support, Ten Gods).
+      
+      Requirements:
+      - "fortuneLevel": Must be one of: 上上签 (Excellent), 大吉 (Great), 中吉 (Good), 小吉 (Fair), 平 (Average), 凶 (Bad).
+      - "luckyColor": Provide a specific color name in Chinese based on the element needed to balance the chart (e.g., if Fire is weak, suggest Red/Purple).
+      - "luckyDirection": Provide a direction (e.g., 正南, 西北) based on the Flying Stars or favorable element direction.
+      - "analysis": A paragraph (~150 words). Start by briefly mentioning the user's BaZi structure or Day Master (e.g., "You are a Weak Water Day Master born in Summer..."). Explain *WHY* today is good/bad using metaphysical logic. Give specific advice.
+      
+      Language: Simplified Chinese.
+      
+      Output JSON Schema:
+      {
+        "fortuneLevel": "String",
+        "luckyColor": "String",
+        "luckyNumber": Integer (0-99),
+        "luckyDirection": "String",
+        "scores": {
+          "wealth": Integer (0-100),
+          "health": Integer (0-100),
+          "love": Integer (0-100)
+        },
+        "analysis": "String"
+      }
+    `;
+
+    const response = await aiInstance.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const jsonText = response.text || "{}";
+    const result = JSON.parse(jsonText);
+
+    return {
+      fortuneLevel: result.fortuneLevel || "平",
+      luckyColor: result.luckyColor || "金色",
+      luckyNumber: result.luckyNumber || 8,
+      luckyDirection: result.luckyDirection || "北方",
+      scores: {
+        wealth: result.scores?.wealth || 50,
+        health: result.scores?.health || 50,
+        love: result.scores?.love || 50
+      },
+      analysis: result.analysis || "天机混沌，请稍后再试。"
+    };
+
+  } catch (error) {
+    console.error("Divination Error:", error);
+    throw error;
+  }
+};
+
+export interface FortuneResult {
+  cardName: string;
+  meaning: string;
+  luckyNumber: number;
+  imageUrl: string;
+}
+
+/**
+ * Generates a Tarot-style fortune card with image.
+ */
+export const getBeeDogFortune = async (
+  question: string,
+  customApiKey?: string
+): Promise<FortuneResult> => {
+  try {
+    const currentApiKey = customApiKey || getApiKey();
+    if (!currentApiKey) throw new Error("Missing API Key");
+
+    const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
+
+    // 1. Generate Fortune Text
+    const textPrompt = `
+      You are a mystical BeeDog Fortune Teller.
+      The user asks: "${question}".
+      
+      Create a unique, funny, crypto-themed Tarot Card for them.
+      Return JSON:
+      {
+        "cardName": "String (e.g. The HODLer, The Rug Pull, The Moon)",
+        "meaning": "String (Short interpretation ~2 sentences. Funny/Meme style.)",
+        "luckyNumber": Integer (1-100),
+        "visualDescription": "String (A detailed prompt to generate the tarot card image. Focus on visual elements, BeeDog character, and style.)"
+      }
+    `;
+
+    const textResponse = await aiInstance.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: textPrompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const textJson = JSON.parse(textResponse.text || "{}");
+    
+    // 2. Generate Card Image
+    const imagePrompt = `Tarot card illustration. ${textJson.visualDescription}. High quality, mystical style, detailed, colorful.`;
+    
+    const imageResponse = await aiInstance.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+            parts: [{ text: imagePrompt }]
+        },
+        config: {
+            imageConfig: {
+                aspectRatio: "3:4"
+            }
+        }
+    });
+
+    let imageUrl = "";
+    if (imageResponse.candidates && imageResponse.candidates.length > 0) {
+        const candidate = imageResponse.candidates[0];
+        if (candidate.content && candidate.content.parts) {
+            for (const part of candidate.content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+                }
+            }
+        }
+    }
+
+    if (!imageUrl) {
+        throw new Error("Failed to generate fortune image.");
+    }
+
+    return {
+        cardName: textJson.cardName || "The Mystery",
+        meaning: textJson.meaning || "The future is unclear.",
+        luckyNumber: textJson.luckyNumber || 7,
+        imageUrl: imageUrl
+    };
+
+  } catch (error) {
+    console.error("Fortune Generation Error:", error);
+    throw error;
+  }
+};

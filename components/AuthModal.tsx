@@ -30,16 +30,18 @@ type LoadingMethod = 'twitter' | 'email' | 'general' | 'upload' | 'resend' | nul
 
 // Helper to translate Firebase errors
 const getFirebaseErrorMessage = (error: any): string => {
-  // ... (keep existing helper logic)
   if (!error || !error.code) return '发生未知错误，请重试';
   switch (error.code) {
     case 'auth/popup-closed-by-user': return '登录已取消';
     case 'auth/user-not-found': return '账号或密码错误';
     case 'auth/wrong-password': return '账号或密码错误';
+    case 'auth/invalid-credential': return '账号或密码错误'; // New generic error for wrong auth
+    case 'auth/invalid-login-credentials': return '账号或密码错误'; // Another variant
     case 'auth/email-already-in-use': return '该邮箱已被注册。';
     case 'auth/invalid-email': return '邮箱格式不正确';
     case 'auth/weak-password': return '密码太弱，请至少使用6位字符';
     case 'auth/too-many-requests': return '尝试次数过多，请稍后再试';
+    case 'auth/network-request-failed': return '网络连接失败，请检查网络';
     default: return `操作失败 (${error.code})`;
   }
 };
@@ -389,7 +391,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
                     </div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/png,image/jpeg,image/gif" onChange={handleFileChange} />
                     <h3 className="text-2xl font-bold dark:text-white">{userProfile.nickname}</h3>
-                    <p className="text-neutral-500 text-xs mt-1 bg-neutral-100 dark:bg-[#222] px-2 py-0.5 rounded text-center">ID: {userProfile.uid.slice(0, 6)}...</p>
+                    <p className="text-neutral-500 text-xs mt-1 bg-neutral-100 dark:bg-[#222] px-2 py-0.5 rounded text-center">ID: {userProfile.uid}</p>
                   </div>
 
                   {/* Stats & Missions Link */}

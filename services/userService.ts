@@ -1,8 +1,9 @@
 
 import { db, storage } from "../firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User } from "firebase/auth";
+import { DivinationResult } from "./geminiService";
 
 export interface UserProfile {
   uid: string;
@@ -12,6 +13,11 @@ export interface UserProfile {
   credits: number;
   lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
   lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
+}
+
+export interface DivinationRecord extends DivinationResult {
+  date: string; // YYYY-MM-DD
+  timestamp: number;
 }
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
@@ -191,4 +197,45 @@ export const completeDailyGameMission = async (uid: string): Promise<{ success: 
   });
 
   return { success: true, message: "每日首玩任务完成！", earned: 10 };
+};
+
+/**
+ * Saves a divination result to history.
+ * Subcollection: users/{uid}/divination_history/{date}
+ */
+export const saveDivinationResult = async (uid: string, result: DivinationResult) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+
+  const docRef = doc(db, "users", uid, "divination_history", dateStr);
+  
+  const record: DivinationRecord = {
+    ...result,
+    date: dateStr,
+    timestamp: Date.now()
+  };
+
+  await setDoc(docRef, record);
+  return record;
+};
+
+/**
+ * Fetches the user's divination history.
+ */
+export const getDivinationHistory = async (uid: string): Promise<DivinationRecord[]> => {
+  const coll = collection(db, "users", uid, "divination_history");
+  // Order by date descending (newest first)
+  const q = query(coll, orderBy("date", "desc"));
+  
+  const snapshot = await getDocs(q);
+  const history: DivinationRecord[] = [];
+  
+  snapshot.forEach((doc) => {
+    history.push(doc.data() as DivinationRecord);
+  });
+  
+  return history;
 };
