@@ -798,6 +798,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
       
       gameRef.current.targetX = x;
   };
+  
 
   return (
     <div className="flex flex-col items-center gap-4">
