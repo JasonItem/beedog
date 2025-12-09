@@ -377,7 +377,7 @@ const App: React.FC = () => {
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up [animation-delay:600ms]">
-                  <Button onClick={() => window.open(`https://gmgn.ai/bsc/token/0x2eb08a8fe215f72e01e089c1cd8c4c4937414444`, "_blank")} size="lg" className="px-8 shadow-yellow-500/40">
+                  <Button onClick={() => window.open(`https://gmgn.ai/bsc/token/0x2eb08a8fe215f72e01e089c1cd8c4c4937414444`, "_blank")} size="lg" className="px-8">
                     <Zap className="mr-2 fill-current" /> 立即购买
                   </Button>
                   <Button onClick={() => window.open(`https://t.me/mifenggoutg`, "_blank")} variant="outline" size="lg" className="px-8">

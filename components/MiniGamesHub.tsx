@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3 } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -13,6 +13,7 @@ import { HoneyStack } from './games/HoneyStack';
 import { FudBuster } from './games/FudBuster';
 import { BeeEvolution } from './games/BeeEvolution';
 import { BeeTileMatch } from './games/BeeTileMatch';
+import { BeeSwarm } from './games/BeeSwarm';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { completeDailyGameMission } from '../services/userService';
@@ -23,6 +24,13 @@ interface MiniGamesHubProps {
 }
 
 const GAMES = [
+  {
+    id: 'bee_swarm',
+    name: '蜜蜂大军',
+    description: '爽快射击跑酷！打破箱子集结蜜蜂僚机，组建无敌舰队！',
+    color: 'from-orange-400 to-red-500',
+    icon: Users
+  },
   {
     id: 'bee_match',
     name: '蜜蜂消消乐',
@@ -157,6 +165,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (activeGameId) {
+      case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_match': return <BeeTileMatch userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_evolution': return <BeeEvolution userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'fud_buster': return <FudBuster userProfile={userProfile} onGameOver={handleGameOver} />;
