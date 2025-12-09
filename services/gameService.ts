@@ -1,5 +1,5 @@
 import { db } from "../firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, getDocs, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, getDocs, Timestamp, getCountFromServer } from "firebase/firestore";
 import { UserProfile } from "./userService";
 
 export interface GameScore {
@@ -81,4 +81,18 @@ export const getLeaderboard = async (gameId: string, limitCount: number = 20): P
   });
 
   return scores;
+};
+
+/**
+ * Gets the total number of players (documents) in a game's leaderboard.
+ */
+export const getPlayerCount = async (gameId: string): Promise<number> => {
+  try {
+    const coll = collection(db, "games", gameId, "leaderboard");
+    const snapshot = await getCountFromServer(coll);
+    return snapshot.data().count;
+  } catch (error) {
+    console.error(`Failed to get count for ${gameId}`, error);
+    return 0;
+  }
 };

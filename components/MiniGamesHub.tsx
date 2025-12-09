@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2 } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -17,7 +16,7 @@ import { BeeSwarm } from './games/BeeSwarm';
 import { HoneyClimber } from './games/HoneyClimber';
 import { HoneySwing } from './games/HoneySwing';
 import { useAuth } from '../context/AuthContext';
-import { getLeaderboard, GameScore } from '../services/gameService';
+import { getLeaderboard, getPlayerCount, GameScore } from '../services/gameService';
 import { completeDailyGameMission } from '../services/userService';
 import { Button } from './Button';
 
@@ -139,6 +138,22 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const [leaderboard, setLeaderboard] = useState<GameScore[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [missionMessage, setMissionMessage] = useState<string | null>(null);
+  const [playerCounts, setPlayerCounts] = useState<Record<string, number>>({});
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fetch player counts on mount
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const counts: Record<string, number> = {};
+      // Fetch all counts in parallel
+      await Promise.all(GAMES.map(async (game) => {
+        const count = await getPlayerCount(game.id);
+        counts[game.id] = count;
+      }));
+      setPlayerCounts(counts);
+    };
+    fetchCounts();
+  }, []);
 
   const fetchScores = async (gameId: string) => {
     setLoadingLeaderboard(true);
@@ -156,12 +171,16 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
     if (activeGameId) {
       fetchScores(activeGameId);
       setMissionMessage(null);
+      setIsFullscreen(false); // Reset fullscreen when changing games
     }
   }, [activeGameId]);
 
   const handleGameOver = async () => {
     if (activeGameId) {
       fetchScores(activeGameId);
+      // Refresh count for this game
+      const newCount = await getPlayerCount(activeGameId);
+      setPlayerCounts(prev => ({...prev, [activeGameId]: newCount}));
       
       // Try to complete mission
       if (user) {
@@ -203,61 +222,100 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   if (activeGameId) {
     const gameInfo = GAMES.find(g => g.id === activeGameId);
     return (
-      <div className="min-h-screen pt-24 pb-12 bg-neutral-50 dark:bg-[#050505] relative">
+      <div className={`min-h-screen pt-24 pb-12 bg-neutral-50 dark:bg-[#050505] relative ${isFullscreen ? 'z-[100]' : ''}`}>
         {missionMessage && (
-            <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-top-4">
+            <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-top-4 pointer-events-none">
                 <div className="bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl border-2 border-white flex items-center gap-2">
                     <Star className="fill-current" size={20}/> {missionMessage}
                 </div>
             </div>
         )}
 
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="mb-6 flex items-center justify-between">
-            <button 
-              onClick={() => setActiveGameId(null)}
-              className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300 hover:text-brand-yellow transition-colors font-bold group px-4 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
-            >
-              <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-              返回大厅
-            </button>
-            <h2 className="text-xl font-black dark:text-white">{gameInfo?.name}</h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 items-start">
-             <div>{renderGame()}</div>
-             <div className="bg-white dark:bg-[#161616] rounded-[2rem] p-6 shadow-xl border border-neutral-200 dark:border-[#333]">
-                <div className="flex items-center gap-2 mb-6 border-b border-neutral-100 dark:border-[#333] pb-4">
-                   <Trophy className="text-yellow-500 fill-yellow-500" />
-                   <h3 className="text-lg font-bold dark:text-white">排行榜 (Top 20)</h3>
-                </div>
+        {/* Fullscreen Overlay Container Logic */}
+        <div 
+          className={isFullscreen 
+            ? "fixed inset-0 z-[100] bg-[#050505] flex flex-col items-center justify-center p-4 overflow-y-auto" 
+            : "container mx-auto px-4 max-w-4xl"
+          }
+        >
+          {/* Header Controls */}
+          {isFullscreen ? (
+             <button 
+                onClick={() => setIsFullscreen(false)} 
+                className="fixed top-6 right-6 z-[110] p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg group"
+                title="退出全屏"
+             >
+                <Minimize2 size={24} className="group-hover:scale-90 transition-transform" />
+             </button>
+          ) : (
+             <div className="mb-6 flex items-center justify-between">
+                <button 
+                  onClick={() => setActiveGameId(null)}
+                  className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300 hover:text-brand-yellow transition-colors font-bold group px-4 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                  返回大厅
+                </button>
                 
-                {loadingLeaderboard ? (
-                   <div className="text-center py-10 text-neutral-500">加载中...</div>
-                ) : leaderboard.length === 0 ? (
-                   <div className="text-center py-10 text-neutral-500">暂无记录，快来争夺第一名！</div>
-                ) : (
-                   <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                      {leaderboard.map((score, index) => (
-                         <div key={`${score.userId}-${index}`} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${userProfile?.uid === score.userId ? 'bg-brand-yellow/10 border-brand-yellow/30' : 'bg-neutral-50 border-neutral-100 dark:bg-[#222] dark:border-[#333]'}`}>
-                            <div className="flex items-center gap-3">
-                               <div className={`w-8 h-8 flex items-center justify-center rounded-lg font-black text-sm ${index < 3 ? 'text-black' : 'text-neutral-500'} ${index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-neutral-300' : index === 2 ? 'bg-orange-300' : 'bg-transparent'}`}>
-                                  {index + 1}
-                               </div>
-                               <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] border border-neutral-200 dark:border-[#444] flex items-center justify-center overflow-hidden shrink-0">
-                                  {score.avatarUrl ? <img src={score.avatarUrl} alt={score.nickname} className="w-full h-full object-cover" /> : <span className="text-sm">❓</span>}
-                               </div>
-                               <div className="flex flex-col">
-                                  <span className="font-bold text-sm dark:text-white max-w-[100px] truncate">{score.nickname}</span>
-                                  {userProfile?.uid === score.userId && <span className="text-[10px] text-brand-orange font-bold">我</span>}
-                               </div>
-                            </div>
-                            <div className="font-mono font-black text-lg text-brand-yellow">{score.score}</div>
-                         </div>
-                      ))}
-                   </div>
-                )}
+                <div className="flex items-center gap-3">
+                   <h2 className="text-xl font-black dark:text-white">{gameInfo?.name}</h2>
+                   <div className="h-6 w-px bg-neutral-300 dark:bg-neutral-700"></div>
+                   <button 
+                      onClick={() => setIsFullscreen(true)}
+                      className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors group"
+                      title="全屏游玩"
+                   >
+                      <Maximize size={20} className="text-neutral-500 dark:text-neutral-400 group-hover:text-brand-yellow transition-colors" />
+                   </button>
+                </div>
              </div>
+          )}
+
+          {/* Content Grid */}
+          <div className={isFullscreen 
+              ? "w-full flex justify-center items-center min-h-full" 
+              : "grid md:grid-cols-2 gap-8 items-start"
+          }>
+             {/* Game Rendering Area */}
+             <div className={isFullscreen ? "w-full max-w-md flex justify-center" : ""}>
+                {renderGame()}
+             </div>
+             
+             {/* Leaderboard (Hidden in Fullscreen) */}
+             {!isFullscreen && (
+               <div className="bg-white dark:bg-[#161616] rounded-[2rem] p-6 shadow-xl border border-neutral-200 dark:border-[#333]">
+                  <div className="flex items-center gap-2 mb-6 border-b border-neutral-100 dark:border-[#333] pb-4">
+                     <Trophy className="text-yellow-500 fill-yellow-500" />
+                     <h3 className="text-lg font-bold dark:text-white">排行榜 (Top 20)</h3>
+                  </div>
+                  
+                  {loadingLeaderboard ? (
+                     <div className="text-center py-10 text-neutral-500">加载中...</div>
+                  ) : leaderboard.length === 0 ? (
+                     <div className="text-center py-10 text-neutral-500">暂无记录，快来争夺第一名！</div>
+                  ) : (
+                     <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                        {leaderboard.map((score, index) => (
+                           <div key={`${score.userId}-${index}`} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${userProfile?.uid === score.userId ? 'bg-brand-yellow/10 border-brand-yellow/30' : 'bg-neutral-50 border-neutral-100 dark:bg-[#222] dark:border-[#333]'}`}>
+                              <div className="flex items-center gap-3">
+                                 <div className={`w-8 h-8 flex items-center justify-center rounded-lg font-black text-sm ${index < 3 ? 'text-black' : 'text-neutral-500'} ${index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-neutral-300' : index === 2 ? 'bg-orange-300' : 'bg-transparent'}`}>
+                                    {index + 1}
+                                 </div>
+                                 <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] border border-neutral-200 dark:border-[#444] flex items-center justify-center overflow-hidden shrink-0">
+                                    {score.avatarUrl ? <img src={score.avatarUrl} alt={score.nickname} className="w-full h-full object-cover" /> : <span className="text-sm">❓</span>}
+                                 </div>
+                                 <div className="flex flex-col">
+                                    <span className="font-bold text-sm dark:text-white max-w-[100px] truncate">{score.nickname}</span>
+                                    {userProfile?.uid === score.userId && <span className="text-[10px] text-brand-orange font-bold">我</span>}
+                                 </div>
+                              </div>
+                              <div className="font-mono font-black text-lg text-brand-yellow">{score.score}</div>
+                           </div>
+                        ))}
+                     </div>
+                  )}
+               </div>
+             )}
           </div>
         </div>
       </div>
@@ -281,31 +339,37 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
            {GAMES.map(game => (
               <div 
                 key={game.id}
                 onClick={() => setActiveGameId(game.id)}
-                className="group relative bg-white dark:bg-[#161616] rounded-[2.5rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer"
+                className="group relative bg-white dark:bg-[#161616] rounded-[2rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer"
               >
-                 <div className={`h-48 bg-gradient-to-br ${game.color} flex items-center justify-center relative overflow-hidden`}>
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                    <game.icon size={80} className="text-white opacity-90 drop-shadow-lg transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500" />
+                 {/* Player Count Badge */}
+                 <div className="absolute top-3 right-3 z-10 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 border border-white/10">
+                    <Users size={12} />
+                    <span>{playerCounts[game.id] !== undefined ? playerCounts[game.id] : '-'} 人游玩</span>
                  </div>
-                 <div className="p-8">
-                    <h3 className="text-2xl font-black mb-2 dark:text-white">{game.name}</h3>
-                    <p className="text-neutral-500 mb-6 min-h-[48px] line-clamp-2">{game.description}</p>
-                    <Button size="sm" className="w-full bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90">
-                       <Trophy size={16} className="mr-2" /> 开始挑战
+
+                 <div className={`h-40 bg-gradient-to-br ${game.color} flex items-center justify-center relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                    <game.icon size={64} className="text-white opacity-90 drop-shadow-lg transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500" />
+                 </div>
+                 <div className="p-6">
+                    <h3 className="text-xl font-black mb-2 dark:text-white truncate">{game.name}</h3>
+                    <p className="text-neutral-500 text-sm mb-4 min-h-[40px] line-clamp-2 leading-relaxed">{game.description}</p>
+                    <Button size="sm" className="w-full bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90 rounded-xl">
+                       <Trophy size={14} className="mr-2" /> 开始挑战
                     </Button>
                  </div>
               </div>
            ))}
 
-           <div className="bg-neutral-50 dark:bg-[#111] rounded-[2.5rem] p-8 border-2 border-dashed border-neutral-200 dark:border-[#333] flex flex-col items-center justify-center text-center min-h-[300px] opacity-60">
+           <div className="bg-neutral-50 dark:bg-[#111] rounded-[2.5rem] p-8 border-2 border-dashed border-neutral-200 dark:border-[#333] flex flex-col items-center justify-center text-center min-h-[200px] opacity-60">
               <Star size={48} className="text-neutral-400 mb-4" />
-              <h3 className="text-xl font-bold text-neutral-400 mb-2">更多游戏制作中...</h3>
-              <p className="text-neutral-500 text-sm">敬请期待更多新游戏</p>
+              <h3 className="text-lg font-bold text-neutral-400 mb-1">更多游戏制作中...</h3>
+              <p className="text-neutral-500 text-xs">敬请期待更多新游戏</p>
            </div>
         </div>
 

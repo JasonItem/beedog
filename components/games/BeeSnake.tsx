@@ -356,6 +356,8 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     ctx.globalAlpha = 1.0;
   };
 
+  const buttonClass = "bg-neutral-800/80 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center active:bg-yellow-500/80 active:border-yellow-400 active:text-black transition-all shadow-lg active:scale-95 touch-none";
+
   return (
     <div className="flex flex-col items-center gap-4">
         <div className="relative w-full max-w-md mx-auto aspect-[4/5] bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-4 border-yellow-600 select-none touch-none">
@@ -410,30 +412,30 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
         <div className="grid grid-cols-3 gap-2 w-48 h-32 select-none touch-manipulation">
             <div></div>
             <button 
-                className="bg-neutral-800 rounded-lg flex items-center justify-center active:bg-yellow-600 transition-colors shadow-lg border-b-4 border-black active:border-b-0 active:translate-y-1"
+                className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('UP'); }}
             >
-                <ChevronUp className="text-white"/>
+                <ChevronUp className="text-white w-8 h-8"/>
             </button>
             <div></div>
             
             <button 
-                className="bg-neutral-800 rounded-lg flex items-center justify-center active:bg-yellow-600 transition-colors shadow-lg border-b-4 border-black active:border-b-0 active:translate-y-1"
+                className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('LEFT'); }}
             >
-                <ChevronLeft className="text-white"/>
+                <ChevronLeft className="text-white w-8 h-8"/>
             </button>
             <button 
-                className="bg-neutral-800 rounded-lg flex items-center justify-center active:bg-yellow-600 transition-colors shadow-lg border-b-4 border-black active:border-b-0 active:translate-y-1"
+                className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('DOWN'); }}
             >
-                <ChevronDown className="text-white"/>
+                <ChevronDown className="text-white w-8 h-8"/>
             </button>
             <button 
-                className="bg-neutral-800 rounded-lg flex items-center justify-center active:bg-yellow-600 transition-colors shadow-lg border-b-4 border-black active:border-b-0 active:translate-y-1"
+                className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('RIGHT'); }}
             >
-                <ChevronRight className="text-white"/>
+                <ChevronRight className="text-white w-8 h-8"/>
             </button>
         </div>
     </div>
