@@ -520,10 +520,16 @@ export const HoneyClimber: React.FC<HoneyClimberProps> = ({ userProfile, onGameO
 
   // Touch Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
-      const touchX = e.touches[0].clientX;
-      const screenWidth = window.innerWidth;
+      e.preventDefault(); // Fix double tap issue
       
-      if (touchX < screenWidth / 2) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const touchX = e.touches[0].clientX;
+      const x = touchX - rect.left;
+      
+      if (x < rect.width / 2) {
           handleInput('LEFT');
       } else {
           handleInput('RIGHT');

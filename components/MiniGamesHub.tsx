@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -15,6 +15,7 @@ import { BeeEvolution } from './games/BeeEvolution';
 import { BeeTileMatch } from './games/BeeTileMatch';
 import { BeeSwarm } from './games/BeeSwarm';
 import { HoneyClimber } from './games/HoneyClimber';
+import { HoneySwing } from './games/HoneySwing';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { completeDailyGameMission } from '../services/userService';
@@ -25,6 +26,13 @@ interface MiniGamesHubProps {
 }
 
 const GAMES = [
+  {
+    id: 'honey_swing',
+    name: '蜜蜂摆荡',
+    description: '像蜘蛛侠一样飞荡！点击射出蜂蜜绳，利用惯性飞越牛熊市！',
+    color: 'from-amber-500 to-orange-700',
+    icon: Anchor
+  },
   {
     id: 'honey_climber',
     name: '蜂蜜攀登者',
@@ -173,6 +181,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (activeGameId) {
+      case 'honey_swing': return <HoneySwing userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_climber': return <HoneyClimber userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_match': return <BeeTileMatch userProfile={userProfile} onGameOver={handleGameOver} />;
