@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 
@@ -182,6 +183,7 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
   };
 
   const endGame = async () => {
+    audio.playGameOver(); // SFX
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -251,6 +253,7 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
             
             // Effects
             createParticles(head.x, head.y, game.foodType === 'diamond' ? '#60a5fa' : '#fbbf24');
+            audio.playScore(); // SFX
 
             // SPEED LOGIC: Decrease interval (Move faster)
             if (game.moveInterval > game.minMoveInterval) {
@@ -356,7 +359,7 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
     ctx.globalAlpha = 1.0;
   };
 
-  const buttonClass = "bg-neutral-800/80 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center active:bg-yellow-500/80 active:border-yellow-400 active:text-black transition-all shadow-lg active:scale-95 touch-none";
+  const buttonClass = "w-16 h-16 bg-neutral-800/80 backdrop-blur-sm border border-white/10 rounded-2xl flex items-center justify-center active:bg-yellow-500 active:text-black transition-all shadow-lg active:scale-95 touch-none";
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -409,13 +412,13 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
         </div>
 
         {/* Mobile Controls (D-Pad) */}
-        <div className="grid grid-cols-3 gap-2 w-48 h-32 select-none touch-manipulation">
+        <div className="w-full max-w-[280px] grid grid-cols-3 gap-3 aspect-video select-none touch-manipulation">
             <div></div>
             <button 
                 className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('UP'); }}
             >
-                <ChevronUp className="text-white w-8 h-8"/>
+                <ChevronUp className="w-10 h-10"/>
             </button>
             <div></div>
             
@@ -423,19 +426,19 @@ export const BeeSnake: React.FC<BeeSnakeProps> = ({ userProfile, onGameOver }) =
                 className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('LEFT'); }}
             >
-                <ChevronLeft className="text-white w-8 h-8"/>
+                <ChevronLeft className="w-10 h-10"/>
             </button>
             <button 
                 className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('DOWN'); }}
             >
-                <ChevronDown className="text-white w-8 h-8"/>
+                <ChevronDown className="w-10 h-10"/>
             </button>
             <button 
                 className={buttonClass}
                 onPointerDown={(e) => { e.preventDefault(); changeDirection('RIGHT'); }}
             >
-                <ChevronRight className="text-white w-8 h-8"/>
+                <ChevronRight className="w-10 h-10"/>
             </button>
         </div>
     </div>

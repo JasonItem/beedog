@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, ArrowLeft, ArrowRight } from 'lucide-react';
 
@@ -128,10 +129,12 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
     };
     setScore(0);
     setGameState('PLAYING');
+    audio.playJump();
     loop();
   };
 
   const endGame = async () => {
+    audio.playGameOver();
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -279,6 +282,7 @@ export const BeeJump: React.FC<BeeJumpProps> = ({ userProfile, onGameOver }) => 
           game.playerY + 15 > p.y &&
           game.playerY + 15 < p.y + PLATFORM_HEIGHT + game.playerVy // Ensure we didn't tunnel through
         ) {
+          audio.playJump(); // SFX
           if (p.type === 'red') {
              // RED CANDLE LOGIC:
              game.playerVy = JUMP_FORCE;

@@ -1,6 +1,8 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Crosshair, Users, Zap, ShieldAlert, Star } from 'lucide-react';
 
@@ -126,6 +128,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
   };
 
   const endGame = async () => {
+    audio.playGameOver(); // SFX
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -152,6 +155,8 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
   const spawnBullet = () => {
       const { player, swarmSize } = gameRef.current;
       
+      audio.playShoot(); // SFX
+
       // Main shot
       gameRef.current.bullets.push({
           id: Date.now() + Math.random(),
@@ -637,6 +642,8 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
                 createParticles(b.x, b.y - 10, '#fff', 2, 2);
 
                 if (e.hp <= 0) {
+                    audio.playScore(); // SFX
+
                     if (e.type === 'crate') {
                         if (e.rewardType === 'bees' || e.rewardType === 'super_bees') {
                              game.swarmSize += (e.rewardValue || 1);

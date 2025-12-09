@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Zap, Trophy, Flame, AlertTriangle } from 'lucide-react';
 
@@ -106,6 +107,7 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   };
 
   const endGame = async () => {
+    audio.playGameOver();
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -591,16 +593,19 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
             hitY + hitH > objHitY
         ) {
             if (obj.type === 'honey') {
+                audio.playScore();
                 game.score += 50;
                 setScore(game.score);
                 game.objects.splice(i, 1);
             } else if (obj.type === 'boost') {
+                audio.playScore();
                 game.boostTimer = 180; // 3 seconds
                 game.objects.splice(i, 1);
             } else {
                 // Crash
                 if (game.boostTimer > 0) {
                     // Smash mode!
+                    audio.playScore();
                     game.objects.splice(i, 1);
                     game.score += 100;
                 } else {

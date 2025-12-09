@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Zap, Anchor, MoveRight, Hand } from 'lucide-react';
 
@@ -140,6 +141,7 @@ export const HoneySwing: React.FC<HoneySwingProps> = ({ userProfile, onGameOver 
   };
 
   const endGame = async () => {
+    audio.playGameOver();
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -187,6 +189,7 @@ export const HoneySwing: React.FC<HoneySwingProps> = ({ userProfile, onGameOver 
       }
 
       if (bestAnchor) {
+          audio.playShoot();
           game.currentAnchor = bestAnchor;
           game.ropeLength = minDist;
           
@@ -203,6 +206,7 @@ export const HoneySwing: React.FC<HoneySwingProps> = ({ userProfile, onGameOver 
           game.player.vx *= 1.2;
           game.player.vy *= 1.1;
           game.currentAnchor = null;
+          audio.playJump();
       }
   };
 

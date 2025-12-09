@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Timer, Zap } from 'lucide-react';
 
@@ -151,6 +152,7 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
   const endGame = async () => {
     if (gameRef.current.isGameOver) return; 
     
+    audio.playGameOver();
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     if (gameRef.current.animationId) {
@@ -169,6 +171,7 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
     if (gameState === 'START' || gameState === 'GAME_OVER') return;
     
     if (gameRef.current.hookStatus === 'IDLE') {
+      audio.playShoot();
       gameRef.current.hookStatus = 'SHOOT';
     }
   };
@@ -377,6 +380,7 @@ export const HoneyMiner: React.FC<HoneyMinerProps> = ({ userProfile, onGameOver 
             // Returned to base
             game.hookStatus = 'IDLE';
             if (game.caughtItem) {
+                audio.playScore();
                 const earnedScore = game.caughtItem.score; 
                 game.score += earnedScore; // Update Ref
                 setScore(game.score); // Update UI

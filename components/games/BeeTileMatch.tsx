@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Layers, Trophy, Shuffle, Zap } from 'lucide-react';
 
@@ -187,6 +188,8 @@ export const BeeTileMatch: React.FC<BeeTileMatchProps> = ({ userProfile, onGameO
         // Bar full animation shake?
         return;
     }
+    
+    audio.playStep(); // Click sound
 
     // 1. Move to Bar
     const updatedTiles = tiles.map(t => 
@@ -251,6 +254,7 @@ export const BeeTileMatch: React.FC<BeeTileMatchProps> = ({ userProfile, onGameO
                 return true;
             });
             
+            audio.playScore(); // Match sound
             setBar(nextBar);
             setScore(prev => prev + 1); // +1 set cleared
             
@@ -268,6 +272,7 @@ export const BeeTileMatch: React.FC<BeeTileMatchProps> = ({ userProfile, onGameO
     } else {
         // No match, check Game Over
         if (currentBar.length >= BAR_CAPACITY) {
+            audio.playGameOver();
             setGameState('GAME_OVER');
         }
     }

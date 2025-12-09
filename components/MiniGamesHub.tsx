@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2 } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -18,6 +19,7 @@ import { HoneySwing } from './games/HoneySwing';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, GameScore } from '../services/gameService';
 import { completeDailyGameMission } from '../services/userService';
+import { audio } from '../services/audioService'; // Import Audio Service
 import { Button } from './Button';
 
 interface MiniGamesHubProps {
@@ -140,6 +142,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const [missionMessage, setMissionMessage] = useState<string | null>(null);
   const [playerCounts, setPlayerCounts] = useState<Record<string, number>>({});
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   // Fetch player counts on mount
   useEffect(() => {
@@ -153,6 +156,9 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
       setPlayerCounts(counts);
     };
     fetchCounts();
+    
+    // Sync initial mute state
+    setIsMuted(audio.getMuteState());
   }, []);
 
   const fetchScores = async (gameId: string) => {
@@ -165,6 +171,17 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
     } finally {
       setLoadingLeaderboard(false);
     }
+  };
+
+  const handleGameSelect = (id: string) => {
+      // Initialize audio on first user interaction
+      audio.init();
+      setActiveGameId(id);
+  };
+
+  const toggleMute = () => {
+      const newState = audio.toggleMute();
+      setIsMuted(newState);
   };
 
   useEffect(() => {
@@ -240,13 +257,22 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
         >
           {/* Header Controls */}
           {isFullscreen ? (
-             <button 
-                onClick={() => setIsFullscreen(false)} 
-                className="fixed top-6 right-6 z-[110] p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg group"
-                title="退出全屏"
-             >
-                <Minimize2 size={24} className="group-hover:scale-90 transition-transform" />
-             </button>
+             <div className="fixed top-6 right-6 z-[110] flex gap-3">
+                 <button 
+                    onClick={toggleMute}
+                    className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg"
+                    title={isMuted ? "开启声音" : "静音"}
+                 >
+                    {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                 </button>
+                 <button 
+                    onClick={() => setIsFullscreen(false)} 
+                    className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg group"
+                    title="退出全屏"
+                 >
+                    <Minimize2 size={24} className="group-hover:scale-90 transition-transform" />
+                 </button>
+             </div>
           ) : (
              <div className="mb-6 flex items-center justify-between">
                 <button 
@@ -260,6 +286,15 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                 <div className="flex items-center gap-3">
                    <h2 className="text-xl font-black dark:text-white">{gameInfo?.name}</h2>
                    <div className="h-6 w-px bg-neutral-300 dark:bg-neutral-700"></div>
+                   
+                   <button 
+                      onClick={toggleMute}
+                      className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-neutral-500 dark:text-neutral-400"
+                      title={isMuted ? "开启声音" : "静音"}
+                   >
+                      {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                   </button>
+
                    <button 
                       onClick={() => setIsFullscreen(true)}
                       className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors group"
@@ -343,7 +378,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
            {GAMES.map(game => (
               <div 
                 key={game.id}
-                onClick={() => setActiveGameId(game.id)}
+                onClick={() => handleGameSelect(game.id)}
                 className="group relative bg-white dark:bg-[#161616] rounded-[2rem] overflow-hidden border border-neutral-200 dark:border-[#333] shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer"
               >
                  {/* Player Count Badge */}

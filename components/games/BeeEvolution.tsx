@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Crown, AlertTriangle } from 'lucide-react';
 
@@ -135,6 +136,7 @@ export const BeeEvolution: React.FC<BeeEvolutionProps> = ({ userProfile, onGameO
   };
 
   const endGame = async () => {
+    audio.playGameOver();
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -148,6 +150,7 @@ export const BeeEvolution: React.FC<BeeEvolutionProps> = ({ userProfile, onGameO
   const dropBall = () => {
     if (gameRef.current.isDropping || gameState !== 'PLAYING') return;
     
+    audio.playStep();
     const { currentBallX, nextTierId } = gameRef.current;
     
     // Add new ball to physics world
@@ -195,6 +198,7 @@ export const BeeEvolution: React.FC<BeeEvolutionProps> = ({ userProfile, onGameO
             setScore(gameRef.current.score);
             
             // Effects
+            audio.playScore();
             createParticles(midX, midY, TIERS[nextId].color, 15);
             
             return; // Done

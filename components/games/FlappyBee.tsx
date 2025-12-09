@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw } from 'lucide-react';
 
@@ -95,6 +96,7 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
     gameRef.current.lastFrameTime = performance.now();
     gameRef.current.groundOffset = 0;
     
+    audio.playJump(); // Initial jump
     loop();
   };
 
@@ -107,6 +109,7 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
 
     if (gameState === 'PLAYING') {
       gameRef.current.birdVelocity = JUMP;
+      audio.playJump(); // SFX
     } else if (gameState === 'START' || gameState === 'GAME_OVER') {
       // Optional: Tap to restart logic handled by button
     }
@@ -115,6 +118,7 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
   const endGame = async () => {
     if (gameRef.current.isGameOver) return; // Prevent double trigger
     
+    audio.playGameOver(); // SFX
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -242,6 +246,7 @@ export const FlappyBee: React.FC<FlappyBeeProps> = ({ userProfile, onGameOver })
         game.score++;
         p.passed = true;
         setScore(game.score);
+        audio.playScore(); // SFX
       }
     }
 

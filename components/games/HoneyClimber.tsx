@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Zap, TrendingUp, ArrowLeft, ArrowRight } from 'lucide-react';
 
@@ -186,6 +187,7 @@ export const HoneyClimber: React.FC<HoneyClimberProps> = ({ userProfile, onGameO
       }
 
       // 3. Success Move
+      audio.playStep(); // SFX
       game.score += 1;
       setScore(game.score);
       
@@ -242,6 +244,7 @@ export const HoneyClimber: React.FC<HoneyClimberProps> = ({ userProfile, onGameO
   };
 
   const endGame = async (reason: 'COLLISION' | 'TIMEOUT') => {
+    audio.playGameOver(); // SFX
     gameRef.current.isGameOver = true;
     gameRef.current.isPlaying = false;
     gameRef.current.gameOverReason = reason;
@@ -518,16 +521,17 @@ export const HoneyClimber: React.FC<HoneyClimberProps> = ({ userProfile, onGameO
     ctx.restore();
   };
 
-  // Touch Handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-      e.preventDefault(); // Fix double tap issue
+  // Fixed Input Handler using Pointer Events for unified touch/mouse support
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+      // Prevent default actions to stop scrolling/zooming on rapid taps
+      e.preventDefault(); 
       
       const canvas = canvasRef.current;
       if (!canvas) return;
       
       const rect = canvas.getBoundingClientRect();
-      const touchX = e.touches[0].clientX;
-      const x = touchX - rect.left;
+      // Ensure we get the correct X relative to the canvas
+      const x = e.clientX - rect.left;
       
       if (x < rect.width / 2) {
           handleInput('LEFT');
@@ -543,14 +547,8 @@ export const HoneyClimber: React.FC<HoneyClimberProps> = ({ userProfile, onGameO
         ref={canvasRef} 
         width={320} 
         height={550} 
-        className="w-full h-full block cursor-pointer"
-        onTouchStart={handleTouchStart}
-        onMouseDown={(e) => {
-            const rect = (e.target as HTMLElement).getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            if (x < rect.width / 2) handleInput('LEFT');
-            else handleInput('RIGHT');
-        }}
+        className="w-full h-full block cursor-pointer touch-none"
+        onPointerDown={handlePointerDown}
       />
 
       {/* Energy Bar (Top) */}

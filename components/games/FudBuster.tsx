@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, TrendingUp, Heart } from 'lucide-react';
 
@@ -176,6 +177,7 @@ export const FudBuster: React.FC<FudBusterProps> = ({ userProfile, onGameOver })
   };
 
   const endGame = async () => {
+    audio.playGameOver();
     gameRef.current.lives = 0; // Ensure logic knows
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -333,12 +335,14 @@ export const FudBuster: React.FC<FudBusterProps> = ({ userProfile, onGameOver })
                     
                     if (item.type === 'green_candle') {
                         // BAD!
+                        audio.playGameOver(); // Crash sound
                         game.lives--;
                         setLives(game.lives);
                         createExplosion(item.x, item.y, '#22c55e', 20); // Green explosion
                         if (game.lives <= 0) endGame();
                     } else if (item.type === 'rocket') {
                         // BONUS!
+                        audio.playScore();
                         game.bullRunTimer = 300; // 5 seconds
                         setIsBullRun(true);
                         game.score += 50;
@@ -346,6 +350,7 @@ export const FudBuster: React.FC<FudBusterProps> = ({ userProfile, onGameOver })
                         createExplosion(item.x, item.y, '#3b82f6', 30);
                     } else {
                         // GOOD!
+                        audio.playScore();
                         let points = 10;
                         if (item.type === 'bear') points = 20;
                         if (item.type === 'fud') points = 15;
@@ -368,6 +373,7 @@ export const FudBuster: React.FC<FudBusterProps> = ({ userProfile, onGameOver })
             // Here: Dropping Red/Bear/FUD = Bad. Dropping Green/Rocket = Okay.
             if (item.active) {
                 if (item.type !== 'green_candle' && item.type !== 'rocket' && game.bullRunTimer <= 0) {
+                    audio.playStep(); // Lose life sound
                     game.lives--;
                     setLives(game.lives);
                     if (game.lives <= 0) endGame();

@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Trophy, CircleDot, MousePointer2 } from 'lucide-react';
 
@@ -136,6 +137,7 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
   };
 
   const endGame = async () => {
+    audio.playGameOver(); // SFX
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -301,10 +303,12 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
            // Effects
            game.playerSquish = 0.5; // Squish player
            createSandParticles(ball.x, game.playerY, 5, 5); // Particles from impact
+           audio.playJump(); // SFX
 
            // Score & Progression
            game.score++;
            setScore(game.score);
+           audio.playScore(); // SFX
            
            game.currentHits++;
            // Check for new ball spawn

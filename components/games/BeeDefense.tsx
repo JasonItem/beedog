@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Shield, Heart } from 'lucide-react';
 
@@ -96,6 +97,7 @@ export const BeeDefense: React.FC<BeeDefenseProps> = ({ userProfile, onGameOver 
   };
 
   const endGame = async () => {
+    audio.playGameOver();
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -206,6 +208,7 @@ export const BeeDefense: React.FC<BeeDefenseProps> = ({ userProfile, onGameOver 
         createExplosion(b.x, b.y, '#FFF');
         
         if (b.hp <= 0) {
+          audio.playScore(); // Kill sound
           // Score
           let points = 10;
           if (b.type === 'fast') points = 20;
@@ -217,6 +220,7 @@ export const BeeDefense: React.FC<BeeDefenseProps> = ({ userProfile, onGameOver 
           bees.splice(i, 1);
           createExplosion(b.x, b.y, b.type === 'tank' ? '#F00' : '#FFD700');
         } else {
+          audio.playStep(); // Hit sound
           // Hit effect but not dead
           b.x -= b.vx * 2; // Knockback
           b.y -= b.vy * 2;

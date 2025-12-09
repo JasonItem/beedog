@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Zap, ChevronsUp, ChevronsDown } from 'lucide-react';
 
@@ -87,6 +88,8 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
 
   const flipGravity = () => {
     if (gameState !== 'PLAYING') return;
+    
+    audio.playJump(); // SFX
     
     // Allow flip mid-air? Let's say yes for more dynamic gameplay, or strictly when grounded.
     // Let's allow mid-air control for easier correction.
@@ -177,6 +180,7 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
   };
 
   const endGame = async () => {
+    audio.playGameOver(); // SFX
     gameRef.current.isGameOver = true;
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
@@ -311,6 +315,7 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
         ) {
             if (ob.type === 'coin') {
                 game.score += 500; // Bonus points
+                audio.playScore(); // SFX
                 createParticles(ob.x + ob.width/2, ob.y + ob.height/2, 10, '#fbbf24');
                 game.obstacles.splice(i, 1);
             } else {

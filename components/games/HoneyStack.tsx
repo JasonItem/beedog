@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
+import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { Play, RotateCcw, Layers } from 'lucide-react';
 
@@ -139,6 +140,9 @@ export const HoneyStack: React.FC<HoneyStackProps> = ({ userProfile, onGameOver 
       game.combo++;
       setCombo(game.combo);
       
+      // SFX
+      audio.playScore();
+
       // Visual feedback for combo
       // Maybe grow width slightly if combo is high?
       if (game.combo >= 3 && current.width < INITIAL_WIDTH) {
@@ -159,6 +163,9 @@ export const HoneyStack: React.FC<HoneyStackProps> = ({ userProfile, onGameOver 
       game.combo = 0;
       setCombo(0);
       
+      // SFX
+      audio.playStep();
+
       // Calculate cut
       current.width -= absDist;
       let debrisX, debrisWidth;
@@ -233,6 +240,8 @@ export const HoneyStack: React.FC<HoneyStackProps> = ({ userProfile, onGameOver 
     // Add the falling block animation for the missed block
     const current = gameRef.current.currentBlock;
     createDebris(current.x, current.y, current.width, current.height, false);
+
+    audio.playGameOver(); // SFX
 
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
