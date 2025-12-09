@@ -22,7 +22,6 @@ interface GameObject {
 
 export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const beeDogImgRef = useRef<HTMLImageElement | null>(null);
   
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAME_OVER'>('START');
   const [score, setScore] = useState(0);
@@ -31,8 +30,8 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   // Constants
   const CANVAS_WIDTH = 320;
   const CANVAS_HEIGHT = 550;
-  const PLAYER_WIDTH = 48;
-  const PLAYER_HEIGHT = 74;
+  const PLAYER_WIDTH = 50; 
+  const PLAYER_HEIGHT = 84; // Slightly longer for sports car look
   const LANE_WIDTH = CANVAS_WIDTH / 3; 
 
   // FPS Control
@@ -59,13 +58,6 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   });
 
   useEffect(() => {
-    // Load BeeDog Image
-    const img = new Image();
-    img.src = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/game%2F1%2Fbee.png?alt=media&token=6b13c993-0686-47d8-9fad-63990e10a5fa";
-    img.onload = () => {
-      beeDogImgRef.current = img;
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') gameRef.current.keys.left = true;
       if (e.key === 'ArrowRight') gameRef.current.keys.right = true;
@@ -127,21 +119,28 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
   const spawnObject = () => {
     const typeRand = Math.random();
     let type: 'rock' | 'car' | 'honey' | 'boost' = 'rock';
-    let width = 45;
-    let height = 45;
+    
+    // Width Logic to prevent "Lane Gaps":
+    // Lane width is ~106px. 
+    // If Obstacle is 85px, Gap is ~21px. 
+    // Player Hitbox is ~34px. 
+    // Result: Player physically cannot pass between two adjacent obstacles.
+    
+    let width = 85; 
+    let height = 80;
 
     if (typeRand > 0.96) {
         type = 'boost';
-        width = 32; height = 48;
+        width = 45; height = 65;
     } else if (typeRand > 0.85) {
         type = 'honey';
-        width = 36; height = 36;
+        width = 50; height = 55;
     } else if (typeRand > 0.6) {
         type = 'car';
-        width = 48; height = 74;
+        width = 85; height = 110; // Wide and long
     } else {
         // Rock
-        width = 42; height = 36;
+        width = 85; height = 65; // Wide and short
     }
 
     // Spawn in lanes strict center
@@ -149,25 +148,19 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     const centerX = (lane * LANE_WIDTH) + (LANE_WIDTH / 2);
     const x = centerX - (width / 2);
 
-    // Prevent overlapping spawn
+    // Prevent overlapping spawn (vertical clearance)
     const lastObj = gameRef.current.objects[gameRef.current.objects.length - 1];
-    if (lastObj && lastObj.y < 100) return; // Wait if recent spawn
+    if (lastObj && lastObj.y < 160) return; 
 
     gameRef.current.objects.push({
         id: Date.now() + Math.random(),
         x,
-        y: -150, 
+        y: -180, 
         width,
         height,
         type,
         lane
     });
-  };
-
-  const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, r);
-    ctx.fill();
   };
 
   const drawPlayer = (ctx: CanvasRenderingContext2D, x: number, y: number, isBoost: boolean) => {
@@ -176,108 +169,111 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     
     // Tilt effect when turning
     const tilt = (gameRef.current.targetX - gameRef.current.playerX) * 0.05;
-    ctx.rotate(tilt * 0.15);
+    ctx.rotate(tilt * 0.1);
 
-    // --- CAR DRAWING ---
+    // --- NEW BEE-MOBILE SPORTS CAR ---
     
     // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
-    ctx.ellipse(0, 5, PLAYER_WIDTH/2 + 4, PLAYER_HEIGHT/2 + 2, 0, 0, Math.PI*2);
+    ctx.ellipse(0, 15, PLAYER_WIDTH/2 + 4, PLAYER_HEIGHT/2 - 2, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // Body (Main)
-    ctx.fillStyle = '#FFD700'; // Bee Yellow
-    drawRoundedRect(ctx, -PLAYER_WIDTH/2, -PLAYER_HEIGHT/2, PLAYER_WIDTH, PLAYER_HEIGHT, 8);
-
-    // Hood Detail (Stripes)
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-6, -PLAYER_HEIGHT/2, 12, PLAYER_HEIGHT); // Center Stripe
-
-    // Engine Vents on Hood
-    ctx.fillStyle = '#333';
-    ctx.fillRect(-12, -PLAYER_HEIGHT/2 + 10, 6, 12);
-    ctx.fillRect(6, -PLAYER_HEIGHT/2 + 10, 6, 12);
-
-    // Windshield
-    ctx.fillStyle = '#60a5fa';
+    // Tires (Wide Slick)
+    ctx.fillStyle = '#171717';
+    // Front
     ctx.beginPath();
-    ctx.moveTo(-PLAYER_WIDTH/2 + 4, -PLAYER_HEIGHT/2 + 25);
-    ctx.lineTo(PLAYER_WIDTH/2 - 4, -PLAYER_HEIGHT/2 + 25);
-    ctx.quadraticCurveTo(PLAYER_WIDTH/2 - 2, -PLAYER_HEIGHT/2 + 35, PLAYER_WIDTH/2 - 4, -PLAYER_HEIGHT/2 + 40);
-    ctx.lineTo(-PLAYER_WIDTH/2 + 4, -PLAYER_HEIGHT/2 + 40);
-    ctx.quadraticCurveTo(-PLAYER_WIDTH/2 + 2, -PLAYER_HEIGHT/2 + 35, -PLAYER_WIDTH/2 + 4, -PLAYER_HEIGHT/2 + 25);
-    ctx.fill();
-    // Glass Reflection
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.beginPath();
-    ctx.moveTo(-PLAYER_WIDTH/2 + 8, -PLAYER_HEIGHT/2 + 25);
-    ctx.lineTo(-PLAYER_WIDTH/2 + 12, -PLAYER_HEIGHT/2 + 40);
-    ctx.lineTo(-PLAYER_WIDTH/2 + 6, -PLAYER_HEIGHT/2 + 40);
+    ctx.roundRect(-PLAYER_WIDTH/2 - 6, -PLAYER_HEIGHT/3, 8, 18, 3);
+    ctx.roundRect(PLAYER_WIDTH/2 - 2, -PLAYER_HEIGHT/3, 8, 18, 3);
+    // Rear (Fatter)
+    ctx.roundRect(-PLAYER_WIDTH/2 - 8, PLAYER_HEIGHT/3 - 5, 10, 20, 3);
+    ctx.roundRect(PLAYER_WIDTH/2 - 2, PLAYER_HEIGHT/3 - 5, 10, 20, 3);
     ctx.fill();
 
-    // Side Mirrors
-    ctx.fillStyle = '#eab308';
+    // Chassis Body (Aerodynamic Shape)
+    ctx.fillStyle = '#fbbf24'; // Amber-400
     ctx.beginPath();
-    ctx.arc(-PLAYER_WIDTH/2 - 2, -PLAYER_HEIGHT/2 + 30, 3, 0, Math.PI*2);
+    // Rear is wider
+    ctx.moveTo(-PLAYER_WIDTH/2 + 2, PLAYER_HEIGHT/2);
+    ctx.lineTo(PLAYER_WIDTH/2 - 2, PLAYER_HEIGHT/2);
+    // Taper to front
+    ctx.quadraticCurveTo(PLAYER_WIDTH/2 + 5, 0, PLAYER_WIDTH/2 - 8, -PLAYER_HEIGHT/2);
+    ctx.lineTo(-PLAYER_WIDTH/2 + 8, -PLAYER_HEIGHT/2);
+    ctx.quadraticCurveTo(-PLAYER_WIDTH/2 - 5, 0, -PLAYER_WIDTH/2 + 2, PLAYER_HEIGHT/2);
     ctx.fill();
+    
+    // Center Racing Stripe (Black)
+    ctx.fillStyle = '#000';
+    ctx.fillRect(-8, -PLAYER_HEIGHT/2, 16, PLAYER_HEIGHT); 
+
+    // Engine Vents (Rear)
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(-12, PLAYER_HEIGHT/4, 24, 10);
+
+    // Cockpit / Windshield (Tinted)
+    ctx.fillStyle = '#2563eb'; // Blue glass
     ctx.beginPath();
-    ctx.arc(PLAYER_WIDTH/2 + 2, -PLAYER_HEIGHT/2 + 30, 3, 0, Math.PI*2);
+    ctx.moveTo(-16, -10);
+    ctx.lineTo(16, -10);
+    ctx.quadraticCurveTo(18, 10, 14, 20);
+    ctx.lineTo(-14, 20);
+    ctx.quadraticCurveTo(-18, 10, -16, -10);
+    ctx.fill();
+    
+    // Glass Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.moveTo(-12, -5);
+    ctx.lineTo(-4, -5);
+    ctx.lineTo(-8, 15);
     ctx.fill();
 
-    // Wheels (sticking out slightly)
-    ctx.fillStyle = '#111';
-    // Front Left
-    drawRoundedRect(ctx, -PLAYER_WIDTH/2 - 3, -PLAYER_HEIGHT/2 + 8, 4, 14, 2);
-    // Front Right
-    drawRoundedRect(ctx, PLAYER_WIDTH/2 - 1, -PLAYER_HEIGHT/2 + 8, 4, 14, 2);
-    // Rear Left
-    drawRoundedRect(ctx, -PLAYER_WIDTH/2 - 3, PLAYER_HEIGHT/2 - 18, 4, 14, 2);
-    // Rear Right
-    drawRoundedRect(ctx, PLAYER_WIDTH/2 - 1, PLAYER_HEIGHT/2 - 18, 4, 14, 2);
+    // Massive Spoiler (Rear Wing)
+    ctx.fillStyle = '#000';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 5;
+    ctx.beginPath();
+    ctx.roundRect(-PLAYER_WIDTH/2 - 6, PLAYER_HEIGHT/2 - 12, PLAYER_WIDTH + 12, 10, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
 
-    // Rear Spoiler
-    ctx.fillStyle = '#111';
-    drawRoundedRect(ctx, -PLAYER_WIDTH/2 - 2, PLAYER_HEIGHT/2 - 8, PLAYER_WIDTH + 4, 6, 2);
+    // Headlights (Projection)
+    ctx.globalCompositeOperation = 'screen';
+    const lightGrad = ctx.createLinearGradient(0, -PLAYER_HEIGHT/2, 0, -PLAYER_HEIGHT/2 - 100);
+    lightGrad.addColorStop(0, 'rgba(255, 255, 200, 0.4)');
+    lightGrad.addColorStop(1, 'rgba(255, 255, 200, 0)');
+    
+    ctx.fillStyle = lightGrad;
+    ctx.beginPath();
+    ctx.moveTo(-15, -PLAYER_HEIGHT/2 + 5);
+    ctx.lineTo(-40, -PLAYER_HEIGHT/2 - 100);
+    ctx.lineTo(40, -PLAYER_HEIGHT/2 - 100);
+    ctx.lineTo(15, -PLAYER_HEIGHT/2 + 5);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
 
-    // Driver (BeeDog Head)
-    if (beeDogImgRef.current) {
-        const size = 32;
-        ctx.drawImage(beeDogImgRef.current, -size/2, -5, size, size);
-    } else {
-        ctx.fillStyle = '#d97706';
-        ctx.beginPath(); ctx.arc(0, 10, 10, 0, Math.PI*2); ctx.fill();
-    }
-
-    // Boost Flames
+    // Boost Effects
     if (isBoost) {
-        const flameLen = Math.random() * 20 + 10;
-        // Left Flame
+        const flameLen = Math.random() * 40 + 20;
+        ctx.fillStyle = '#3b82f6'; // Blue flame
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#3b82f6';
+        
+        // Left exhaust
         ctx.beginPath();
-        ctx.fillStyle = '#3b82f6'; // Blue flame for Nitro
         ctx.moveTo(-10, PLAYER_HEIGHT/2);
         ctx.lineTo(-14, PLAYER_HEIGHT/2 + flameLen);
-        ctx.lineTo(-6, PLAYER_HEIGHT/2);
+        ctx.lineTo(-6, PLAYER_HEIGHT/2 + flameLen * 0.8);
         ctx.fill();
-        // Right Flame
+        
+        // Right exhaust
         ctx.beginPath();
         ctx.moveTo(10, PLAYER_HEIGHT/2);
         ctx.lineTo(14, PLAYER_HEIGHT/2 + flameLen);
-        ctx.lineTo(6, PLAYER_HEIGHT/2);
+        ctx.lineTo(6, PLAYER_HEIGHT/2 + flameLen * 0.8);
         ctx.fill();
         
-        // Inner Core
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.moveTo(-10, PLAYER_HEIGHT/2);
-        ctx.lineTo(-12, PLAYER_HEIGHT/2 + flameLen/2);
-        ctx.lineTo(-8, PLAYER_HEIGHT/2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(10, PLAYER_HEIGHT/2);
-        ctx.lineTo(12, PLAYER_HEIGHT/2 + flameLen/2);
-        ctx.lineTo(8, PLAYER_HEIGHT/2);
-        ctx.fill();
+        ctx.shadowBlur = 0;
     }
 
     ctx.restore();
@@ -288,23 +284,64 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     ctx.translate(x + w/2, y + h/2);
 
     // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
-    ctx.ellipse(0, 5, w/2 + 2, h/2 + 2, 0, 0, Math.PI*2);
+    ctx.ellipse(0, 10, w/2 + 4, h/2 - 5, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // Body
-    ctx.fillStyle = '#dc2626'; // Red
-    drawRoundedRect(ctx, -w/2, -h/2, w, h, 6);
+    // Tires
+    ctx.fillStyle = '#171717';
+    ctx.fillRect(-w/2, -h/3, 8, 20);
+    ctx.fillRect(w/2 - 8, -h/3, 8, 20);
+    ctx.fillRect(-w/2, h/4, 8, 20);
+    ctx.fillRect(w/2 - 8, h/4, 8, 20);
 
-    // Roof / Windshield (Darker for closed top)
-    ctx.fillStyle = '#111'; // Tinted
-    drawRoundedRect(ctx, -w/2 + 4, -h/2 + 15, w - 8, h/2, 4);
-    
-    // Rear Lights
+    // Body (Menacing Red)
+    ctx.fillStyle = '#991b1b'; // Red-800
+    ctx.beginPath();
+    ctx.moveTo(-w/2 + 5, -h/2 + 10);
+    ctx.lineTo(w/2 - 5, -h/2 + 10);
+    ctx.lineTo(w/2, h/2);
+    ctx.lineTo(-w/2, h/2);
+    ctx.fill();
+
+    // Hood Detail
     ctx.fillStyle = '#7f1d1d';
-    ctx.fillRect(-w/2 + 4, h/2 - 4, 8, 4);
-    ctx.fillRect(w/2 - 12, h/2 - 4, 8, 4);
+    ctx.beginPath();
+    ctx.moveTo(-10, -h/2 + 10);
+    ctx.lineTo(10, -h/2 + 10);
+    ctx.lineTo(15, 0);
+    ctx.lineTo(-15, 0);
+    ctx.fill();
+
+    // Windshield (Blacked out)
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.moveTo(-15, -10);
+    ctx.lineTo(15, -10);
+    ctx.lineTo(18, 15);
+    ctx.lineTo(-18, 15);
+    ctx.fill();
+
+    // Rear Lights (Angry Eyes)
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowBlur = 5;
+    ctx.shadowColor = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(-w/2 + 5, h/2 - 5);
+    ctx.lineTo(-w/2 + 25, h/2 - 10); // Angled down
+    ctx.lineTo(-w/2 + 25, h/2 - 2);
+    ctx.lineTo(-w/2 + 5, h/2 - 2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(w/2 - 5, h/2 - 5);
+    ctx.lineTo(w/2 - 25, h/2 - 10);
+    ctx.lineTo(w/2 - 25, h/2 - 2);
+    ctx.lineTo(w/2 - 5, h/2 - 2);
+    ctx.fill();
+    
+    ctx.shadowBlur = 0;
 
     ctx.restore();
   };
@@ -316,29 +353,40 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(2, 2, w/2, h/2, 0, 0, Math.PI*2);
+    ctx.ellipse(0, h/3, w/2, h/4, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // Rock Body
-    ctx.fillStyle = '#57534e'; // Stone Grey
+    // Main Rock Body (Jagged)
+    ctx.fillStyle = '#57534e'; // Stone-600
     ctx.beginPath();
-    ctx.moveTo(-w/2 + 5, -h/4);
-    ctx.lineTo(0, -h/2);
-    ctx.lineTo(w/2 - 5, -h/3);
-    ctx.lineTo(w/2, h/3);
-    ctx.lineTo(w/4, h/2);
-    ctx.lineTo(-w/3, h/2 - 5);
-    ctx.lineTo(-w/2, 0);
+    ctx.moveTo(-w/2 + 5, 10);
+    ctx.lineTo(-w/3, -h/2 + 5);
+    ctx.lineTo(0, -h/2 - 5); // Peak
+    ctx.lineTo(w/3, -h/2 + 8);
+    ctx.lineTo(w/2 - 5, 15);
+    ctx.lineTo(w/4, h/2 - 5);
+    ctx.lineTo(-w/4, h/2);
     ctx.closePath();
     ctx.fill();
 
-    // Highlights
-    ctx.fillStyle = '#78716c';
+    // 3D Lighting / Texture
+    ctx.fillStyle = '#78716c'; // Lighter Stone
     ctx.beginPath();
-    ctx.moveTo(-w/4, -h/4);
-    ctx.lineTo(0, -h/3);
-    ctx.lineTo(w/4, 0);
+    ctx.moveTo(-w/4, -h/3);
+    ctx.lineTo(0, -h/2 + 5);
+    ctx.lineTo(w/5, -h/4);
     ctx.fill();
+    
+    // Cracks
+    ctx.strokeStyle = '#292524';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(-10, 10);
+    ctx.lineTo(-5, 20);
+    ctx.moveTo(0, -10);
+    ctx.lineTo(15, 5);
+    ctx.stroke();
 
     ctx.restore();
   };
@@ -347,27 +395,46 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     ctx.save();
     ctx.translate(x + w/2, y + h/2);
     
+    // Float animation
+    const offset = Math.sin(Date.now() * 0.005) * 4;
+    ctx.translate(0, offset);
+
     const radius = w/2;
 
-    // Pot
-    ctx.fillStyle = '#f59e0b'; // Amber
-    ctx.beginPath();
-    ctx.arc(0, 4, radius, 0, Math.PI*2);
-    ctx.fill();
-    ctx.strokeStyle = '#92400e';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // Glow
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 15;
 
-    // Lid/Rim
+    // Pot Body
+    const grad = ctx.createRadialGradient(-5, -5, 2, 0, 0, radius);
+    grad.addColorStop(0, '#fbbf24');
+    grad.addColorStop(1, '#d97706');
+    ctx.fillStyle = grad;
+    
+    ctx.beginPath();
+    ctx.arc(0, 5, radius, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    
+    // Rim
     ctx.fillStyle = '#fcd34d';
     ctx.beginPath();
-    ctx.ellipse(0, -4, radius, radius*0.4, 0, 0, Math.PI*2);
+    ctx.ellipse(0, -5, radius, radius*0.35, 0, 0, Math.PI*2);
     ctx.fill();
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     
-    // Shine
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    // Honey inside
+    ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    ctx.ellipse(-radius*0.4, 0, radius*0.2, radius*0.3, Math.PI/4, 0, Math.PI*2);
+    ctx.ellipse(0, -5, radius*0.8, radius*0.25, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // High Reflection
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath();
+    ctx.ellipse(-8, -8, 6, 4, -0.5, 0, Math.PI*2);
     ctx.fill();
 
     ctx.restore();
@@ -377,28 +444,44 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     ctx.save();
     ctx.translate(x + w/2, y + h/2);
 
+    // Spin animation or Float
+    const offset = Math.sin(Date.now() * 0.008) * 3;
+    ctx.translate(0, offset);
+
     // Glow
     ctx.shadowColor = '#3b82f6';
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 20;
 
-    // Canister Body
-    ctx.fillStyle = '#2563eb'; // Blue
-    drawRoundedRect(ctx, -w/3, -h/2, w/1.5, h, 4);
+    // Canister Body (NOS Style)
+    ctx.fillStyle = '#1d4ed8'; // Blue-700
+    ctx.beginPath();
+    ctx.roundRect(-w/2.5, -h/2, w/1.25, h, 8);
+    ctx.fill();
+    
+    // Highlight curve
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(-w/2.5 + 4, -h/2, 4, h);
+
     ctx.shadowBlur = 0; // Reset
 
-    // Cap
-    ctx.fillStyle = '#1e3a8a';
-    ctx.fillRect(-w/6, -h/2 - 4, w/3, 4);
-
-    // Label (Lightning)
-    ctx.fillStyle = '#facc15'; // Yellow Bolt
+    // Valve / Top
+    ctx.fillStyle = '#94a3b8'; // Grey
     ctx.beginPath();
-    ctx.moveTo(2, -5);
-    ctx.lineTo(-6, 2);
-    ctx.lineTo(0, 2);
-    ctx.lineTo(-2, 10);
-    ctx.lineTo(6, 0);
-    ctx.lineTo(0, 0);
+    ctx.moveTo(-6, -h/2);
+    ctx.lineTo(-6, -h/2 - 8);
+    ctx.lineTo(6, -h/2 - 8);
+    ctx.lineTo(6, -h/2);
+    ctx.fill();
+    
+    // Label (Lightning)
+    ctx.fillStyle = '#facc15'; 
+    ctx.beginPath();
+    ctx.moveTo(6, -15);
+    ctx.lineTo(-6, 0);
+    ctx.lineTo(2, 0);
+    ctx.lineTo(-6, 20);
+    ctx.lineTo(8, 5);
+    ctx.lineTo(-2, 5);
     ctx.closePath();
     ctx.fill();
 
@@ -450,15 +533,15 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     }
 
     // Steering
-    const steerSpeed = 10;
+    const steerSpeed = 12; // Slightly more responsive
     if (game.keys.left) game.targetX -= steerSpeed;
     if (game.keys.right) game.targetX += steerSpeed;
     
-    // Clamp target
+    // Clamp target to track width strictly
     game.targetX = Math.max(0, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, game.targetX));
 
     // Smooth movement (Drift feel)
-    game.playerX += (game.targetX - game.playerX) * 0.2;
+    game.playerX += (game.targetX - game.playerX) * 0.25;
 
     // Road Scroll
     game.roadOffset += game.speed;
@@ -488,16 +571,18 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
             continue;
         }
 
-        // Collision AABB (Forgiving)
-        const hitX = game.playerX + 8;
-        const hitY = game.playerY + 8;
+        // Collision AABB (Forgiving but Tight)
+        // Player is visually ~50px wide. Hitbox padding = 8px. 
+        // Effective Hitbox = 34px wide.
+        const hitX = game.playerX + 8; 
+        const hitY = game.playerY + 5;
         const hitW = PLAYER_WIDTH - 16;
-        const hitH = PLAYER_HEIGHT - 16;
+        const hitH = PLAYER_HEIGHT - 10;
 
-        const objHitX = obj.x + 4;
-        const objHitY = obj.y + 4;
-        const objHitW = obj.width - 8;
-        const objHitH = obj.height - 8;
+        const objHitX = obj.x + 5;
+        const objHitY = obj.y + 5;
+        const objHitW = obj.width - 10;
+        const objHitH = obj.height - 10;
 
         if (
             hitX < objHitX + objHitW &&
@@ -530,7 +615,7 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Road Background
-    ctx.fillStyle = '#262626'; // Dark Asphalt
+    ctx.fillStyle = '#1c1917'; // Darker Stone
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Road Shoulders (Red/White stripes)
@@ -539,7 +624,7 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     for (let y = -STRIPE_HEIGHT; y < CANVAS_HEIGHT; y += STRIPE_HEIGHT) {
        const adjustedY = y + game.roadOffset;
        const isRed = Math.floor((y + game.roadOffset) / STRIPE_HEIGHT) % 2 === 0;
-       ctx.fillStyle = isRed ? '#ef4444' : '#ffffff';
+       ctx.fillStyle = isRed ? '#ef4444' : '#f5f5f5';
        
        // Left Shoulder
        ctx.fillRect(0, adjustedY, SHOULDER_WIDTH, STRIPE_HEIGHT);
@@ -548,13 +633,13 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     }
 
     // Grass Edges (Outer)
-    ctx.fillStyle = '#166534';
+    ctx.fillStyle = '#15803d'; // Green
     ctx.fillRect(0, 0, 4, CANVAS_HEIGHT);
     ctx.fillRect(CANVAS_WIDTH - 4, 0, 4, CANVAS_HEIGHT);
 
     // Lane Markers (Dashed Lines)
-    ctx.fillStyle = '#FFF';
-    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = '#e5e5e5';
+    ctx.globalAlpha = 0.8;
     for (let i = -60; i < CANVAS_HEIGHT; i += 60) {
         const y = i + game.roadOffset;
         // Lane 1 divider
@@ -565,7 +650,6 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
     ctx.globalAlpha = 1.0;
 
     // Draw Objects (Sorted by Y to handle overlap slightly better)
-    // Actually standard z-order is enough here as they don't overlap much
     game.objects.forEach(obj => {
         if (obj.type === 'car') drawEnemyCar(ctx, obj.x, obj.y, obj.width, obj.height);
         else if (obj.type === 'rock') drawRock(ctx, obj.x, obj.y, obj.width, obj.height);
@@ -578,14 +662,14 @@ export const BeeRacing: React.FC<BeeRacingProps> = ({ userProfile, onGameOver })
 
     // Speed Lines (Visual effect for high speed)
     if (game.speed > 10) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 1;
-        for(let i=0; i<3; i++) {
+        for(let i=0; i<4; i++) {
             const lx = Math.random() * CANVAS_WIDTH;
             const ly = Math.random() * CANVAS_HEIGHT;
             ctx.beginPath();
             ctx.moveTo(lx, ly);
-            ctx.lineTo(lx, ly + 100);
+            ctx.lineTo(lx, ly + 150);
             ctx.stroke();
         }
     }

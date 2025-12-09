@@ -28,7 +28,8 @@ import {
   View, ChartNoAxesColumn, Send,
   ChevronLeft, MoreHorizontal, Mic, Smile, Plus,
   Globe,
-  Sparkles
+  Sparkles,
+  Target
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { StatsChart } from './components/StatsChart';
@@ -37,6 +38,7 @@ import { AuthModal } from './components/AuthModal';
 import { AIToolbox } from './components/AIToolbox';
 import { MiniGamesHub } from './components/MiniGamesHub';
 import { BeeDogChat } from './components/BeeDogChat';
+import { MissionCenter } from './components/MissionCenter';
 import { useAuth } from './context/AuthContext';
 
 // --- DATA ---
@@ -166,6 +168,9 @@ const App: React.FC = () => {
   // Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'profile'>('login');
+  
+  // Mission Center State
+  const [isMissionOpen, setIsMissionOpen] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -227,6 +232,14 @@ const App: React.FC = () => {
     setIsAuthModalOpen(true);
   };
 
+  const openMissions = () => {
+    if (!user) {
+        openLogin();
+    } else {
+        setIsMissionOpen(true);
+    }
+  };
+
   return (
     <div className={`min-h-screen text-neutral-900 dark:text-white transition-colors duration-500 font-sans ${currentView === 'landing' ? 'honey-pattern' : ''}`}>
       
@@ -274,11 +287,18 @@ const App: React.FC = () => {
               </button>
 
               {user ? (
-                 <div className="flex items-center gap-2 cursor-pointer pl-1 pr-1.5 py-1 rounded-full hover:bg-white dark:hover:bg-neutral-800 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700" onClick={openProfile}>
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-yellow to-orange-400 p-0.5">
-                      <div className="w-full h-full rounded-full bg-white dark:bg-black overflow-hidden">
-                        {userProfile?.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center">🐶</div>}
-                      </div>
+                 <div className="flex items-center gap-2">
+                    {/* Mission Button */}
+                    <button onClick={openMissions} className="hidden sm:flex items-center justify-center p-2 rounded-full hover:bg-white dark:hover:bg-white/10 text-brand-yellow transition-all" title="任务中心">
+                        <Target size={22} className="fill-brand-yellow/20"/>
+                    </button>
+
+                    <div className="flex items-center gap-2 cursor-pointer pl-1 pr-1.5 py-1 rounded-full hover:bg-white dark:hover:bg-neutral-800 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700" onClick={openProfile}>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-yellow to-orange-400 p-0.5">
+                        <div className="w-full h-full rounded-full bg-white dark:bg-black overflow-hidden">
+                            {userProfile?.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center">🐶</div>}
+                        </div>
+                        </div>
                     </div>
                  </div>
               ) : (
@@ -302,9 +322,14 @@ const App: React.FC = () => {
             <button onClick={navigateToGames} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2"><Gamepad2 size={18}/> 小游戏</button>
             <button onClick={navigateToToolbox} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-brand-orange flex items-center gap-2"><Bot size={18}/> AI 工具箱</button>
              {user ? (
-               <button onClick={openProfile} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2 border-t border-black/5 dark:border-white/5 mt-2 pt-4">
-                  <UserCircle size={20} /> 个人中心 ({userProfile?.nickname})
-               </button>
+               <>
+                 <button onClick={openMissions} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2 text-brand-yellow">
+                    <Target size={20} /> 任务中心
+                 </button>
+                 <button onClick={openProfile} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2 border-t border-black/5 dark:border-white/5 mt-2 pt-4">
+                    <UserCircle size={20} /> 个人中心 ({userProfile?.nickname})
+                 </button>
+               </>
              ) : (
                 <Button onClick={openLogin} className="w-full mt-4">立即登录</Button>
              )}
@@ -652,7 +677,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="relative max-w-5xl mx-auto">
-                  <div className="grid md:grid-cols-3 gap-6">
+                  <div className="grid md:grid-cols-3 h-full gap-6">
                       {ROADMAP_DATA.map((phase, idx) => (
                           <div key={idx} className="relative group h-full">
                               {/* Content Card */}
@@ -720,7 +745,10 @@ const App: React.FC = () => {
       </footer>
       
       {/* Auth Modal */}
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} mode={authMode} />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} mode={authMode} onOpenMissions={() => { setIsAuthModalOpen(false); setIsMissionOpen(true); }}/>
+      
+      {/* Mission Center */}
+      <MissionCenter isOpen={isMissionOpen} onClose={() => setIsMissionOpen(false)} onNavigateToGames={navigateToGames} />
       
       {/* Floating Chat */}
       <BeeDogChat />

@@ -419,7 +419,7 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
     });
   };
 
-  const handleTouch = (e: React.TouchEvent | React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
       e.preventDefault();
       flipGravity();
   };
@@ -432,8 +432,7 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
         width={320} 
         height={480} 
         className="w-full h-full block cursor-pointer"
-        onMouseDown={handleTouch}
-        onTouchStart={handleTouch}
+        onPointerDown={handlePointerDown}
       />
 
       {/* HUD */}

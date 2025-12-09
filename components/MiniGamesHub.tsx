@@ -15,6 +15,7 @@ import { BeeEvolution } from './games/BeeEvolution';
 import { BeeTileMatch } from './games/BeeTileMatch';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
+import { completeDailyGameMission } from '../services/userService';
 import { Button } from './Button';
 
 interface MiniGamesHubProps {
@@ -109,10 +110,11 @@ const GAMES = [
 ];
 
 export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) => {
-  const { userProfile } = useAuth();
+  const { user, userProfile, refreshProfile } = useAuth();
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<GameScore[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [missionMessage, setMissionMessage] = useState<string | null>(null);
 
   const fetchScores = async (gameId: string) => {
     setLoadingLeaderboard(true);
@@ -129,12 +131,27 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   useEffect(() => {
     if (activeGameId) {
       fetchScores(activeGameId);
+      setMissionMessage(null);
     }
   }, [activeGameId]);
 
-  const handleGameOver = () => {
+  const handleGameOver = async () => {
     if (activeGameId) {
       fetchScores(activeGameId);
+      
+      // Try to complete mission
+      if (user) {
+          try {
+              const result = await completeDailyGameMission(user.uid);
+              if (result.success) {
+                  setMissionMessage(`🎉 任务完成！+${result.earned} 蜂蜜`);
+                  await refreshProfile();
+                  setTimeout(() => setMissionMessage(null), 4000);
+              }
+          } catch (e) {
+              console.error("Mission trigger failed", e);
+          }
+      }
     }
   };
 
@@ -159,7 +176,15 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   if (activeGameId) {
     const gameInfo = GAMES.find(g => g.id === activeGameId);
     return (
-      <div className="min-h-screen pt-24 pb-12 bg-neutral-50 dark:bg-[#050505]">
+      <div className="min-h-screen pt-24 pb-12 bg-neutral-50 dark:bg-[#050505] relative">
+        {missionMessage && (
+            <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-top-4">
+                <div className="bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl border-2 border-white flex items-center gap-2">
+                    <Star className="fill-current" size={20}/> {missionMessage}
+                </div>
+            </div>
+        )}
+
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-6 flex items-center justify-between">
             <button 
@@ -224,7 +249,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
              蜜蜂狗 <span className="text-brand-yellow">小游戏中心</span>
           </h1>
           <p className="text-xl text-neutral-600 dark:text-neutral-300 max-w-2xl mx-auto">
-             无聊了吗？来玩两把！所有分数都会记录在全网排行榜上。
+             无聊了吗？来玩两把！所有分数都会记录在全网排行榜上。<br/>
+             <span className="text-brand-yellow font-bold">每日首次游玩可获得 10 蜂蜜奖励！</span>
           </p>
         </div>
 

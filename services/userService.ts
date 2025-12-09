@@ -11,6 +11,7 @@ export interface UserProfile {
   avatarUrl?: string; 
   credits: number;
   lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
+  lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
 }
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
@@ -160,4 +161,34 @@ export const performDailyCheckIn = async (uid: string): Promise<{ success: boole
   });
 
   return { success: true, message: "签到成功！获得 10 罐蜂蜜！" };
+};
+
+/**
+ * Completes the "Play Daily Game" mission.
+ */
+export const completeDailyGameMission = async (uid: string): Promise<{ success: boolean; message: string; earned: number }> => {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) return { success: false, message: "User not found", earned: 0 };
+
+  const data = docSnap.data() as UserProfile;
+  
+  // Get Local Date String (YYYY-MM-DD)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const today = `${year}-${month}-${day}`;
+
+  if (data.lastGamePlayedDate === today) {
+    return { success: false, message: "Mission already completed today", earned: 0 };
+  }
+
+  await updateDoc(docRef, {
+    credits: increment(10),
+    lastGamePlayedDate: today
+  });
+
+  return { success: true, message: "每日首玩任务完成！", earned: 10 };
 };

@@ -360,7 +360,7 @@ export const HoneyStack: React.FC<HoneyStackProps> = ({ userProfile, onGameOver 
     }
   };
 
-  const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
+  const handlePointerDown = (e: React.PointerEvent) => {
       e.preventDefault();
       placeBlock();
   };
@@ -373,8 +373,7 @@ export const HoneyStack: React.FC<HoneyStackProps> = ({ userProfile, onGameOver 
         width={320} 
         height={480} 
         className="w-full h-full block cursor-pointer"
-        onMouseDown={handleTap}
-        onTouchStart={handleTap}
+        onPointerDown={handlePointerDown}
       />
 
       {/* HUD */}

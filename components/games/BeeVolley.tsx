@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
 import { Button } from '../Button';
-import { Play, RotateCcw, Trophy, CircleDot } from 'lucide-react';
+import { Play, RotateCcw, Trophy, CircleDot, MousePointer2 } from 'lucide-react';
 
 interface BeeVolleyProps {
   userProfile: UserProfile | null;
@@ -44,7 +44,6 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
   const CANVAS_HEIGHT = 480;
   const GRAVITY = 0.4;
   const FRICTION = 0.99;
-  const PLAYER_SPEED = 8;
   const PLAYER_WIDTH = 60;
   const PLAYER_HEIGHT = 60; // Adjusted for square-ish image
   const BOUNCE_FORCE = -16; 
@@ -57,13 +56,13 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
   const gameRef = useRef({
     playerX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
     playerY: CANVAS_HEIGHT - 70, // Slightly above bottom
+    targetX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2, // New: Target position for smooth follow
     balls: [] as Ball[],
     particles: [] as Particle[],
     score: 0,
     hitsForNextBall: 8, // Start slower (8 hits)
     currentHits: 0,
     isGameOver: false,
-    keys: { left: false, right: false },
     animationId: 0,
     lastFrameTime: 0,
     playerSquish: 0, // Visual effect
@@ -77,21 +76,7 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
       beeDogImgRef.current = img;
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') gameRef.current.keys.left = true;
-      if (e.key === 'ArrowRight') gameRef.current.keys.right = true;
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') gameRef.current.keys.left = false;
-      if (e.key === 'ArrowRight') gameRef.current.keys.right = false;
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
       if (gameRef.current.animationId) cancelAnimationFrame(gameRef.current.animationId);
     };
   }, []);
@@ -130,9 +115,12 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
     setScore(0);
     setBallCount(1);
 
+    const startX = CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2;
+
     gameRef.current = {
-      playerX: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
+      playerX: startX,
       playerY: CANVAS_HEIGHT - 70,
+      targetX: startX,
       // First ball spawns from top center for a fair start
       balls: [createBall(CANVAS_WIDTH / 2, 80, 0)],
       particles: [],
@@ -140,7 +128,6 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
       hitsForNextBall: 8, 
       currentHits: 0,
       isGameOver: false,
-      keys: { left: false, right: false },
       animationId: 0,
       lastFrameTime: performance.now(),
       playerSquish: 0,
@@ -242,19 +229,14 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
     // Player Squish Recovery
     game.playerSquish *= 0.8;
 
-    // Player Movement
-    let moved = false;
-    if (game.keys.left) {
-        game.playerX -= PLAYER_SPEED;
-        moved = true;
-    }
-    if (game.keys.right) {
-        game.playerX += PLAYER_SPEED;
-        moved = true;
-    }
+    // Player Movement (Smooth Follow)
+    const prevX = game.playerX;
+    // Interpolate towards target (0.2 = fast smooth, 0.1 = slow smooth)
+    game.playerX += (game.targetX - game.playerX) * 0.25;
 
-    // Sand Particles on Move
-    if (moved && Math.random() > 0.5) {
+    // Detect movement for particles
+    const diff = Math.abs(game.playerX - prevX);
+    if (diff > 1 && Math.random() > 0.5) {
         createSandParticles(
             game.playerX + PLAYER_WIDTH/2 + (Math.random()-0.5)*20, 
             game.playerY + PLAYER_HEIGHT, 
@@ -262,10 +244,6 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
             2
         );
     }
-
-    // Wall Constraint
-    if (game.playerX < 0) game.playerX = 0;
-    if (game.playerX + PLAYER_WIDTH > CANVAS_WIDTH) game.playerX = CANVAS_WIDTH - PLAYER_WIDTH;
 
     // Ball Physics
     for (let i = 0; i < game.balls.length; i++) {
@@ -293,10 +271,9 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
         ball.vy = -ball.vy * 0.5;
       }
 
-      // --- GAME OVER LOGIC (UPDATED) ---
+      // --- GAME OVER LOGIC ---
       // Lose only if ball falls below screen AND was moving DOWN.
-      // This allows balls spawned from bottom (moving up) to pass safely.
-      if (ball.y + ball.radius > CANVAS_HEIGHT + 20) { // Slight buffer +20
+      if (ball.y + ball.radius > CANVAS_HEIGHT + 20) { 
           if (ball.vy > 0) {
               endGame();
               return;
@@ -400,21 +377,24 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
     game.balls.forEach(ball => drawBall(ctx, ball));
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touchX = e.touches[0].clientX;
-    const screenWidth = window.innerWidth;
-    if (touchX < screenWidth / 2) {
-       gameRef.current.keys.left = true;
-       gameRef.current.keys.right = false;
-    } else {
-       gameRef.current.keys.right = true;
-       gameRef.current.keys.left = false;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    gameRef.current.keys.left = false;
-    gameRef.current.keys.right = false;
+  const handleInput = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (gameState !== 'PLAYING') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Use getBoundingClientRect for correct relative coordinates
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = CANVAS_WIDTH / rect.width;
+    
+    const clientX = e.clientX;
+    const x = (clientX - rect.left) * scaleX;
+    
+    // Center player on input
+    let target = x - PLAYER_WIDTH / 2;
+    // Clamp to canvas bounds
+    target = Math.max(0, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, target));
+    
+    gameRef.current.targetX = target;
   };
 
   return (
@@ -424,9 +404,10 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
         ref={canvasRef} 
         width={320} 
         height={480} 
-        className="w-full h-full block"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        className="w-full h-full block cursor-none" // Hide default cursor for immersion
+        onPointerMove={handleInput}
+        onPointerDown={handleInput}
+        style={{ touchAction: 'none' }} // Prevent scrolling
       />
 
       {/* HUD */}
@@ -446,8 +427,9 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-6 z-20 backdrop-blur-sm">
           <div className="text-4xl font-black mb-2 text-yellow-300 drop-shadow-lg stroke-black text-center">Bee Volley<br/><span className="text-2xl text-white">沙滩排球</span></div>
           <p className="mb-8 font-bold text-center text-neutral-200 text-sm">
-            左右移动接球，别让球落地！<br/>
-            新球会从<span className="text-yellow-400">底部</span>突然飞出，小心！<br/>
+            <span className="flex items-center justify-center gap-1 mb-1 text-yellow-400"><MousePointer2 size={14}/> 跟随手指移动</span>
+            移动接球，别让球落地！<br/>
+            小心 <span className="text-yellow-400">底部</span> 突然飞出的新球！
           </p>
           <Button onClick={startGame} className="animate-bounce shadow-xl scale-110">
              <Play className="mr-2" /> 开始顶球
@@ -468,14 +450,6 @@ export const BeeVolley: React.FC<BeeVolleyProps> = ({ userProfile, onGameOver })
           <Button onClick={startGame} className="w-full mb-3 py-4 text-lg">
              <RotateCcw className="mr-2" /> 再来一局
           </Button>
-        </div>
-      )}
-      
-      {/* Controls Hint */}
-      {gameState === 'PLAYING' && (
-        <div className="absolute bottom-4 w-full flex justify-between px-8 opacity-30 pointer-events-none text-white text-xs font-bold uppercase tracking-widest">
-           <span>Left</span>
-           <span>Right</span>
         </div>
       )}
     </div>
