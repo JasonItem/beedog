@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -14,6 +14,7 @@ import { FudBuster } from './games/FudBuster';
 import { BeeEvolution } from './games/BeeEvolution';
 import { BeeTileMatch } from './games/BeeTileMatch';
 import { BeeSwarm } from './games/BeeSwarm';
+import { HoneyClimber } from './games/HoneyClimber';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { completeDailyGameMission } from '../services/userService';
@@ -24,6 +25,13 @@ interface MiniGamesHubProps {
 }
 
 const GAMES = [
+  {
+    id: 'honey_climber',
+    name: '蜂蜜攀登者',
+    description: '手速与反应的极限挑战！左右点击躲避红色阴线，快速攀登绿色阳线！',
+    color: 'from-green-500 to-emerald-700',
+    icon: TrendingUp
+  },
   {
     id: 'bee_swarm',
     name: '蜜蜂大军',
@@ -165,6 +173,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (activeGameId) {
+      case 'honey_climber': return <HoneyClimber userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_match': return <BeeTileMatch userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_evolution': return <BeeEvolution userProfile={userProfile} onGameOver={handleGameOver} />;
