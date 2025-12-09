@@ -29,6 +29,7 @@ interface Entity {
   attackTimer?: number; // For Boss
   wobble?: number; // For moving enemies
   wobbleSpeed?: number;
+  enemyType?: 'wasp' | 'bear'; // Visual style
 }
 
 export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) => {
@@ -55,7 +56,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
     bullets: [] as Entity[],
     enemyBullets: [] as Entity[], 
     enemies: [] as Entity[],
-    particles: [] as {x: number, y: number, vx: number, vy: number, life: number, color: string}[],
+    particles: [] as {x: number, y: number, vx: number, vy: number, life: number, color: string, size: number}[],
     
     // Stats
     fireRate: 12, // Starting fire rate
@@ -135,14 +136,15 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
     }
   };
 
-  const createParticles = (x: number, y: number, color: string, count: number = 5) => {
+  const createParticles = (x: number, y: number, color: string, count: number = 5, sizeBase: number = 4) => {
     for(let i=0; i<count; i++) {
         gameRef.current.particles.push({
             x, y,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
             life: 20 + Math.random() * 10,
-            color
+            color,
+            size: Math.random() * sizeBase + 1
         });
     }
   };
@@ -156,22 +158,19 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
           type: 'bullet',
           x: player.x,
           y: player.y - 20,
-          width: 6,
-          height: 12,
+          width: 8,
+          height: 16,
           hp: 1, maxHp: 1,
           vx: 0, vy: -BULLET_SPEED,
           color: '#fbbf24' // Yellow
       });
 
       // Swarm shots
-      // LIMIT: Cap the number of simultaneous bullets to prevent "God Mode" DPS
-      // Even if you have 100 bees, only 20 fire at once (Visual + Balance)
       const effectiveSwarmDPS = Math.min(swarmSize - 1, 20); 
       
       for(let i=0; i<effectiveSwarmDPS; i++) {
-          // Spread them out more chaotically as swarm grows
           const angle = (i / effectiveSwarmDPS) * Math.PI * 2 + (gameRef.current.frameCount * 0.1);
-          const radius = 30 + (i % 2) * 15; // Two rings
+          const radius = 30 + (i % 2) * 15; 
           
           const offsetX = Math.cos(angle) * radius;
           const offsetY = Math.sin(angle) * 10;
@@ -181,8 +180,8 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
             type: 'bullet',
             x: player.x + offsetX,
             y: player.y + offsetY,
-            width: 4,
-            height: 8,
+            width: 5,
+            height: 10,
             hp: 1, maxHp: 1,
             vx: 0, vy: -BULLET_SPEED * 0.9, 
             color: '#fcd34d'
@@ -194,11 +193,8 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
       const { player, difficulty } = gameRef.current;
       const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
       
-      // Aggressive Spread: More bullets at higher difficulty
       const bulletCount = 3 + Math.floor(difficulty);
       const spread = 0.5 + (difficulty * 0.05);
-      
-      // Damage scales with difficulty: Late game bullets HURT
       const bulletDmg = Math.floor(difficulty * 1.5) + 1;
 
       for (let i = 0; i < bulletCount; i++) {
@@ -213,7 +209,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
               hp: 1, maxHp: 1,
               vx: Math.cos(a) * ENEMY_BULLET_SPEED,
               vy: Math.sin(a) * ENEMY_BULLET_SPEED,
-              color: '#7f1d1d', 
+              color: '#ef4444', 
               damage: bulletDmg
           });
       }
@@ -222,32 +218,26 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
   const spawnEnemyLine = () => {
       const { difficulty } = gameRef.current;
       
-      // Density increases significantly
       const count = Math.min(5, 2 + Math.floor(difficulty / 2));
       
       for(let i=0; i<count; i++) {
           const typeRand = Math.random();
           let type: 'enemy' | 'crate' = 'enemy';
-          let width = 45, height = 45, color = '#ef4444';
+          let width = 45, height = 45;
+          let enemyType: 'wasp' | 'bear' = 'wasp';
+          let color = '#ef4444';
           
-          // Difficulty Scaling Formula: Base + Multiplier * (Difficulty ^ 2.2)
-          // Stage 1: ~10 HP
-          // Stage 5: ~150 HP
-          // Stage 10: ~600 HP (Needs sustained fire)
           const hpMultiplier = Math.pow(difficulty, 2.2);
-          
-          // Collision Damage Scaling: Hitting an enemy hurts more later
           const collisionDmg = Math.max(1, Math.floor(difficulty));
 
           let wobble = 0;
           let wobbleSpeed = 0;
 
-          if (typeRand > 0.75) {
+          if (typeRand > 0.70) {
               type = 'crate';
-              width = 50; height = 50;
+              width = 50; height = 50; // Hexagon size
               color = '#3b82f6'; 
-              // Crates have less HP than enemies generally, easier to break for fun
-              // But late game crates should still require effort
+              
               gameRef.current.enemies.push({
                   id: Date.now() + Math.random(),
                   type,
@@ -258,15 +248,22 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
                   vx: 0, 
                   vy: gameRef.current.scrollSpeed,
                   color,
-                  rewardType: 'bees', // Default, logic handles rest
+                  rewardType: 'bees', 
                   rewardValue: 1,
-                  damage: 1 // Crates don't hurt much
+                  damage: 1
               });
           } else {
               // ENEMY
-              // Late game enemies move side-to-side (Wobble) to dodge bullets
-              if (difficulty > 2 && Math.random() > 0.5) {
-                  wobble = Math.random() * 100; // Phase offset
+              if (difficulty > 2 && Math.random() > 0.6) {
+                  enemyType = 'bear'; // Tanky
+                  width = 55; height = 55;
+              } else {
+                  enemyType = 'wasp'; // Fast
+                  width = 40; height = 40;
+              }
+
+              if (Math.random() > 0.5) {
+                  wobble = Math.random() * 100;
                   wobbleSpeed = 0.05 + Math.random() * 0.05;
               }
 
@@ -275,29 +272,30 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
                   type,
                   x: 0, y: 0,
                   width, height,
-                  hp: 10 + (5 * hpMultiplier),
-                  maxHp: 10 + (5 * hpMultiplier),
+                  hp: (enemyType === 'bear' ? 20 : 10) + (5 * hpMultiplier),
+                  maxHp: (enemyType === 'bear' ? 20 : 10) + (5 * hpMultiplier),
                   vx: 0,
-                  vy: gameRef.current.scrollSpeed * 1.2,
-                  color: '#ef4444',
-                  damage: 2 + collisionDmg * 2, // High collision damage
+                  vy: gameRef.current.scrollSpeed * (enemyType === 'wasp' ? 1.3 : 1.0),
+                  color: enemyType === 'bear' ? '#7f1d1d' : '#f59e0b',
+                  damage: 2 + collisionDmg * 2,
                   wobble,
-                  wobbleSpeed
+                  wobbleSpeed,
+                  enemyType
               });
           }
           
-          // Position setting (Spread)
+          // Position setting
           const lastAdded = gameRef.current.enemies[gameRef.current.enemies.length-1];
           const segmentWidth = CANVAS_WIDTH / count;
           lastAdded.x = (i * segmentWidth) + (segmentWidth / 2) + (Math.random() - 0.5) * 20;
           lastAdded.y = -100 - (Math.random() * 150);
           
-          // Crate Reward Logic refinement
+          // Crate Reward
           if (type === 'crate') {
               const r = Math.random();
-              if (r > 0.98) { // Ultra Rare 2%
+              if (r > 0.98) { // Ultra Rare
                   lastAdded.rewardType = 'super_bees';
-                  lastAdded.rewardValue = 5 + Math.floor(difficulty); // Capped growth
+                  lastAdded.rewardValue = 5 + Math.floor(difficulty);
                   lastAdded.color = '#FFF';
                   lastAdded.hp *= 2; 
               } else if (r > 0.85) {
@@ -308,7 +306,6 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
                   lastAdded.rewardValue = 0.1;
               } else {
                   lastAdded.rewardType = 'bees';
-                  // Diminishing returns on regular bee crates to prevent infinite snowball
                   lastAdded.rewardValue = Math.max(1, Math.floor(Math.random() * 3)); 
               }
           }
@@ -319,23 +316,174 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
       gameRef.current.bossActive = true;
       showWaveMessage(`BOSS WAVE ${gameRef.current.stage}`);
       
-      // Boss HP: Massive sponge. Stage 1: 800, Stage 5: 10,000+
       const hp = 800 * Math.pow(gameRef.current.difficulty, 2.0);
       
       gameRef.current.enemies.push({
           id: Date.now(),
           type: 'boss',
           x: CANVAS_WIDTH / 2,
-          y: -150,
-          width: 180,
+          y: -180,
+          width: 200,
           height: 180,
           hp: hp, maxHp: hp,
-          vx: 1.5, // Move faster laterally
+          vx: 1.5, 
           vy: 2, 
-          color: '#7f1d1d', 
-          damage: 99999, // Touch = Death
+          color: '#451a03', 
+          damage: 99999,
           attackTimer: 60
       });
+  };
+
+  const drawHexagon = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, fill: boolean = true) => {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI / 3) * i - Math.PI / 6;
+          const px = x + r * Math.cos(angle);
+          const py = y + r * Math.sin(angle);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      if (fill) {
+          ctx.fillStyle = color;
+          ctx.fill();
+      } else {
+          ctx.strokeStyle = color;
+          ctx.stroke();
+      }
+  };
+
+  const drawWasp = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number) => {
+      const time = gameRef.current.frameCount;
+      ctx.save();
+      ctx.translate(x, y);
+      
+      // Wings
+      const wingScale = Math.sin(time * 0.5);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath();
+      ctx.ellipse(-10, -5, 12, 6 * Math.abs(wingScale), -0.5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(10, -5, 12, 6 * Math.abs(wingScale), 0.5, 0, Math.PI*2);
+      ctx.fill();
+
+      // Body (Triangle)
+      ctx.fillStyle = '#fbbf24'; // Yellow
+      ctx.beginPath();
+      ctx.moveTo(-w/2, -w/2);
+      ctx.lineTo(w/2, -w/2);
+      ctx.lineTo(0, w/2 + 5);
+      ctx.fill();
+      
+      // Stripes
+      ctx.fillStyle = '#000';
+      ctx.fillRect(-w/3, -5, w/1.5, 4);
+      ctx.fillRect(-w/4, 5, w/2, 4);
+      
+      // Eyes
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath(); ctx.arc(-8, -w/3, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(8, -w/3, 4, 0, Math.PI*2); ctx.fill();
+
+      ctx.restore();
+  };
+
+  const drawBear = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number) => {
+      ctx.save();
+      ctx.translate(x, y);
+      
+      // Ears
+      ctx.fillStyle = '#451a03'; // Dark Brown
+      ctx.beginPath(); ctx.arc(-15, -15, 8, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(15, -15, 8, 0, Math.PI*2); ctx.fill();
+
+      // Head
+      ctx.fillStyle = '#78350f'; // Brown
+      ctx.beginPath();
+      ctx.arc(0, 0, w/2, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Snout
+      ctx.fillStyle = '#fbbf24'; // Yellowish snout
+      ctx.beginPath();
+      ctx.ellipse(0, 5, 12, 8, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(0, 2, 4, 0, Math.PI*2); ctx.fill(); // Nose
+
+      // Angry Eyes
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(-15, -10); ctx.lineTo(-5, -5); ctx.lineTo(-15, 0);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(15, -10); ctx.lineTo(5, -5); ctx.lineTo(15, 0);
+      ctx.fill();
+
+      ctx.restore();
+  };
+
+  const drawBoss = (ctx: CanvasRenderingContext2D, boss: Entity) => {
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+      
+      // Shake effect when hit
+      if (gameRef.current.frameCount % 5 === 0) {
+          // Subtle shake
+      }
+
+      // Mech Bear Head
+      const w = boss.width;
+      const h = boss.height;
+
+      // Ears (Metal)
+      ctx.fillStyle = '#57534e'; // Metal Grey
+      ctx.beginPath(); 
+      ctx.arc(-w/3, -h/3, 30, 0, Math.PI*2); 
+      ctx.arc(w/3, -h/3, 30, 0, Math.PI*2); 
+      ctx.fill();
+      ctx.strokeStyle = '#292524';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Main Face
+      ctx.fillStyle = '#7f1d1d'; // Dark Red Metal
+      ctx.beginPath();
+      ctx.ellipse(0, 0, w/2, h/2, 0, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Metal Plates
+      ctx.fillStyle = '#991b1b';
+      ctx.fillRect(-w/4, -h/2, w/2, h);
+
+      // Glowing Eyes
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#ef4444';
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      // Left Eye
+      ctx.moveTo(-60, -20); ctx.lineTo(-20, 0); ctx.lineTo(-60, 10); ctx.fill();
+      // Right Eye
+      ctx.moveTo(60, -20); ctx.lineTo(20, 0); ctx.lineTo(60, 10); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Mouth/Grille
+      ctx.fillStyle = '#171717';
+      ctx.fillRect(-40, 40, 80, 40);
+      ctx.fillStyle = '#525252';
+      for(let i=0; i<5; i++) {
+          ctx.fillRect(-30 + i*15, 40, 5, 40);
+      }
+
+      // HP Bar
+      const hpPct = Math.max(0, boss.hp / boss.maxHp);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(-w/2, -h/2 - 30, w, 15);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(-w/2 + 2, -h/2 - 28, (w-4) * hpPct, 11);
+
+      ctx.restore();
   };
 
   const loop = () => {
@@ -370,7 +518,6 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
 
     // Spawning
     if (!game.bossActive) {
-        // Spawn frequency increases with difficulty (capped at 40 frames)
         const spawnFreq = Math.max(40, 80 - Math.floor(game.difficulty * 2));
         if (game.frameCount % spawnFreq === 0) {
             spawnEnemyLine();
@@ -400,17 +547,15 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
         }
 
         // Collision with Player
-        // Hitbox slightly smaller than visual
         if (
             Math.abs(b.x - game.player.x) < (b.width + game.player.width)/2 * 0.7 &&
             Math.abs(b.y - game.player.y) < (b.height + game.player.height)/2 * 0.7
         ) {
-            // Damage scaling: Late game bullets shred swarm
             const dmg = b.damage || 1;
             game.swarmSize = Math.max(0, game.swarmSize - dmg);
             
             setSwarmCount(game.swarmSize);
-            createParticles(game.player.x, game.player.y, '#991b1b', 5);
+            createParticles(game.player.x, game.player.y, '#991b1b', 8, 3);
             game.enemyBullets.splice(i, 1);
 
             if (game.swarmSize <= 0) {
@@ -424,19 +569,15 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
     for (let i = game.enemies.length - 1; i >= 0; i--) {
         const e = game.enemies[i];
         
-        // Wobble Logic (Lateral Movement)
         if (e.wobbleSpeed && e.wobble !== undefined) {
             e.wobble += e.wobbleSpeed;
-            e.x += Math.sin(e.wobble) * 2.5; // Sway magnitude
-            // Clamp
+            e.x += Math.sin(e.wobble) * 2.5;
             e.x = Math.max(e.width/2, Math.min(CANVAS_WIDTH - e.width/2, e.x));
         }
 
-        // Basic Movement
         e.y += e.vy;
         e.x += e.vx;
         
-        // Boss Logic
         if (e.type === 'boss') {
             if (e.x < e.width/2 || e.x > CANVAS_WIDTH - e.width/2) e.vx *= -1;
             if (e.y > 120) e.vy = 0;
@@ -445,14 +586,12 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
                 e.attackTimer--;
                 if (e.attackTimer <= 0) {
                     spawnBossBullet(e);
-                    // Rapid fire in late game
                     const cooldown = Math.max(15, 80 - game.difficulty * 8);
                     e.attackTimer = cooldown; 
                 }
             }
         }
 
-        // Cleanup
         if (e.y > CANVAS_HEIGHT + 100) {
             if (e.type !== 'boss') {
                 game.enemies.splice(i, 1);
@@ -467,7 +606,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
         ) {
             if (e.type === 'crate') {
                 game.swarmSize = Math.max(1, game.swarmSize - 1);
-                createParticles(e.x, e.y, '#FFF');
+                createParticles(e.x, e.y, '#fcd34d', 5, 2);
                 game.enemies.splice(i, 1);
             } else {
                 const dmg = e.type === 'boss' ? 9999 : (e.damage || 5);
@@ -488,17 +627,16 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
         // Collision: Player Bullets vs Enemy
         for (let j = game.bullets.length - 1; j >= 0; j--) {
             const b = game.bullets[j];
-            // Simple circle/box check
             if (
                 Math.abs(e.x - b.x) < (e.width + b.width)/2 &&
                 Math.abs(e.y - b.y) < (e.height + b.height)/2
             ) {
                 e.hp -= game.damage;
                 game.bullets.splice(j, 1);
-                createParticles(b.x, b.y - 10, '#fff', 1);
+                // Hit effect
+                createParticles(b.x, b.y - 10, '#fff', 2, 2);
 
                 if (e.hp <= 0) {
-                    // Death
                     if (e.type === 'crate') {
                         if (e.rewardType === 'bees' || e.rewardType === 'super_bees') {
                              game.swarmSize += (e.rewardValue || 1);
@@ -507,19 +645,19 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
                         if (e.rewardType === 'power') game.damage += 0.1;
                         
                         setSwarmCount(Math.floor(game.swarmSize));
-                        createParticles(e.x, e.y, e.rewardType === 'super_bees' ? '#FFD700' : '#3b82f6', 15);
+                        createParticles(e.x, e.y, e.rewardType === 'super_bees' ? '#FFD700' : '#3b82f6', 20, 5);
                     } else if (e.type === 'boss') {
                         game.bossActive = false;
-                        game.difficulty += 1.0; // Aggressive difficulty bump per stage
+                        game.difficulty += 1.0; 
                         game.stage += 1;
                         setLevel(game.stage);
                         showWaveMessage(`STAGE ${game.stage} START`);
                         game.nextBossDistance = game.distance + BOSS_SPAWN_DISTANCE;
                         game.score += 5000 * Math.floor(game.difficulty);
-                        createParticles(e.x, e.y, '#F00', 50);
+                        createParticles(e.x, e.y, '#F00', 60, 8);
                     } else {
                         game.score += 10 * Math.floor(game.difficulty);
-                        createParticles(e.x, e.y, '#ef4444', 10);
+                        createParticles(e.x, e.y, '#ef4444', 10, 3);
                     }
                     
                     setScore(game.score);
@@ -542,91 +680,78 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
     // --- RENDER ---
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Grid Background
-    const gridOffset = game.distance % 40;
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for(let x=0; x<=CANVAS_WIDTH; x+=40) { ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); }
-    for(let y=gridOffset; y<=CANVAS_HEIGHT; y+=40) { ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); }
-    ctx.stroke();
+    // Dynamic Hex Grid Background
+    const bgScroll = game.distance % 60;
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.1)'; // Honey color faint
+    ctx.lineWidth = 2;
+    // Draw hex grid effect
+    for (let y = -60; y < CANVAS_HEIGHT + 60; y += 52) { // approx hex height
+        for (let x = 0; x < CANVAS_WIDTH + 60; x += 60) {
+            const offset = (Math.floor((y + bgScroll) / 52) % 2) * 30;
+            const drawX = x + offset;
+            const drawY = y + bgScroll;
+            drawHexagon(ctx, drawX, drawY, 25, 'rgba(251, 191, 36, 0.05)', true);
+        }
+    }
 
     // Draw Particles
     game.particles.forEach(p => {
         ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, 4, 4);
+        ctx.fillRect(p.x, p.y, p.size, p.size);
     });
 
-    // Draw Enemy Bullets
-    ctx.fillStyle = '#991b1b';
+    // Draw Enemy Bullets (Stingers)
     game.enemyBullets.forEach(b => {
+        ctx.fillStyle = '#ef4444';
         ctx.beginPath();
-        ctx.arc(b.x, b.y, b.width/2, 0, Math.PI*2);
+        ctx.moveTo(b.x, b.y + b.height/2);
+        ctx.lineTo(b.x - b.width/2, b.y - b.height/2);
+        ctx.lineTo(b.x + b.width/2, b.y - b.height/2);
         ctx.fill();
-        ctx.strokeStyle = '#f87171';
-        ctx.lineWidth = 2;
-        ctx.stroke();
     });
 
     // Draw Enemies/Crates
     game.enemies.forEach(e => {
-        ctx.save();
-        ctx.translate(e.x, e.y);
-        
         if (e.type === 'crate') {
-            ctx.fillStyle = e.color;
-            ctx.fillRect(-e.width/2, -e.height/2, e.width, e.height);
-            ctx.fillStyle = 'rgba(255,255,255,0.2)';
-            ctx.fillRect(-e.width/2, -e.height/2, e.width, 10);
+            const isSuper = e.rewardType === 'super_bees';
+            const crateColor = isSuper ? '#fef08a' : '#93c5fd';
+            const borderColor = isSuper ? '#ca8a04' : '#1d4ed8';
             
-            ctx.fillStyle = e.color === '#FFF' ? '#000' : '#fff';
+            drawHexagon(ctx, e.x, e.y, e.width/2, crateColor, true);
+            drawHexagon(ctx, e.x, e.y, e.width/2 - 4, borderColor, false);
+            
+            ctx.fillStyle = '#1e3a8a';
             ctx.font = 'bold 16px font-mono';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${Math.ceil(e.hp)}`, 0, -10);
+            ctx.fillText(`${Math.ceil(e.hp)}`, e.x, e.y);
             
             ctx.font = '10px font-sans';
-            let rewardText = "";
-            if (e.rewardType === 'bees') rewardText = `+${e.rewardValue} Bees`;
-            if (e.rewardType === 'super_bees') rewardText = `+${e.rewardValue} MAX!`;
-            if (e.rewardType === 'speed') rewardText = "Speed";
-            if (e.rewardType === 'power') rewardText = "Power";
-            ctx.fillText(rewardText, 0, 15);
+            ctx.fillText(isSuper ? "MAX!" : "+Bee", e.x, e.y + 15);
 
         } else if (e.type === 'boss') {
-            ctx.fillStyle = e.color;
-            ctx.beginPath();
-            ctx.arc(0, 0, e.width/2, 0, Math.PI*2);
-            ctx.fill();
-            // HP Bar
-            const hpPct = Math.max(0, e.hp / e.maxHp);
-            ctx.fillStyle = 'red';
-            ctx.fillRect(-e.width/2, -e.height/2 - 20, e.width, 10);
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(-e.width/2, -e.height/2 - 20, e.width * hpPct, 10);
-            ctx.fillStyle = '#fff';
-            ctx.font = '32px serif';
-            ctx.fillText('👹', -16, 10);
-
+            drawBoss(ctx, e);
         } else {
-            ctx.fillStyle = e.color;
-            ctx.beginPath();
-            ctx.moveTo(-e.width/2, -e.height/2);
-            ctx.lineTo(e.width/2, -e.height/2);
-            ctx.lineTo(0, e.height/2);
-            ctx.fill();
+            if (e.enemyType === 'bear') {
+                drawBear(ctx, e.x, e.y, e.width);
+            } else {
+                drawWasp(ctx, e.x, e.y, e.width);
+            }
+            
+            // HP Text
             ctx.fillStyle = '#fff';
-            ctx.font = '12px font-mono';
+            ctx.font = '10px font-mono';
             ctx.textAlign = 'center';
-            ctx.fillText(`${Math.ceil(e.hp)}`, 0, -5);
+            ctx.fillText(`${Math.ceil(e.hp)}`, e.x, e.y + e.height/2 + 12);
         }
-        ctx.restore();
     });
 
-    // Draw Player Bullets
+    // Draw Player Bullets (Honey Drops)
     ctx.fillStyle = '#fbbf24';
     game.bullets.forEach(b => {
-        ctx.fillRect(b.x - b.width/2, b.y - b.height/2, b.width, b.height);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.width, 0, Math.PI*2);
+        ctx.fill();
     });
 
     // Draw Player (Swarm)
@@ -636,7 +761,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
     ctx.textBaseline = 'middle';
     ctx.fillText('🐶', player.x, player.y);
     
-    // Draw Swarm Orbiting
+    // Draw Swarm Orbiting (Tiny Bees)
     const orbitRadius = 35 + Math.min(swarmSize, 50) * 0.5;
     const visualCount = Math.min(swarmSize - 1, 30); 
     
@@ -645,10 +770,11 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
         const angle = (i / visualCount) * Math.PI * 2 + time;
         const bx = player.x + Math.cos(angle) * orbitRadius;
         const by = player.y + Math.sin(angle) * (orbitRadius * 0.5); 
-        ctx.font = '16px serif';
+        ctx.font = '14px serif';
         ctx.fillText('🐝', bx, by);
     }
     
+    // Squad Count
     ctx.fillStyle = '#000';
     ctx.font = 'bold 12px sans-serif';
     ctx.fillText(`${Math.floor(swarmSize)}`, player.x, player.y + 30);
@@ -675,7 +801,7 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="relative w-full max-w-md mx-auto aspect-[360/600] bg-sky-100 rounded-xl overflow-hidden shadow-2xl border-4 border-yellow-500 select-none touch-none">
+      <div className="relative w-full max-w-md mx-auto aspect-[360/600] bg-orange-50 rounded-xl overflow-hidden shadow-2xl border-4 border-yellow-500 select-none touch-none">
         
         <canvas 
             ref={canvasRef} 
@@ -685,11 +811,10 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
             onMouseMove={handlePointerMove}
             onTouchMove={handlePointerMove}
         />
-
         {/* Wave Message Overlay */}
         {waveMessage && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                <div className="bg-black/70 text-white px-8 py-4 rounded-2xl text-3xl font-black italic tracking-widest animate-in fade-in zoom-in slide-in-from-bottom-10">
+                <div className="bg-black/70 text-white px-8 py-4 rounded-2xl text-3xl font-black italic tracking-widest animate-in fade-in zoom-in slide-in-from-bottom-10 border-2 border-yellow-400">
                     {waveMessage}
                 </div>
             </div>
@@ -721,8 +846,8 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
             </div>
             <p className="mb-8 font-bold text-center text-neutral-400 text-sm leading-relaxed max-w-[260px]">
                 滑动控制移动<br/>
-                击碎 <span className="text-blue-400">蓝箱子</span> 增加蜜蜂<br/>
-                击碎 <span className="text-white font-bold">白箱子</span> 获得大量蜜蜂!<br/>
+                击碎 <span className="text-blue-400">蓝色晶格</span> 增加蜜蜂<br/>
+                击碎 <span className="text-white font-bold">皇家晶格</span> 获得大量蜜蜂!<br/>
                 <span className="text-red-500">警告：后期难度极高！</span>
             </p>
             <Button onClick={initGame} className="animate-pulse shadow-xl scale-110 bg-yellow-500 hover:bg-yellow-400 border-none text-black font-black px-10 py-4 text-xl">
@@ -752,10 +877,10 @@ export const BeeSwarm: React.FC<BeeSwarmProps> = ({ userProfile, onGameOver }) =
 
       </div>
       
-      <div className="flex gap-2 justify-center text-xs text-gray-400">
-         <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-sm"></span> 宝箱</span>
-         <span className="flex items-center gap-1"><span className="w-2 h-2 bg-white border border-gray-500 rounded-sm"></span> 超级宝箱</span>
-         <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500 rounded-sm"></span> 敌人</span>
+      <div className="flex gap-4 justify-center text-xs text-gray-400 font-medium">
+         <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-400 rounded-full border border-blue-600"></span> 晶格</span>
+         <span className="flex items-center gap-1"><span className="w-3 h-3 bg-white border border-gray-500 rounded-full"></span> 皇家晶格</span>
+         <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-500 rounded-full border border-red-700"></span> 敌人</span>
       </div>
     </div>
   );
