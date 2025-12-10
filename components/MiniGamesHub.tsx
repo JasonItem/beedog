@@ -154,19 +154,25 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   // Fetch player counts on mount
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchCounts = async () => {
       const counts: Record<string, number> = {};
       // Fetch all counts in parallel
       await Promise.all(GAMES.map(async (game) => {
         const count = await getPlayerCount(game.id);
-        counts[game.id] = count;
+        if (isMounted) counts[game.id] = count;
       }));
-      setPlayerCounts(counts);
+      
+      if (isMounted) setPlayerCounts(counts);
     };
+    
     fetchCounts();
     
     // Sync initial mute state
     setIsMuted(audio.getMuteState());
+    
+    return () => { isMounted = false; };
   }, []);
 
   const fetchScores = async (gameId: string) => {

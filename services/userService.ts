@@ -1,6 +1,5 @@
-
 import { db, storage } from "../firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User } from "firebase/auth";
 import { DivinationResult } from "./geminiService";
@@ -117,26 +116,39 @@ export const uploadUserAvatar = async (uid: string, file: File): Promise<string>
 };
 
 /**
- * Deducts credits from the user. Returns true if successful, false if insufficient funds.
+ * Deducts credits from the user using a transaction to prevent race conditions.
  * @param uid User ID
- * @param amount Amount to deduct (default 1)
+ * @param amount Amount to deduct (positive) or add (negative)
+ * @returns true if successful, false if insufficient funds or error
  */
 export const deductCredit = async (uid: string, amount: number = 1): Promise<boolean> => {
   const docRef = doc(db, "users", uid);
-  const docSnap = await getDoc(docRef);
 
-  if (!docSnap.exists()) return false;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(docRef);
+      if (!docSnap.exists()) {
+        throw "User does not exist";
+      }
 
-  const data = docSnap.data();
-  const currentCredits = typeof data.credits === 'number' ? data.credits : 0;
+      const data = docSnap.data();
+      // Ensure credits is a number, default to 0 if missing
+      const currentCredits = typeof data.credits === 'number' ? data.credits : 0;
 
-  if (currentCredits >= amount) {
-    await updateDoc(docRef, {
-      credits: increment(-amount)
+      // Only check sufficient funds if we are deducting (amount > 0)
+      // If we are adding credits (amount < 0), we always allow it
+      if (amount > 0 && currentCredits < amount) {
+        throw "Insufficient funds";
+      }
+
+      const newCredits = currentCredits - amount;
+      transaction.update(docRef, { credits: newCredits });
     });
     return true;
+  } catch (e) {
+    // console.error("Credit transaction failed:", e); // Optional logging
+    return false;
   }
-  return false;
 };
 
 /**

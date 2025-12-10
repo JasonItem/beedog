@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { saveHighScore, getUserHighScore } from '../../services/gameService';
@@ -15,9 +16,7 @@ interface PricePoint {
   time: number;
 }
 
-
 const ROUND_DURATION = 10; // seconds
-const LEVERAGE = 500; // High leverage
 
 export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver }) => {
   const { refreshProfile } = useAuth();
@@ -52,6 +51,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
     lockedEntryPrice: 0,
     lockedPosition: null as 'MOON' | 'DOOM' | null,
     lockedBetAmount: 0,
+    activeUserId: null as string | null, // CRITICAL: Cache User ID to prevent null errors on settlement
     // Tracking
     currentCumulativePnL: 0
   });
@@ -109,6 +109,8 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
   const placeBet = async (direction: 'MOON' | 'DOOM') => {
       if (!userProfile) return;
+      
+      // Strict Check: Prevent double tapping
       if (gameRef.current.state !== 'IDLE') return;
       
       const amount = parseInt(betAmount);
@@ -125,9 +127,17 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
           return;
       }
 
-      // Deduct Margin (Bet)
+      // CRITICAL: Lock state immediately to prevent race conditions UI side
+      gameRef.current.state = 'SUBMITTING'; 
+
+      // Deduct Margin (Bet) - Now uses Transactional safety
       const success = await deductCredit(userProfile.uid, amount);
-      if (!success) return;
+      if (!success) {
+          gameRef.current.state = 'IDLE'; // Unlock on failure
+          setNotification({ msg: "余额不足或网络错误", type: 'loss' });
+          setTimeout(() => setNotification(null), 2000);
+          return;
+      }
       
       setCredits(prev => prev - amount);
       refreshProfile();
@@ -137,6 +147,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       gameRef.current.lockedEntryPrice = currentPrice;
       gameRef.current.lockedPosition = direction;
       gameRef.current.lockedBetAmount = amount;
+      gameRef.current.activeUserId = userProfile.uid; // LOCK USER ID HERE
       
       // Update State
       gameRef.current.state = 'LIVE';
@@ -158,19 +169,32 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       gameRef.current.state = 'SETTLING';
       setGameState('SETTLING');
       
+      // Use Cached UserID to ensure payout happens even if userProfile prop is temporarily null
+      const userId = gameRef.current.activeUserId;
+      if (!userId) {
+          console.error("Critical: No Active User ID for settlement");
+          setGameState('IDLE');
+          return;
+      }
+      
       const { lockedBetAmount, lockedEntryPrice, lockedPosition } = gameRef.current;
       
-      // --- PNL CALCULATION ---
-      const priceChangePct = (finalPrice - lockedEntryPrice) / lockedEntryPrice;
-      let rawPnL = priceChangePct * LEVERAGE * lockedBetAmount;
+      // --- PNL CALCULATION (1:1 Ratio) ---
+      let finalPnL = 0;
+      
+      // Check Win Condition
+      const isMoonWin = lockedPosition === 'MOON' && finalPrice > lockedEntryPrice;
+      const isDoomWin = lockedPosition === 'DOOM' && finalPrice < lockedEntryPrice;
+      const isDraw = finalPrice === lockedEntryPrice;
 
-      if (lockedPosition === 'DOOM') {
-          rawPnL = -rawPnL;
+      if (isMoonWin || isDoomWin) {
+          finalPnL = lockedBetAmount; // Profit = Bet Amount
+      } else if (isDraw) {
+          finalPnL = 0; // No profit, no loss
+      } else {
+          finalPnL = -lockedBetAmount; // Loss = Bet Amount
       }
 
-      // Cap PnL
-      const cappedPnL = Math.max(-lockedBetAmount, Math.min(lockedBetAmount * 5, rawPnL));
-      const finalPnL = Math.floor(cappedPnL);
       const payout = lockedBetAmount + finalPnL; // Return Principal + Profit (or - Loss)
 
       // Update Local Accumulator (High Water Mark Logic)
@@ -179,21 +203,32 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
       if (finalPnL > 0) {
           audio.playScore();
-          setNotification({ msg: `盈利! +${finalPnL} 蜂蜜`, type: 'win' });
-          // Only update leaderboard if this is a new High Score (handled by saveHighScore internally, 
-          // but passing currentCumulativePnL ensures we track net profit over time)
-          await saveHighScore(userProfile!, 'moon_doom', gameRef.current.currentCumulativePnL);
+          setNotification({ msg: `大赚! +${finalPnL} 蜂蜜`, type: 'win' });
+          
+          // Only update leaderboard if we have the profile object available
+          // We wrap this in a separate try/catch so network errors don't stop the game reset
+          if (userProfile && userProfile.uid === userId) {
+             try {
+                await saveHighScore(userProfile, 'moon_doom', gameRef.current.currentCumulativePnL);
+             } catch(e) {
+                console.warn("Failed to update leaderboard, ignoring:", e);
+             }
+          }
       } else if (finalPnL < 0) {
           audio.playGameOver();
           setNotification({ msg: `亏损 ${Math.abs(finalPnL)} 蜂蜜`, type: 'loss' });
       } else {
-          setNotification({ msg: "保本平局", type: 'info' });
+          setNotification({ msg: "价格未变，退还本金", type: 'info' });
       }
 
-      // Payout to Wallet
+      // Payout to Wallet (Critical: Use cached ID)
       if (payout > 0) {
-          await deductCredit(userProfile!.uid, -payout); // Negative deduct adds credits
-          setCredits(prev => prev + payout);
+          await deductCredit(userId, -payout); // Negative deduct adds credits (Transactional safe)
+          
+          // Only update UI state if the currently viewing user is the one who played
+          if (userProfile && userProfile.uid === userId) {
+             setCredits(prev => prev + payout);
+          }
       }
 
       refreshProfile();
@@ -201,6 +236,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
       // Reset
       gameRef.current.lockedPosition = null;
+      gameRef.current.activeUserId = null;
       gameRef.current.state = 'IDLE';
       setGameState('IDLE');
       
@@ -428,7 +464,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center z-30 p-6 text-center">
                 <Lock size={32} className="text-yellow-500 mb-3" />
                 <h3 className="font-bold text-white text-lg">需要登录</h3>
-                <p className="text-xs text-neutral-400 mb-4">登录后即可体验 5x 杠杆模拟交易</p>
+                <p className="text-xs text-neutral-400 mb-4">登录后即可参与预测赚取蜂蜜</p>
             </div>
         )}
         
@@ -446,7 +482,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                         <span className="font-black text-2xl tracking-tight">{notification.msg}</span>
                     </div>
                     <div className="text-[10px] opacity-80 uppercase font-bold tracking-widest">
-                        {notification.type === 'win' ? 'PROFIT TAKEN' : notification.type === 'loss' ? 'LIQUIDATED' : 'POSITION CLOSED'}
+                        {notification.type === 'win' ? 'WINNER' : notification.type === 'loss' ? 'TRY AGAIN' : 'DRAW'}
                     </div>
                 </div>
             </div>
@@ -500,7 +536,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                   <TrendingUp size={28} className="group-hover:scale-110 transition-transform"/>
                   <span className="font-black text-lg">MOON (涨)</span>
-                  <span className="text-[10px] opacity-70 font-mono">LONG 5x</span>
+                  <span className="text-[10px] opacity-70 font-mono">翻倍 (1:1)</span>
               </button>
               
               <button
@@ -511,7 +547,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                   <TrendingDown size={28} className="group-hover:scale-110 transition-transform"/>
                   <span className="font-black text-lg">DOOM (跌)</span>
-                  <span className="text-[10px] opacity-70 font-mono">SHORT 5x</span>
+                  <span className="text-[10px] opacity-70 font-mono">翻倍 (1:1)</span>
               </button>
           </div>
       </div>
