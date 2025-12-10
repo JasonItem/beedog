@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { deductCredit, saveDivinationResult, getDivinationHistory, DivinationRecord } from '../services/userService';
@@ -137,7 +138,15 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
 
     } catch (err) {
       console.error(err);
-      setError("天机不可泄露... (请求失败，请重试)");
+      
+      // Refund Logic
+      if (user) {
+          await deductCredit(user.uid, -COST);
+          await refreshProfile();
+          setError("天机不可泄露... (请求失败，蜂蜜已退还，请重试)");
+      } else {
+          setError("请求失败，请检查网络。");
+      }
     } finally {
       setLoading(false);
     }

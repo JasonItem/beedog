@@ -115,6 +115,8 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
       resultRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
 
+    let successCount = 0;
+
     try {
       // Deduct credit once for the batch
       const allowed = await deductCredit(user.uid, COST);
@@ -146,6 +148,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
             next[i] = { ...next[i], status: 'success', url: stickerUrl };
             return next;
           });
+          successCount++;
         } catch (err) {
           console.error(`Failed to generate ${labels[i]}:`, err);
           // Update current item to error
@@ -155,6 +158,14 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
             return next;
           });
         }
+      }
+
+      // Check for total failure (e.g., Network Error affecting all requests)
+      if (successCount === 0 && initialResults.length > 0) {
+          // Refund full amount if EVERYTHING failed
+          await deductCredit(user.uid, -COST);
+          await refreshProfile();
+          setError("生成全部失败 (可能是网络错误)，蜂蜜已全额退还。");
       }
 
     } catch (err: any) {

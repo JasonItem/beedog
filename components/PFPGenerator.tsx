@@ -122,8 +122,15 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
       setGeneratedImage(result);
 
     } catch (err: any) {
-      setError("生成失败，请重试或检查网络");
-      console.error(err);
+      console.error("PFP Generation Failed:", err);
+      // Refund Logic
+      if (user) {
+          await deductCredit(user.uid, -COST);
+          await refreshProfile();
+          setError("生成失败 (网络错误)，蜂蜜已退还。请重试。");
+      } else {
+          setError("生成失败，请检查网络。");
+      }
     } finally {
       setLoading(false);
     }
