@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2 } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -16,10 +16,11 @@ import { BeeTileMatch } from './games/BeeTileMatch';
 import { BeeSwarm } from './games/BeeSwarm';
 import { HoneyClimber } from './games/HoneyClimber';
 import { HoneySwing } from './games/HoneySwing';
+import { MoonOrDoom } from './games/MoonOrDoom';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, GameScore } from '../services/gameService';
 import { completeDailyGameMission } from '../services/userService';
-import { audio } from '../services/audioService'; // Import Audio Service
+import { audio } from '../services/audioService';
 import { Button } from './Button';
 
 interface MiniGamesHubProps {
@@ -27,6 +28,13 @@ interface MiniGamesHubProps {
 }
 
 const GAMES = [
+  {
+    id: 'moon_doom',
+    name: '传奇交易员',
+    description: 'Crypto 模拟盘！预测 10 秒后的价格走势 (Moon or Doom)。5倍杠杆，赚取蜂蜜！',
+    color: 'from-green-500 to-red-600',
+    icon: BarChart2
+  },
   {
     id: 'honey_swing',
     name: '蜜蜂摆荡',
@@ -217,6 +225,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (activeGameId) {
+      case 'moon_doom': return <MoonOrDoom userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_swing': return <HoneySwing userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_climber': return <HoneyClimber userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;

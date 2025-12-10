@@ -1,5 +1,6 @@
+
 import { db } from "../firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, getDocs, Timestamp, getCountFromServer } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, getDocs, Timestamp, getCountFromServer, increment } from "firebase/firestore";
 import { UserProfile } from "./userService";
 
 export interface GameScore {
@@ -60,6 +61,46 @@ export const saveHighScore = async (userProfile: UserProfile, gameId: string, sc
   }
 
   return false;
+};
+
+/**
+ * Updates a cumulative score (adds to existing).
+ * Used for grinding games like Coin Pusher.
+ */
+export const updateCumulativeScore = async (userProfile: UserProfile, gameId: string, earnedAmount: number): Promise<void> => {
+  if (!userProfile || earnedAmount <= 0) return;
+
+  const scoreRef = doc(db, "games", gameId, "leaderboard", userProfile.uid);
+  const scoreSnap = await getDoc(scoreRef);
+
+  if (scoreSnap.exists()) {
+    await updateDoc(scoreRef, {
+      score: increment(earnedAmount),
+      nickname: userProfile.nickname,
+      avatarUrl: userProfile.avatarUrl || null,
+      timestamp: Timestamp.now()
+    });
+  } else {
+    await setDoc(scoreRef, {
+      userId: userProfile.uid,
+      nickname: userProfile.nickname,
+      avatarUrl: userProfile.avatarUrl || null,
+      score: earnedAmount,
+      timestamp: Timestamp.now()
+    });
+  }
+};
+
+/**
+ * Gets a specific user's score for a game.
+ */
+export const getUserHighScore = async (gameId: string, userId: string): Promise<number> => {
+  const scoreRef = doc(db, "games", gameId, "leaderboard", userId);
+  const scoreSnap = await getDoc(scoreRef);
+  if (scoreSnap.exists()) {
+    return scoreSnap.data().score || 0;
+  }
+  return 0;
 };
 
 /**
