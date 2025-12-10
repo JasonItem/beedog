@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { saveHighScore, getUserHighScore } from '../../services/gameService';
@@ -15,6 +14,7 @@ interface PricePoint {
   value: number;
   time: number;
 }
+
 
 const ROUND_DURATION = 10; // seconds
 const LEVERAGE = 500; // High leverage
@@ -410,7 +410,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
         {/* Mascot */}
         <div className="absolute top-3 left-3 z-10 opacity-50 text-3xl">
-          <img alt="Logo" class="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&amp;token=84f2313f-9225-4e55-a3f2-4f3498e649ce">
+          <img alt="Logo" className="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" />
         </div>
 
         {/* Countdown Overlay */}
