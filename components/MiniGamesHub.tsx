@@ -66,7 +66,7 @@ export const GAMES: GameData[] = [
   {
     id: 'moon_doom',
     name: '传奇交易员',
-    description: 'Crypto 模拟盘！预测 10 秒后的价格走势 (Moon or Doom)。5倍杠杆，赚取蜂蜜！',
+    description: 'Crypto 模拟盘！预测 10 秒后的价格走势 (Moon or Doom)。',
     howToPlay: '观察K线走势，下注看涨(Moon)或看跌(Doom)。10秒后结算，猜对翻倍，猜错归零。',
     color: 'from-green-500 to-red-600',
     icon: BarChart2,
