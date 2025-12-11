@@ -54,7 +54,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
 
-  const COST = 3;
+  const COST = 30;
 
   const handleSlotClick = (id: string) => {
     setActiveSlotId(id);

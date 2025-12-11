@@ -44,7 +44,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
   const refFileInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  const COST = 2;
+  const COST = 20;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isRef = false) => {
     const file = e.target.files?.[0];

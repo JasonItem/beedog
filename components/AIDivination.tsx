@@ -30,7 +30,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
   const resultRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const COST = 1; // 1 Honey per fortune
+  const COST = 10; // 10 Honey per fortune
 
   // Current Date Helper
   const getTodayStr = () => {

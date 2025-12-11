@@ -54,7 +54,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  const COST = 6;
+  const COST = 60;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
