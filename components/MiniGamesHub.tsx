@@ -19,7 +19,7 @@ import { HoneySwing } from './games/HoneySwing';
 import { MoonOrDoom } from './games/MoonOrDoom';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, GameScore } from '../services/gameService';
-import { completeDailyGameMission } from '../services/userService';
+import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
 import { audio } from '../services/audioService';
 import { Button } from './Button';
 
@@ -213,12 +213,29 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
       const newCount = await getPlayerCount(activeGameId);
       setPlayerCounts(prev => ({...prev, [activeGameId]: newCount}));
       
-      // Try to complete mission
+      // Try to complete missions (Global Daily + Per Game Daily)
       if (user) {
           try {
-              const result = await completeDailyGameMission(user.uid);
-              if (result.success) {
-                  setMissionMessage(`🎉 任务完成！+${result.earned} 蜂蜜`);
+              let earnedTotal = 0;
+              let msgs = [];
+
+              // 1. Global Daily Mission (500)
+              const globalRes = await completeDailyGameMission(user.uid);
+              if (globalRes.success) {
+                  earnedTotal += globalRes.earned;
+                  msgs.push("每日首玩");
+              }
+
+              // 2. Per-Game Daily Reward (10)
+              const gameRes = await claimPerGameDailyReward(user.uid, activeGameId);
+              if (gameRes.success) {
+                  earnedTotal += gameRes.earned;
+                  msgs.push("本游戏奖励");
+              }
+
+              if (earnedTotal > 0) {
+                  const title = msgs.join(" & ");
+                  setMissionMessage(`🎉 ${title}完成！+${earnedTotal} 蜂蜜`);
                   await refreshProfile();
                   setTimeout(() => setMissionMessage(null), 4000);
               }
@@ -385,7 +402,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
           </h1>
           <p className="text-xl text-neutral-600 dark:text-neutral-300 max-w-2xl mx-auto">
              无聊了吗？来玩两把！所有分数都会记录在全网排行榜上。<br/>
-             <span className="text-brand-yellow font-bold">每日首次游玩可获得 500 蜂蜜奖励！</span>
+             <span className="text-brand-yellow font-bold">每日首次游玩可获得 500 蜂蜜奖励！每个游戏首玩可获得 10 蜂蜜奖励</span>
           </p>
         </div>
 

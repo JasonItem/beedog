@@ -14,6 +14,7 @@ export interface UserProfile {
   is_admin?: number; // 0 = User, 1 = Admin
   lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
   lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
+  dailyGameRewards?: Record<string, string>; // Map of gameId -> YYYY-MM-DD
 }
 
 export interface DivinationRecord extends DivinationResult {
@@ -54,6 +55,7 @@ export const ensureUserProfile = async (user: User) => {
       nickname: user.displayName || "新蜜蜂",
       credits: 0, // Initial sign-up bonus changed to 0
       is_admin: 0, // Default to normal user
+      dailyGameRewards: {}
       // lastCheckInDate left undefined so they can check-in immediately if desired, 
       // or we can treat sign-up as first check-in. Let's let them check-in manually for the dopamine hit.
     };
@@ -67,15 +69,22 @@ export const ensureUserProfile = async (user: User) => {
   } else {
     // Existing User Sync
     const updates: any = {};
-    if (user.photoURL && !docSnap.data().avatarUrl) {
-       // Only sync google/twitter photo if user hasn't set a custom one?
-       // For now, let's strictly prefer what's in DB unless it's missing.
-       updates.avatarUrl = user.photoURL;
+    const currentData = docSnap.data();
+    
+    // Logic: Sync Avatar on login to fix broken X/Twitter links
+    // Check if the current stored avatar is a custom upload (hosted on Firebase Storage)
+    const isCustomUpload = currentData.avatarUrl && currentData.avatarUrl.includes("firebasestorage.googleapis.com");
+
+    // If it's NOT a custom upload, allow syncing from the auth provider (e.g. Twitter/X)
+    // This ensures that if X changes the URL or it expires, we get the new one on next login.
+    if (user.photoURL && (!currentData.avatarUrl || !isCustomUpload)) {
+       if (currentData.avatarUrl !== user.photoURL) {
+           updates.avatarUrl = user.photoURL;
+       }
     }
     
-    // Migration check
-    const data = docSnap.data();
-    if (typeof data.credits === 'undefined') {
+    // Migration check for credits
+    if (typeof currentData.credits === 'undefined') {
       updates.credits = 0;
     }
     
@@ -83,7 +92,7 @@ export const ensureUserProfile = async (user: User) => {
       await updateDoc(docRef, updates);
     }
     
-    return { ...data, ...updates } as UserProfile;
+    return { ...currentData, ...updates } as UserProfile;
   }
 };
 
@@ -185,7 +194,7 @@ export const performDailyCheckIn = async (uid: string): Promise<{ success: boole
 };
 
 /**
- * Completes the "Play Daily Game" mission.
+ * Completes the "Play Daily Game" mission (Global).
  */
 export const completeDailyGameMission = async (uid: string): Promise<{ success: boolean; message: string; earned: number }> => {
   const docRef = doc(db, "users", uid);
@@ -212,6 +221,43 @@ export const completeDailyGameMission = async (uid: string): Promise<{ success: 
   });
 
   return { success: true, message: "每日首玩任务完成！", earned: 500 };
+};
+
+/**
+ * Claim reward for playing a SPECIFIC game for the first time today.
+ * Returns earned amount (10 or 0).
+ */
+export const claimPerGameDailyReward = async (uid: string, gameId: string): Promise<{ success: boolean; earned: number }> => {
+  const docRef = doc(db, "users", uid);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) return { success: false, earned: 0 };
+
+  const data = docSnap.data() as UserProfile;
+  
+  // Get Local Date
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const today = `${year}-${month}-${day}`;
+
+  const rewards = data.dailyGameRewards || {};
+
+  if (rewards[gameId] === today) {
+    return { success: false, earned: 0 };
+  }
+
+  // Update specific game key in the map
+  // Use setDoc with merge to ensure nested field update works even if map was empty
+  await setDoc(docRef, {
+    credits: increment(10),
+    dailyGameRewards: {
+        [gameId]: today
+    }
+  }, { merge: true });
+
+  return { success: true, earned: 10 };
 };
 
 /**

@@ -412,10 +412,10 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
           <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2">
                   <div className="bg-yellow-500/20 p-1.5 rounded-lg text-yellow-500">
-                      <Zap size={16} className="fill-current" />
+                      🍯
                   </div>
                   <div>
-                      <div className="text-[9px] text-neutral-400 font-bold uppercase">余额 Balance</div>
+                      <div className="text-[9px] text-neutral-400 font-bold uppercase">蜂蜜余额</div>
                       <div className="text-lg font-mono font-black text-white leading-none">{credits}</div>
                   </div>
               </div>

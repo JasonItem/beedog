@@ -399,7 +399,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 text-brand-yellow rounded-lg">
-                          <Zap size={20} className="fill-brand-yellow" />
+                          🍯
                         </div>
                         <div>
                           <div className="text-xs text-neutral-500">剩余蜂蜜</div>

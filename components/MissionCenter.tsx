@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, CheckCircle, CalendarCheck, Gamepad2, Zap, Loader2, ArrowRight } from 'lucide-react';
+import { X, CheckCircle, CalendarCheck, Gamepad2, Zap, Loader2, ArrowRight, HelpCircle, Coins, AlertTriangle, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { performDailyCheckIn } from '../services/userService';
 import { Button } from './Button';
@@ -14,6 +14,7 @@ interface MissionCenterProps {
 export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, onNavigateToGames }) => {
   const { user, userProfile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'earn' | 'guide'>('earn');
 
   if (!isOpen) return null;
 
@@ -49,11 +50,11 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-[#161616] rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-neutral-200 dark:border-[#333] relative flex flex-col max-h-[85vh]">
         
-        {/* Header - Minimalist */}
+        {/* Header */}
         <div className="p-6 border-b border-neutral-100 dark:border-white/5 bg-white dark:bg-[#161616]">
-           <div className="flex justify-between items-center mb-1">
+           <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-black dark:text-white flex items-center gap-2">
-                 <Zap className="text-brand-yellow fill-brand-yellow" /> 任务中心
+                 <Zap className="text-brand-yellow fill-brand-yellow" /> 蜂蜜中心
               </h2>
               <button 
                 onClick={onClose} 
@@ -62,69 +63,135 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
                  <X size={20} />
               </button>
            </div>
-           <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium">
-              完成每日任务，赚取更多蜂蜜！
-           </p>
+           
+           {/* Tabs */}
+           <div className="flex p-1 bg-neutral-100 dark:bg-[#222] rounded-xl">
+              <button 
+                onClick={() => setActiveTab('earn')}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'earn' ? 'bg-white dark:bg-[#333] shadow-sm text-black dark:text-white' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white'}`}
+              >
+                赚取任务
+              </button>
+              <button 
+                onClick={() => setActiveTab('guide')}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1 ${activeTab === 'guide' ? 'bg-white dark:bg-[#333] shadow-sm text-brand-yellow' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white'}`}
+              >
+                <HelpCircle size={14}/> 积分说明
+              </button>
+           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 overflow-y-auto">
+        <div className="p-6 overflow-y-auto custom-scrollbar">
            
-           {/* Mission 1: Check In */}
-           <div className={`p-4 rounded-2xl border transition-all ${isCheckedIn ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30' : 'bg-neutral-50 dark:bg-[#222] border-neutral-100 dark:border-[#333]'}`}>
-              <div className="flex justify-between items-start mb-3">
-                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                       <CalendarCheck size={24} />
-                    </div>
-                    <div>
-                       <h3 className="font-bold text-lg dark:text-white">每日签到</h3>
-                       <p className="text-xs text-neutral-500 dark:text-neutral-400">每天访问即可领取奖励</p>
-                    </div>
-                 </div>
-                 <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-                    +100 🍯
-                 </div>
-              </div>
-              
-              {isCheckedIn ? (
-                 <div className="w-full py-2 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm">
-                    <CheckCircle size={16} /> 已完成
-                 </div>
-              ) : (
-                 <Button onClick={handleCheckIn} disabled={loading} size="sm" className="w-full">
-                    {loading ? <Loader2 className="animate-spin" size={16}/> : "立即签到"}
-                 </Button>
-              )}
-           </div>
+           {activeTab === 'earn' ? (
+             <div className="space-y-4">
+               <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mb-2">
+                  完成每日任务，积累蜂蜜兑换权益！
+               </p>
 
-           {/* Mission 2: Play Game */}
-           <div className={`p-4 rounded-2xl border transition-all ${isGamePlayed ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30' : 'bg-neutral-50 dark:bg-[#222] border-neutral-100 dark:border-[#333]'}`}>
-              <div className="flex justify-between items-start mb-3">
-                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${isGamePlayed ? 'bg-green-100 text-green-600' : 'bg-purple-100 text-purple-600'}`}>
-                       <Gamepad2 size={24} />
-                    </div>
-                    <div>
-                       <h3 className="font-bold text-lg dark:text-white">每日首玩</h3>
-                       <p className="text-xs text-neutral-500 dark:text-neutral-400">体验任意一个小游戏</p>
-                    </div>
-                 </div>
-                 <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-                    +500 🍯
-                 </div>
-              </div>
-              
-              {isGamePlayed ? (
-                 <div className="w-full py-2 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm">
-                    <CheckCircle size={16} /> 已完成
-                 </div>
-              ) : (
-                 <Button onClick={handleGoToGames} variant="secondary" size="sm" className="w-full group">
-                    去玩游戏 <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                 </Button>
-              )}
-           </div>
+               {/* Mission 1: Check In */}
+               <div className={`p-4 rounded-2xl border transition-all ${isCheckedIn ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30' : 'bg-neutral-50 dark:bg-[#222] border-neutral-100 dark:border-[#333]'}`}>
+                  <div className="flex justify-between items-start mb-3">
+                     <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                           <CalendarCheck size={24} />
+                        </div>
+                        <div>
+                           <h3 className="font-bold text-lg dark:text-white">每日签到</h3>
+                           <p className="text-xs text-neutral-500 dark:text-neutral-400">每天访问即可领取奖励</p>
+                        </div>
+                     </div>
+                     <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                        +100 🍯
+                     </div>
+                  </div>
+                  
+                  {isCheckedIn ? (
+                     <div className="w-full py-2 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm">
+                        <CheckCircle size={16} /> 已完成
+                     </div>
+                  ) : (
+                     <Button onClick={handleCheckIn} disabled={loading} size="sm" className="w-full">
+                        {loading ? <Loader2 className="animate-spin" size={16}/> : "立即签到"}
+                     </Button>
+                  )}
+               </div>
+
+               {/* Mission 2: Play Game */}
+               <div className={`p-4 rounded-2xl border transition-all ${isGamePlayed ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30' : 'bg-neutral-50 dark:bg-[#222] border-neutral-100 dark:border-[#333]'}`}>
+                  <div className="flex justify-between items-start mb-3">
+                     <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${isGamePlayed ? 'bg-green-100 text-green-600' : 'bg-purple-100 text-purple-600'}`}>
+                           <Gamepad2 size={24} />
+                        </div>
+                        <div>
+                           <h3 className="font-bold text-lg dark:text-white">每日首玩</h3>
+                           <p className="text-xs text-neutral-500 dark:text-neutral-400">体验任意一个小游戏</p>
+                        </div>
+                     </div>
+                     <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                        +500 🍯
+                     </div>
+                  </div>
+                  
+                  {isGamePlayed ? (
+                     <div className="w-full py-2 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-sm">
+                        <CheckCircle size={16} /> 已完成
+                     </div>
+                  ) : (
+                     <Button onClick={handleGoToGames} variant="secondary" size="sm" className="w-full group">
+                        去玩游戏 <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+                     </Button>
+                  )}
+               </div>
+             </div>
+           ) : (
+             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                {/* Intro */}
+                <div className="bg-brand-yellow/10 p-4 rounded-2xl border border-brand-yellow/20">
+                   <h3 className="font-bold text-brand-yellow mb-2 flex items-center gap-2">
+                      <Info size={18}/> 什么是“蜂蜜”?
+                   </h3>
+                   <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                      “蜂蜜” (Honey) 是蜜蜂狗社区平台的互动积分。它是我们感谢社区成员活跃参与的一种方式，记录了你在社区中的贡献与活跃度。
+                   </p>
+                </div>
+
+                {/* Uses */}
+                <div>
+                   <h3 className="font-bold dark:text-white mb-3 flex items-center gap-2">
+                      🍯 蜂蜜有什么用?
+                   </h3>
+                   <ul className="space-y-3">
+                      <li className="flex gap-3 items-start text-sm text-neutral-600 dark:text-neutral-300">
+                         <div className="mt-0.5 min-w-[20px]"><Gamepad2 size={16} className="text-blue-500"/></div>
+                         <span><span className="font-bold dark:text-white">玩游戏消耗:</span> 部分高级游戏或特殊模式可能需要消耗蜂蜜。</span>
+                      </li>
+                      <li className="flex gap-3 items-start text-sm text-neutral-600 dark:text-neutral-300">
+                         <div className="mt-0.5 min-w-[20px]"><Zap size={16} className="text-orange-500"/></div>
+                         <span><span className="font-bold dark:text-white">AI 工具消耗:</span> 使用 AI 生成 PFP、表情包或算命等功能需要消耗蜂蜜。</span>
+                      </li>
+                      <li className="flex gap-3 items-start text-sm text-neutral-600 dark:text-neutral-300 opacity-70">
+                         <div className="mt-0.5 min-w-[20px]"><Coins size={16} className="text-green-500"/></div>
+                         <span><span className="font-bold dark:text-white">未来权益 (规划中):</span> 兑换社区周边、参与特殊抽奖活动、竞猜活动等，也许未来会对积分排行榜玩家进行奖励。</span>
+                      </li>
+                   </ul>
+                </div>
+
+                {/* Disclaimer */}
+                <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-2xl border border-red-200 dark:border-red-900/30">
+                   <h3 className="font-bold text-red-600 dark:text-red-400 mb-2 flex items-center gap-2 text-sm uppercase tracking-wider">
+                      <AlertTriangle size={16}/> 重要声明
+                   </h3>
+                   <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed text-justify">
+                      “蜂蜜”仅为本网站内部的娱乐积分，<span className="font-bold underline">不是加密货币</span>，不基于任何区块链技术，<span className="font-bold underline">没有任何现金价值</span>。
+                      <br/><br/>
+                      蜂蜜无法提现、无法交易、无法兑换法币或其他代币。它仅用于增加社区互动的趣味性。请注意甄别信息，谨防受骗。
+                   </p>
+                </div>
+             </div>
+           )}
 
         </div>
         
