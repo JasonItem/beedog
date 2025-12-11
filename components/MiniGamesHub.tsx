@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -233,6 +233,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'REVIEWS'>('LEADERBOARD');
+  const [isGameSelectorOpen, setIsGameSelectorOpen] = useState(false); // Mobile Dropdown
   
   // Data State
   const [leaderboard, setLeaderboard] = useState<GameScore[]>([]);
@@ -271,6 +272,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
       // Reset inputs
       setUserRating(5);
       setUserComment('');
+      setIsGameSelectorOpen(false); // Close mobile menu on select
       
       Promise.all([
           getLeaderboard(selectedGame.id, 20), // Fetch more to show list
@@ -459,6 +461,49 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                     {user ? '已登录' : '登录存档'}
                  </button>
              </div>
+        </div>
+
+        {/* MOBILE GAME SELECTOR (Only Visible on Mobile) */}
+        <div className="lg:hidden mb-6 relative z-30">
+            <button 
+                onClick={() => setIsGameSelectorOpen(!isGameSelectorOpen)}
+                className="w-full bg-white dark:bg-[#161616] p-4 rounded-2xl shadow-lg border border-neutral-200 dark:border-[#333] flex items-center justify-between"
+            >
+                <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-brand-yellow text-black`}>
+                        <selectedGame.icon size={20} />
+                    </div>
+                    <div className="text-left">
+                        <div className="text-xs text-neutral-500 font-bold uppercase tracking-wider">当前选择</div>
+                        <div className="font-bold dark:text-white">{selectedGame.name}</div>
+                    </div>
+                </div>
+                <ChevronDown size={20} className={`transition-transform ${isGameSelectorOpen ? 'rotate-180' : ''} text-neutral-400`}/>
+            </button>
+
+            {/* Dropdown Menu */}
+            {isGameSelectorOpen && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#161616] rounded-2xl shadow-2xl border border-neutral-200 dark:border-[#333] overflow-hidden max-h-[60vh] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
+                    {GAMES.map(game => (
+                        <button
+                            key={game.id}
+                            onClick={() => setSelectedGame(game)}
+                            className={`w-full p-3 flex items-center gap-3 border-b border-neutral-100 dark:border-[#222] last:border-0 active:bg-neutral-100 dark:active:bg-[#222] transition-colors
+                                ${selectedGame.id === game.id ? 'bg-brand-yellow/10 dark:bg-brand-yellow/20' : ''}
+                            `}
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-[#333] flex items-center justify-center text-neutral-500">
+                                <game.icon size={16}/>
+                            </div>
+                            <div className="flex-1 text-left">
+                                <div className={`font-bold text-sm ${selectedGame.id === game.id ? 'text-brand-yellow' : 'dark:text-white'}`}>{game.name}</div>
+                                {game.isHoneyGame && <div className="text-[10px] text-orange-500 font-bold flex items-center gap-1"><Zap size={8} className="fill-current"/> 赚蜂蜜</div>}
+                            </div>
+                            {selectedGame.id === game.id && <div className="w-2 h-2 rounded-full bg-brand-yellow"></div>}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
 
         {/* Main Grid: items-start prevents height stretching, allowing left side to grow naturally */}
@@ -688,8 +733,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                 </div>
             </div>
 
-            {/* RIGHT SIDE: Game List (col-span-4) - Sticky on Desktop */}
-            <div className="lg:col-span-4 bg-white dark:bg-[#161616] rounded-[2.5rem] border border-neutral-200 dark:border-[#333] overflow-hidden flex flex-col shadow-xl lg:sticky lg:top-24 lg:h-[calc(100vh-120px)] h-[600px]">
+            {/* RIGHT SIDE: Game List (Desktop Only) - Hidden on Mobile */}
+            <div className="hidden lg:flex lg:col-span-4 bg-white dark:bg-[#161616] rounded-[2.5rem] border border-neutral-200 dark:border-[#333] overflow-hidden flex-col shadow-xl lg:sticky lg:top-24 lg:h-[calc(100vh-120px)]">
                 <div className="p-6 border-b border-neutral-100 dark:border-[#222] bg-neutral-50/50 dark:bg-[#1a1a1a]">
                     <h3 className="font-black text-lg dark:text-white">所有游戏</h3>
                     <p className="text-xs text-neutral-500 mt-1">选择一款游戏开始挑战</p>

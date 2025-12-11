@@ -310,7 +310,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
 
   const renderStack = () => {
       return (
-          <div className="relative w-48 h-56 flex flex-col-reverse items-center justify-start transition-all">
+          <div className="relative w-48 h-full max-h-56 flex flex-col-reverse items-center justify-start transition-all">
               {/* Plate */}
               <div className="absolute bottom-0 w-48 h-3 bg-neutral-300 rounded-[50%] border border-neutral-400 shadow-md z-0"></div>
               
@@ -322,7 +322,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
                       transform: `scale(${1 + Math.sin(index)*0.02}) rotate(${Math.sin(index * 132) * 2}deg)`
                   };
                   return (
-                      <div key={index} className="text-6xl drop-shadow-xl transition-all animate-in slide-in-from-top-4 duration-200 filter" style={style}>
+                      <div key={index} className="text-5xl md:text-6xl drop-shadow-xl transition-all animate-in slide-in-from-top-4 duration-200 filter" style={style}>
                           {data?.icon}
                       </div>
                   );
@@ -332,10 +332,10 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
   };
 
   return (
-    <div className="flex flex-col items-center w-full max-w-md mx-auto h-[600px] bg-[#f8fafc] rounded-3xl overflow-hidden shadow-2xl relative border-4 border-amber-500 select-none font-sans">
+    <div className="flex flex-col items-center w-full max-w-md mx-auto h-[85vh] max-h-[700px] md:h-[600px] bg-[#f8fafc] rounded-3xl overflow-hidden shadow-2xl relative border-4 border-amber-500 select-none font-sans">
         
         {/* Header HUD */}
-        <div className="w-full bg-amber-500 p-3 flex justify-between items-center text-white z-30 shadow-md">
+        <div className="w-full bg-amber-500 p-3 flex justify-between items-center text-white z-30 shadow-md shrink-0">
             <div className="flex items-center gap-4">
                 <div className="flex flex-col">
                     <div className="text-[10px] uppercase font-bold opacity-80 leading-none mb-0.5 flex items-center gap-1">
@@ -363,7 +363,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
         </div>
 
         {/* --- KITCHEN RAIL (ORDERS) --- */}
-        <div className="w-full bg-neutral-200 border-b-4 border-neutral-300 p-2 min-h-[150px] flex gap-2 items-center overflow-x-auto relative z-20 shadow-inner">
+        <div className="w-full bg-neutral-200 border-b-4 border-neutral-300 p-2 min-h-[140px] md:min-h-[150px] flex gap-2 items-center overflow-x-auto relative z-20 shadow-inner shrink-0">
             {/* Ticket Rail (Visual) */}
             <div className="absolute top-0 left-0 w-full h-2 bg-neutral-400 z-30 shadow-sm"></div>
             
@@ -374,21 +374,21 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
             )}
 
             {orders.map((order) => (
-                <div key={order.id} className="relative min-w-[90px] w-[90px] bg-white rounded-b-lg shadow-md animate-in slide-in-from-right-10 duration-300 flex flex-col transform origin-top hover:scale-105 transition-transform mt-1">
+                <div key={order.id} className="relative min-w-[80px] md:min-w-[90px] w-[80px] md:w-[90px] bg-white rounded-b-lg shadow-md animate-in slide-in-from-right-10 duration-300 flex flex-col transform origin-top hover:scale-105 transition-transform mt-1">
                     {/* Pin */}
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full border-2 border-red-700 z-40 shadow-sm"></div>
                     
                     {/* Customer */}
                     <div className="bg-amber-50 p-1 text-center border-b border-amber-100 flex justify-center pt-2">
-                        <span className="text-2xl drop-shadow-sm">{order.customer}</span>
+                        <span className="text-xl md:text-2xl drop-shadow-sm">{order.customer}</span>
                     </div>
                     
                     {/* Recipe Column */}
-                    <div className="flex-1 flex flex-col-reverse items-center gap-0.5 p-1 overflow-hidden min-h-[60px]">
+                    <div className="flex-1 flex flex-col-reverse items-center gap-0.5 p-1 overflow-hidden min-h-[50px] md:min-h-[60px]">
                         {order.recipe.map((ing, idx) => {
                             const ingData = INGREDIENTS.find(i => i.id === ing);
                             return (
-                                <div key={idx} className="text-sm leading-none" style={{marginBottom: -4, zIndex: idx}}>
+                                <div key={idx} className="text-xs md:text-sm leading-none" style={{marginBottom: -4, zIndex: idx}}>
                                     {ingData?.icon}
                                 </div>
                             );
@@ -396,7 +396,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
                     </div>
 
                     {/* Timer Bar */}
-                    <div className="h-3 w-full bg-gray-200 mt-1 rounded-b-lg overflow-hidden relative border-t border-gray-100">
+                    <div className="h-2 md:h-3 w-full bg-gray-200 mt-1 rounded-b-lg overflow-hidden relative border-t border-gray-100">
                         <div 
                             className={`h-full transition-all duration-200 linear ${
                                 order.timeLeft < order.maxTime * 0.3 ? 'bg-red-500' : 
@@ -410,11 +410,11 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
         </div>
 
         {/* --- WORKSTATION --- */}
-        <div className="flex-1 w-full relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] flex flex-col justify-end pb-4">
+        <div className="flex-1 w-full relative bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] flex flex-col justify-end pb-4 min-h-0">
             
             {/* Floating Feedback */}
             {feedback && (
-                <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-max">
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-max">
                     <div className={`px-6 py-3 rounded-2xl shadow-xl font-black text-xl flex items-center gap-2 animate-in zoom-in fade-in duration-150 ${feedback.type === 'CORRECT' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
                         {feedback.type === 'CORRECT' ? <Check size={24}/> : <XIcon size={24}/>}
                         {feedback.text}
@@ -423,31 +423,31 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
             )}
 
             {/* Burger Stack */}
-            <div className="flex justify-center items-end mb-4 z-10 h-64">
+            <div className="flex justify-center items-end mb-4 z-10 flex-1 min-h-0">
                 {currentStack.length === 0 ? (
-                    <div className="text-neutral-300 font-black text-4xl opacity-20 rotate-[-10deg]">BUILD HERE</div>
+                    <div className="text-neutral-300 font-black text-3xl md:text-4xl opacity-20 rotate-[-10deg] self-center">BUILD HERE</div>
                 ) : (
                     renderStack()
                 )}
             </div>
 
             {/* Ingredient Controls */}
-            <div className="bg-white border-t border-neutral-200 p-4 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+            <div className="bg-white border-t border-neutral-200 p-2 md:p-4 pb-4 md:pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20 shrink-0">
                 <div className="grid grid-cols-3 gap-2">
                     {INGREDIENTS.map(ing => (
                         <button
                             key={ing.id}
                             onClick={() => addIngredient(ing.id)}
                             disabled={gameState !== 'PLAYING' || gameRef.current.isProcessing}
-                            className="relative flex flex-col items-center justify-center bg-white border border-neutral-200 rounded-2xl p-2 shadow-sm active:scale-95 active:bg-amber-50 transition-all group overflow-hidden"
+                            className="relative flex flex-col items-center justify-center bg-white border border-neutral-200 rounded-xl md:rounded-2xl p-1 md:p-2 shadow-sm active:scale-95 active:bg-amber-50 transition-all group overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-neutral-50 opacity-50"></div>
-                            <span className="text-3xl relative z-10 group-active:scale-110 transition-transform duration-100">{ing.icon}</span>
-                            <span className="text-xs font-bold text-neutral-500 mt-1 relative z-10">{ing.label}</span>
+                            <span className="text-2xl md:text-3xl relative z-10 group-active:scale-110 transition-transform duration-100">{ing.icon}</span>
+                            <span className="text-[10px] md:text-xs font-bold text-neutral-500 mt-0.5 md:mt-1 relative z-10">{ing.label}</span>
                             
                             {/* Highlight bottom bun start */}
                             {currentStack.length === 0 && ing.id === 'bun_bottom' && (
-                                <div className="absolute inset-0 border-2 border-amber-400 rounded-2xl animate-pulse"></div>
+                                <div className="absolute inset-0 border-2 border-amber-400 rounded-xl md:rounded-2xl animate-pulse"></div>
                             )}
                         </button>
                     ))}
@@ -457,9 +457,9 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
                 <button
                     onClick={trashBurger}
                     disabled={gameState !== 'PLAYING' || currentStack.length === 0}
-                    className="w-full mt-3 bg-red-50 text-red-500 font-bold py-3 rounded-xl hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full mt-2 md:mt-3 bg-red-50 text-red-500 font-bold py-2 md:py-3 rounded-xl hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base"
                 >
-                    <RotateCcw size={18}/> 倒掉重做 (Trash)
+                    <RotateCcw size={16} className="md:w-5 md:h-5"/> 倒掉重做 (Trash)
                 </button>
             </div>
         </div>
