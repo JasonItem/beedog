@@ -106,16 +106,24 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
   const endGame = async () => {
     if (gameRef.current.isPlaying === false) return;
     
+    // Capture score immediately to prevent race condition if restarted quickly
+    const finalScore = gameRef.current.score;
+
     gameRef.current.isPlaying = false;
     audio.playGameOver();
     setGameState('GAME_OVER');
     cancelAnimationFrame(gameRef.current.animationId);
     
-    if (userProfile && gameRef.current.score > 0) {
+    if (userProfile && finalScore > 0) {
         // Await updates to ensure consistency before UI updates
-        await updateCumulativeScore(userProfile, 'honey_burger', gameRef.current.score);
-        await deductCredit(userProfile.uid, -gameRef.current.score);
-        await refreshProfile();
+        // Use local finalScore variable, NOT gameRef.current.score (which might be reset)
+        try {
+            await updateCumulativeScore(userProfile, 'honey_burger', finalScore);
+            await deductCredit(userProfile.uid, -finalScore); // Negative deduct = Add
+            await refreshProfile();
+        } catch (e) {
+            console.error("Failed to settle score:", e);
+        }
     }
     onGameOver();
   };
@@ -384,11 +392,11 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
                     </div>
                     
                     {/* Recipe Column */}
-                    <div className="flex-1 flex flex-col-reverse items-center gap-0.5 p-1 overflow-hidden min-h-[50px] md:min-h-[60px]">
+                    <div className="flex-1 flex flex-col-reverse items-center gap-0.5 p-2 overflow-hidden min-h-[50px] md:min-h-[60px]">
                         {order.recipe.map((ing, idx) => {
                             const ingData = INGREDIENTS.find(i => i.id === ing);
                             return (
-                                <div key={idx} className="text-xs md:text-sm leading-none" style={{marginBottom: -4, zIndex: idx}}>
+                                <div key={idx} className="text-xl md:text-2xl leading-none filter drop-shadow-sm" style={{marginBottom: -10, zIndex: idx}}>
                                     {ingData?.icon}
                                 </div>
                             );

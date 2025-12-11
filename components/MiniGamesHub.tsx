@@ -680,7 +680,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                             </>
                         ) : (
                             /* REVIEWS TAB */
-                            <div className="flex flex-col h-full">
+                            <div className="flex flex-col flex-1 min-h-0">
                                 {/* Review List */}
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 mb-4 pr-1">
                                     {reviews.length === 0 ? (
