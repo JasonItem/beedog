@@ -253,23 +253,31 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
     // Floor/Ceiling Collision
     game.isGrounded = false;
     
-    // Floor Check
-    if (game.playerY + PLAYER_SIZE >= FLOOR_Y) {
-        if (game.gravityDir === 1) { // Only snap if gravity is pulling down
-            game.playerY = FLOOR_Y - PLAYER_SIZE;
+    // Floor Check (Always clamp to bounds)
+    if (game.playerY + PLAYER_SIZE > FLOOR_Y) {
+        game.playerY = FLOOR_Y - PLAYER_SIZE;
+        
+        // If moving down into floor
+        if (game.playerVy > 0) {
             game.playerVy = 0;
-            game.isGrounded = true;
-            createParticles(game.playerX, game.playerY + PLAYER_SIZE, 1, '#888'); // Dust
+            if (game.gravityDir === 1) { // Only grounded if gravity holds us here
+                game.isGrounded = true;
+                createParticles(game.playerX, game.playerY + PLAYER_SIZE, 1, '#888'); // Dust
+            }
         }
     }
     
-    // Ceiling Check
-    if (game.playerY <= CEILING_Y) {
-        if (game.gravityDir === -1) { // Only snap if gravity is pulling up
-            game.playerY = CEILING_Y;
+    // Ceiling Check (Always clamp to bounds)
+    if (game.playerY < CEILING_Y) {
+        game.playerY = CEILING_Y;
+        
+        // If moving up into ceiling
+        if (game.playerVy < 0) {
             game.playerVy = 0;
-            game.isGrounded = true;
-            createParticles(game.playerX, game.playerY, 1, '#888'); // Dust
+            if (game.gravityDir === -1) { // Only grounded if gravity holds us here
+                game.isGrounded = true;
+                createParticles(game.playerX, game.playerY, 1, '#888'); // Dust
+            }
         }
     }
 
@@ -280,7 +288,7 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
     
     // Score
     game.score += 1;
-    if (game.frameCount % 10 === 0) setScore(Math.floor(game.score / 10));
+    if (game.frameCount % 10 === 0) setScore(game.score); // Sync raw score
 
     // Spawning
     // Distance based spawn logic
@@ -444,7 +452,7 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
       <div className="absolute top-4 left-4 z-10 flex gap-4 pointer-events-none">
          <div className="bg-black/60 text-white px-3 py-1.5 rounded-xl border border-blue-500/30 flex items-center gap-2 backdrop-blur-md">
             <Zap size={16} className="text-blue-400 fill-blue-400" />
-            <span className="font-black text-xl font-mono">{Math.floor(score / 10)}</span>
+            <span className="font-black text-xl font-mono">{score}</span>
          </div>
       </div>
 
@@ -471,8 +479,8 @@ export const BeeRun: React.FC<BeeRunProps> = ({ userProfile, onGameOver }) => {
           <div className="text-4xl font-black mb-6 text-white italic">CRASHED!</div>
           
           <div className="bg-[#111] border border-[#222] rounded-2xl p-8 w-full mb-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
-             <div className="text-xs text-neutral-500 uppercase font-bold mb-1 tracking-[0.2em]">Distance</div>
-             <div className="text-6xl font-black text-blue-400 font-mono tracking-tighter">{Math.floor(score / 10)}m</div>
+             <div className="text-xs text-neutral-500 uppercase font-bold mb-1 tracking-[0.2em]">Score</div>
+             <div className="text-6xl font-black text-blue-400 font-mono tracking-tighter">{score}</div>
           </div>
 
           <Button onClick={startGame} className="w-full mb-3 py-4 text-lg bg-white text-black hover:bg-neutral-200 border-none font-bold">
