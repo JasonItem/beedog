@@ -103,7 +103,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
     loop();
   };
 
-  const endGame = () => {
+  const endGame = async () => {
     if (gameRef.current.isPlaying === false) return;
     
     gameRef.current.isPlaying = false;
@@ -112,10 +112,10 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
     cancelAnimationFrame(gameRef.current.animationId);
     
     if (userProfile && gameRef.current.score > 0) {
-        updateCumulativeScore(userProfile, 'honey_burger', gameRef.current.score);
-        // Add earnings to wallet
-        deductCredit(userProfile.uid, -gameRef.current.score);
-        refreshProfile();
+        // Await updates to ensure consistency before UI updates
+        await updateCumulativeScore(userProfile, 'honey_burger', gameRef.current.score);
+        await deductCredit(userProfile.uid, -gameRef.current.score);
+        await refreshProfile();
     }
     onGameOver();
   };
@@ -476,7 +476,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
                 <div className="bg-white/10 p-4 rounded-xl backdrop-blur-md mb-8 text-center border border-white/10">
                     <p className="text-sm text-gray-200 leading-relaxed font-medium">
                         我是练习时长两年半的汉堡练习生。<br/>
-                        <span className="text-amber-400 font-bold">观察订单</span> -> <span className="text-green-400 font-bold">组装汉堡</span> -> <span className="text-red-400 font-bold">别让顾客等太久</span>!
+                        <span className="text-amber-400 font-bold">观察订单</span> &rarr; <span className="text-green-400 font-bold">组装汉堡</span> &rarr; <span className="text-red-400 font-bold">别让顾客等太久</span>!
                     </p>
                 </div>
                 

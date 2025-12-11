@@ -418,7 +418,11 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                     {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
                  </button>
                  <button 
-                    onClick={() => { setIsPlaying(false); audio.init(); }} // Force re-init on exit/enter just in case
+                    onClick={() => { 
+                        setIsPlaying(false); 
+                        audio.init(); 
+                        handleGameOver(); // Trigger data refresh on exit
+                    }}
                     className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg group"
                  >
                     <Minimize2 size={24} className="group-hover:scale-90 transition-transform" />

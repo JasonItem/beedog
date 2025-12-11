@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
@@ -298,13 +299,12 @@ export const HoneyScratch: React.FC<HoneyScratchProps> = ({ userProfile, onGameO
       if (winAmount > 0) {
           audio.playScore();
           if (userProfile) {
-              saveHighScore(userProfile, 'honey_scratch', winAmount);
-              // Payout is tricky here. We updated credits locally but need to save profit.
-              // Actually we already deducted cost. Now we add win.
-              // Re-use deductCredit with negative amount
+              // Await updates to ensure data consistency
+              await saveHighScore(userProfile, 'honey_scratch', winAmount);
               await deductCredit(userProfile.uid, -winAmount);
+              
               setCredits(prev => prev + winAmount);
-              refreshProfile();
+              await refreshProfile();
               showNotif(`获得 ${winAmount} 蜂蜜`, 'success');
           }
           onGameOver(); // Trigger update
