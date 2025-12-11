@@ -39,6 +39,7 @@ import { AIToolbox } from './components/AIToolbox';
 import { MiniGamesHub } from './components/MiniGamesHub';
 import { BeeDogChat } from './components/BeeDogChat';
 import { MissionCenter } from './components/MissionCenter';
+import { AdminDashboard } from './components/AdminDashboard';
 import { useAuth } from './context/AuthContext';
 
 // --- DATA ---
@@ -155,7 +156,7 @@ const TWEETS_DATA = [
   }
 ];
 
-type ViewState = 'landing' | 'toolbox' | 'games';
+type ViewState = 'landing' | 'toolbox' | 'games' | 'admin';
 
 const App: React.FC = () => {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -171,6 +172,9 @@ const App: React.FC = () => {
   
   // Mission Center State
   const [isMissionOpen, setIsMissionOpen] = useState(false);
+
+  // Admin Check
+  const isAdmin = userProfile?.is_admin === 1;
 
   useEffect(() => {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -212,6 +216,12 @@ const App: React.FC = () => {
 
   const navigateToGames = () => {
     setCurrentView('games');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsMenuOpen(false);
+  }
+
+  const navigateToAdmin = () => {
+    setCurrentView('admin');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setIsMenuOpen(false);
   }
@@ -279,6 +289,14 @@ const App: React.FC = () => {
               >
                 <Bot size={16} /> AI 工具
               </button>
+              {isAdmin && (
+                  <button 
+                    onClick={navigateToAdmin} 
+                    className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'admin' ? 'bg-red-600 text-white shadow-md' : 'text-red-600 hover:bg-white dark:hover:bg-white/10'}`}
+                  >
+                    <Shield size={16} /> 后台
+                  </button>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -321,6 +339,9 @@ const App: React.FC = () => {
             <button onClick={() => navigateToSection('community')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">社区力量</button>
             <button onClick={navigateToGames} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2"><Gamepad2 size={18}/> 小游戏</button>
             <button onClick={navigateToToolbox} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-brand-orange flex items-center gap-2"><Bot size={18}/> AI 工具箱</button>
+             {isAdmin && (
+                <button onClick={navigateToAdmin} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-red-600 flex items-center gap-2"><Shield size={18}/> 管理后台</button>
+             )}
              {user ? (
                <>
                  <button onClick={openMissions} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2 text-brand-yellow">
@@ -343,6 +364,8 @@ const App: React.FC = () => {
         <AIToolbox onLoginRequest={openLogin} />
       ) : currentView === 'games' ? (
         <MiniGamesHub onLoginRequest={openLogin} />
+      ) : currentView === 'admin' ? (
+        <AdminDashboard />
       ) : (
         <>
           {/* Hero Section */}

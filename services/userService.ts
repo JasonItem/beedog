@@ -1,3 +1,4 @@
+
 import { db, storage } from "../firebaseConfig";
 import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -10,6 +11,7 @@ export interface UserProfile {
   nickname: string;
   avatarUrl?: string; 
   credits: number;
+  is_admin?: number; // 0 = User, 1 = Admin
   lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
   lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
 }
@@ -28,9 +30,9 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     
     // Migration: If credits doesn't exist (old user), initialize it.
     if (typeof data.credits === 'undefined') {
-        // Give legacy users 10 credits to start
-        await updateDoc(docRef, { credits: 10 });
-        data.credits = 10;
+        // Give legacy users 0 credits to start (per new rule)
+        await updateDoc(docRef, { credits: 0 });
+        data.credits = 0;
     }
 
     return data as UserProfile;
@@ -50,7 +52,8 @@ export const ensureUserProfile = async (user: User) => {
       uid: user.uid,
       email: user.email,
       nickname: user.displayName || "新蜜蜂",
-      credits: 10, // Initial sign-up bonus
+      credits: 0, // Initial sign-up bonus changed to 0
+      is_admin: 0, // Default to normal user
       // lastCheckInDate left undefined so they can check-in immediately if desired, 
       // or we can treat sign-up as first check-in. Let's let them check-in manually for the dopamine hit.
     };
@@ -73,7 +76,7 @@ export const ensureUserProfile = async (user: User) => {
     // Migration check
     const data = docSnap.data();
     if (typeof data.credits === 'undefined') {
-      updates.credits = 10;
+      updates.credits = 0;
     }
     
     if (Object.keys(updates).length > 0) {
@@ -174,11 +177,11 @@ export const performDailyCheckIn = async (uid: string): Promise<{ success: boole
   }
 
   await updateDoc(docRef, {
-    credits: increment(10),
+    credits: increment(100), // Increased from 10 to 100
     lastCheckInDate: today
   });
 
-  return { success: true, message: "签到成功！获得 10 罐蜂蜜！" };
+  return { success: true, message: "签到成功！获得 100 罐蜂蜜！" };
 };
 
 /**
@@ -204,11 +207,11 @@ export const completeDailyGameMission = async (uid: string): Promise<{ success: 
   }
 
   await updateDoc(docRef, {
-    credits: increment(10),
+    credits: increment(500), // Increased from 10 to 500
     lastGamePlayedDate: today
   });
 
-  return { success: true, message: "每日首玩任务完成！", earned: 10 };
+  return { success: true, message: "每日首玩任务完成！", earned: 500 };
 };
 
 /**

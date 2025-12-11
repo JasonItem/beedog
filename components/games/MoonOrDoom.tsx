@@ -1,9 +1,9 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
-import { saveHighScore, getUserHighScore } from '../../services/gameService';
+import { saveScore, getUserHighScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
-import { TrendingUp, TrendingDown, Clock, Zap, Activity, AlertTriangle, Lock, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Zap, Activity, AlertTriangle, Lock, Wallet, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface MoonOrDoomProps {
@@ -28,13 +28,15 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const [betAmount, setBetAmount] = useState<string>('10');
   const [timeLeft, setTimeLeft] = useState(0);
   const [cumulativePnL, setCumulativePnL] = useState(0); // Display value
+  const [isSubmitting, setIsSubmitting] = useState(false); // Debounce state
   
   // Notification State
   const [notification, setNotification] = useState<{msg: string, type: 'win' | 'loss' | 'info'} | null>(null);
 
   // Constants
   const CANVAS_WIDTH = 320;
-  const CANVAS_HEIGHT = 380;
+  // Reduced height for better mobile fit
+  const CANVAS_HEIGHT = 300;
   
   // Mutable Refs (For Game Logic Loop - avoids stale closures)
   const gameRef = useRef({
@@ -110,8 +112,8 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const placeBet = async (direction: 'MOON' | 'DOOM') => {
       if (!userProfile) return;
       
-      // Strict Check: Prevent double tapping
-      if (gameRef.current.state !== 'IDLE') return;
+      // Strict Check: Prevent double tapping via State or Ref
+      if (gameRef.current.state !== 'IDLE' || isSubmitting) return;
       
       const amount = parseInt(betAmount);
       
@@ -128,12 +130,14 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       }
 
       // CRITICAL: Lock state immediately to prevent race conditions UI side
+      setIsSubmitting(true);
       gameRef.current.state = 'SUBMITTING'; 
 
       // Deduct Margin (Bet) - Now uses Transactional safety
       const success = await deductCredit(userProfile.uid, amount);
       if (!success) {
           gameRef.current.state = 'IDLE'; // Unlock on failure
+          setIsSubmitting(false);
           setNotification({ msg: "余额不足或网络错误", type: 'loss' });
           setTimeout(() => setNotification(null), 2000);
           return;
@@ -152,6 +156,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       // Update State
       gameRef.current.state = 'LIVE';
       setGameState('LIVE');
+      setIsSubmitting(false); // Re-enable (though gameState will likely keep buttons disabled)
       
       setTimeLeft(ROUND_DURATION);
       setNotification(null);
@@ -201,19 +206,19 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       gameRef.current.currentCumulativePnL += finalPnL;
       setCumulativePnL(gameRef.current.currentCumulativePnL);
 
+      // Save PnL to Leaderboard (Always update, even if loss)
+      if (userProfile && userProfile.uid === userId) {
+          try {
+              // Use saveScore instead of saveHighScore to allow negative updates
+              await saveScore(userProfile, 'moon_doom', gameRef.current.currentCumulativePnL);
+          } catch(e) {
+              console.warn("Failed to update leaderboard, ignoring:", e);
+          }
+      }
+
       if (finalPnL > 0) {
           audio.playScore();
           setNotification({ msg: `大赚! +${finalPnL} 蜂蜜`, type: 'win' });
-          
-          // Only update leaderboard if we have the profile object available
-          // We wrap this in a separate try/catch so network errors don't stop the game reset
-          if (userProfile && userProfile.uid === userId) {
-             try {
-                await saveHighScore(userProfile, 'moon_doom', gameRef.current.currentCumulativePnL);
-             } catch(e) {
-                console.warn("Failed to update leaderboard, ignoring:", e);
-             }
-          }
       } else if (finalPnL < 0) {
           audio.playGameOver();
           setNotification({ msg: `亏损 ${Math.abs(finalPnL)} 蜂蜜`, type: 'loss' });
@@ -401,34 +406,34 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full max-w-sm mx-auto">
+    <div className="flex flex-col items-center gap-2 w-full max-w-sm mx-auto">
       {/* 1. Top HUD */}
-      <div className="w-full bg-neutral-900 rounded-2xl p-4 border border-white/10 shadow-lg">
-          <div className="flex justify-between items-center mb-3">
+      <div className="w-full bg-neutral-900 rounded-2xl p-3 border border-white/10 shadow-lg">
+          <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2">
                   <div className="bg-yellow-500/20 p-1.5 rounded-lg text-yellow-500">
-                      <Zap size={18} className="fill-current" />
+                      <Zap size={16} className="fill-current" />
                   </div>
                   <div>
-                      <div className="text-[10px] text-neutral-400 font-bold uppercase">余额 Balance</div>
-                      <div className="text-xl font-mono font-black text-white leading-none">{credits}</div>
+                      <div className="text-[9px] text-neutral-400 font-bold uppercase">余额 Balance</div>
+                      <div className="text-lg font-mono font-black text-white leading-none">{credits}</div>
                   </div>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
-                  <Activity size={14} className="text-green-400" />
-                  <span className="font-mono font-bold text-green-400 text-sm">$蜜蜂狗</span>
+              <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded-full border border-white/5">
+                  <Activity size={12} className="text-green-400" />
+                  <span className="font-mono font-bold text-green-400 text-xs">$蜜蜂狗</span>
               </div>
           </div>
           
           {/* Stats Row */}
-          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
-              <div className="bg-black/40 rounded-xl p-2 text-center">
-                  <div className="text-[10px] text-neutral-500">本局投入</div>
-                  <div className="font-mono text-white font-bold">{gameState === 'LIVE' ? gameRef.current.lockedBetAmount : '-'}</div>
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+              <div className="bg-black/40 rounded-xl p-1.5 text-center">
+                  <div className="text-[9px] text-neutral-500">本局投入</div>
+                  <div className="font-mono text-white font-bold text-sm">{gameState === 'LIVE' ? gameRef.current.lockedBetAmount : '-'}</div>
               </div>
-              <div className={`rounded-xl p-2 text-center ${cumulativePnL >= 0 ? 'bg-green-900/20' : 'bg-red-900/20'}`}>
-                  <div className="text-[10px] text-neutral-500">累计盈亏 (PnL)</div>
-                  <div className={`font-mono font-bold ${cumulativePnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              <div className={`rounded-xl p-1.5 text-center ${cumulativePnL >= 0 ? 'bg-green-900/20' : 'bg-red-900/20'}`}>
+                  <div className="text-[9px] text-neutral-500">累计盈亏</div>
+                  <div className={`font-mono font-bold text-sm ${cumulativePnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {cumulativePnL > 0 ? '+' : ''}{cumulativePnL}
                   </div>
               </div>
@@ -440,21 +445,21 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
         <canvas 
             ref={canvasRef} 
             width={320} 
-            height={380} 
-            className="w-full h-[380px] block"
+            height={CANVAS_HEIGHT} 
+            className={`w-full h-[${CANVAS_HEIGHT}px] block`}
         />
 
         {/* Mascot */}
-        <div className="absolute top-3 left-3 z-10 opacity-50 text-3xl">
-          <img alt="Logo" className="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" />
+        <div className="absolute top-2 left-2 z-10 opacity-50 text-2xl">
+          <img alt="Logo" className="w-8 h-8 relative z-10 transform group-hover:rotate-12 transition-transform" src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" />
         </div>
 
         {/* Countdown Overlay */}
         {gameState === 'LIVE' && (
-            <div className="absolute top-3 right-3 z-10">
-                <div className="bg-neutral-900/90 text-white px-3 py-1.5 rounded-lg border border-white/20 flex items-center gap-2 shadow-xl backdrop-blur-md animate-pulse">
-                    <Clock size={16} className="text-white" />
-                    <span className="font-mono font-black text-xl">{timeLeft}s</span>
+            <div className="absolute top-2 right-2 z-10">
+                <div className="bg-neutral-900/90 text-white px-2 py-1 rounded-lg border border-white/20 flex items-center gap-2 shadow-xl backdrop-blur-md animate-pulse">
+                    <Clock size={14} className="text-white" />
+                    <span className="font-mono font-black text-lg">{timeLeft}s</span>
                 </div>
             </div>
         )}
@@ -490,23 +495,23 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       </div>
 
       {/* 3. Control Panel */}
-      <div className="w-full space-y-3 bg-neutral-900 p-4 rounded-2xl border border-white/5">
+      <div className="w-full space-y-2 bg-neutral-900 p-3 rounded-2xl border border-white/5">
           
           {/* Bet Amount Input */}
           <div className="flex items-center gap-2">
-              <div className="bg-neutral-800 rounded-xl p-3 text-neutral-400">
-                  <Wallet size={20} />
+              <div className="bg-neutral-800 rounded-xl p-2 text-neutral-400">
+                  <Wallet size={18} />
               </div>
-              <div className="flex-1 bg-neutral-800 rounded-xl flex items-center px-4 relative border border-transparent focus-within:border-brand-yellow transition-colors">
+              <div className="flex-1 bg-neutral-800 rounded-xl flex items-center px-3 relative border border-transparent focus-within:border-brand-yellow transition-colors">
                   <input 
                       type="number"
                       value={betAmount}
                       onChange={(e) => handleSetAmount(e.target.value)}
                       placeholder="金额"
-                      className={`w-full bg-transparent text-white font-mono font-bold text-xl py-3 focus:outline-none ${parseInt(betAmount) > credits ? 'text-red-500' : ''}`}
-                      disabled={gameState !== 'IDLE'}
+                      className={`w-full bg-transparent text-white font-mono font-bold text-lg py-2 focus:outline-none ${parseInt(betAmount) > credits ? 'text-red-500' : ''}`}
+                      disabled={gameState !== 'IDLE' || isSubmitting}
                   />
-                  <span className="text-xs text-neutral-500 font-bold absolute right-3 pointer-events-none">HONEY</span>
+                  <span className="text-[10px] text-neutral-500 font-bold absolute right-3 pointer-events-none">HONEY</span>
               </div>
           </div>
 
@@ -516,38 +521,38 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                   <button 
                     key={amt}
                     onClick={() => setBetAmount(amt.toString())}
-                    disabled={gameState !== 'IDLE'}
-                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold py-2 rounded-lg transition-colors"
+                    disabled={gameState !== 'IDLE' || isSubmitting}
+                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[10px] font-bold py-1.5 rounded-lg transition-colors"
                   >
                     {amt}
                   </button>
               ))}
-              <button onClick={setHalfBet} disabled={gameState !== 'IDLE'} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold py-2 rounded-lg transition-colors">1/2</button>
-              <button onClick={setMaxBet} disabled={gameState !== 'IDLE'} className="bg-neutral-800 hover:bg-neutral-700 text-brand-yellow text-xs font-bold py-2 rounded-lg transition-colors col-span-4">MAX</button>
+              <button onClick={setHalfBet} disabled={gameState !== 'IDLE' || isSubmitting} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[10px] font-bold py-1.5 rounded-lg transition-colors">1/2</button>
+              <button onClick={setMaxBet} disabled={gameState !== 'IDLE' || isSubmitting} className="bg-neutral-800 hover:bg-neutral-700 text-brand-yellow text-[10px] font-bold py-1.5 rounded-lg transition-colors col-span-4">MAX</button>
           </div>
 
           {/* Big Action Buttons */}
-          <div className="grid grid-cols-2 gap-3 mt-2">
+          <div className="grid grid-cols-2 gap-3 mt-1">
               <button
-                disabled={gameState !== 'IDLE' || !userProfile || parseInt(betAmount) <= 0 || parseInt(betAmount) > credits}
+                disabled={gameState !== 'IDLE' || isSubmitting || !userProfile || parseInt(betAmount) <= 0 || parseInt(betAmount) > credits}
                 onClick={() => placeBet('MOON')}
-                className={`group bg-green-600 hover:bg-green-500 active:translate-y-1 border-b-4 border-green-800 active:border-b-0 text-white py-4 rounded-xl shadow-lg transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden`}
+                className={`group bg-green-600 hover:bg-green-500 active:translate-y-1 border-b-4 border-green-800 active:border-b-0 text-white py-3 rounded-xl shadow-lg transition-all flex flex-col items-center justify-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden`}
               >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                  <TrendingUp size={28} className="group-hover:scale-110 transition-transform"/>
-                  <span className="font-black text-lg">MOON (涨)</span>
-                  <span className="text-[10px] opacity-70 font-mono">翻倍 (1:1)</span>
+                  {isSubmitting ? <Loader2 className="animate-spin text-white" size={24} /> : <TrendingUp size={24} className="group-hover:scale-110 transition-transform"/>}
+                  <span className="font-black text-base">MOON (涨)</span>
+                  <span className="text-[9px] opacity-70 font-mono">翻倍 (1:1)</span>
               </button>
               
               <button
-                disabled={gameState !== 'IDLE' || !userProfile || parseInt(betAmount) <= 0 || parseInt(betAmount) > credits}
+                disabled={gameState !== 'IDLE' || isSubmitting || !userProfile || parseInt(betAmount) <= 0 || parseInt(betAmount) > credits}
                 onClick={() => placeBet('DOOM')}
-                className={`group bg-red-600 hover:bg-red-500 active:translate-y-1 border-b-4 border-red-800 active:border-b-0 text-white py-4 rounded-xl shadow-lg transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden`}
+                className={`group bg-red-600 hover:bg-red-500 active:translate-y-1 border-b-4 border-red-800 active:border-b-0 text-white py-3 rounded-xl shadow-lg transition-all flex flex-col items-center justify-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden`}
               >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                  <TrendingDown size={28} className="group-hover:scale-110 transition-transform"/>
-                  <span className="font-black text-lg">DOOM (跌)</span>
-                  <span className="text-[10px] opacity-70 font-mono">翻倍 (1:1)</span>
+                  {isSubmitting ? <Loader2 className="animate-spin text-white" size={24} /> : <TrendingDown size={24} className="group-hover:scale-110 transition-transform"/>}
+                  <span className="font-black text-base">DOOM (跌)</span>
+                  <span className="text-[9px] opacity-70 font-mono">翻倍 (1:1)</span>
               </button>
           </div>
       </div>

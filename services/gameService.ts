@@ -66,6 +66,28 @@ export const saveHighScore = async (userProfile: UserProfile, gameId: string, sc
 };
 
 /**
+ * Saves the current score directly, overwriting any previous score.
+ * Used for games where the score represents a current state (like PnL) rather than a "High Score".
+ * This allows scores to go down or be negative.
+ */
+export const saveScore = async (userProfile: UserProfile, gameId: string, score: number): Promise<void> => {
+  if (!userProfile) return;
+
+  try {
+    const scoreRef = doc(db, "games", gameId, "leaderboard", userProfile.uid);
+    await setDoc(scoreRef, {
+      userId: userProfile.uid,
+      nickname: userProfile.nickname,
+      avatarUrl: userProfile.avatarUrl || null,
+      score: score,
+      timestamp: Timestamp.now()
+    });
+  } catch (error) {
+    console.warn(`Failed to save score for ${gameId}:`, error);
+  }
+};
+
+/**
  * Updates a cumulative score (adds to existing).
  * Used for grinding games like Coin Pusher.
  */

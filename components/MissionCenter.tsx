@@ -83,7 +83,7 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
                     </div>
                  </div>
                  <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-                    +10 🍯
+                    +100 🍯
                  </div>
               </div>
               
@@ -111,7 +111,7 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
                     </div>
                  </div>
                  <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-                    +10 🍯
+                    +500 🍯
                  </div>
               </div>
               
