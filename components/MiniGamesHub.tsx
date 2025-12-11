@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -249,6 +249,15 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const [userComment, setUserComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // Date String for Reward Check
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  // Helper to check if reward claimed
+  const isRewardClaimed = (gameId: string) => {
+      return userProfile?.dailyGameRewards?.[gameId] === todayStr;
+  };
+
   // Fetch player counts on mount
   useEffect(() => {
     let isMounted = true;
@@ -495,9 +504,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                             <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-[#333] flex items-center justify-center text-neutral-500">
                                 <game.icon size={16}/>
                             </div>
-                            <div className="flex-1 text-left">
-                                <div className={`font-bold text-sm ${selectedGame.id === game.id ? 'text-brand-yellow' : 'dark:text-white'}`}>{game.name}</div>
-                                {game.isHoneyGame && <div className="text-[10px] text-orange-500 font-bold flex items-center gap-1"><Zap size={8} className="fill-current"/> 赚蜂蜜</div>}
+                            <div className="flex-1 text-left flex justify-between items-center">
+                                <div>
+                                    <div className={`font-bold text-sm ${selectedGame.id === game.id ? 'text-brand-yellow' : 'dark:text-white'}`}>{game.name}</div>
+                                    {game.isHoneyGame && <div className="text-[10px] text-orange-500 font-bold flex items-center gap-1"><Zap size={8} className="fill-current"/> 赚蜂蜜</div>}
+                                </div>
+                                {isRewardClaimed(game.id) && <CheckCircle2 size={16} className="text-green-500 fill-green-500/20"/>}
                             </div>
                             {selectedGame.id === game.id && <div className="w-2 h-2 rounded-full bg-brand-yellow"></div>}
                         </button>
@@ -637,6 +649,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                             <div key={idx} className="flex items-center justify-between text-sm p-3 hover:bg-neutral-50 dark:hover:bg-[#222] rounded-xl transition-colors">
                                                 <div className="flex items-center gap-3">
                                                     <span className={`w-6 text-center font-black ${idx < 3 ? 'text-yellow-500 text-lg' : 'text-neutral-400'}`}>{idx+1}</span>
+                                                    
+                                                    {/* Avatar in List */}
+                                                    <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] overflow-hidden border border-neutral-100 dark:border-[#444] shrink-0">
+                                                        {s.avatarUrl ? <img src={s.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs">🐶</div>}
+                                                    </div>
+
                                                     <div className="flex flex-col">
                                                         <span className="font-bold dark:text-gray-200 truncate max-w-[100px]">{s.nickname}</span>
                                                     </div>
@@ -765,7 +783,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                 </div>
                             </div>
                             
-                            {selectedGame.id === game.id && (
+                            {/* Reward Indicator */}
+                            {isRewardClaimed(game.id) ? (
+                                <div className="text-green-500" title="今日奖励已领">
+                                    <CheckCircle2 size={20} className="fill-green-500/20"/>
+                                </div>
+                            ) : selectedGame.id === game.id && (
                                 <div className="w-2 h-2 rounded-full bg-black animate-pulse"></div>
                             )}
                         </button>
