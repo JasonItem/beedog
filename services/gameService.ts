@@ -11,6 +11,16 @@ export interface GameScore {
   timestamp: any;
 }
 
+export interface GameReview {
+  id: string; // usually userId
+  userId: string;
+  nickname: string;
+  avatarUrl?: string;
+  rating: number;
+  comment: string;
+  timestamp: any;
+}
+
 /**
  * Saves a score if it is a personal best for the user in the specific game.
  * Uses a subcollection structure: games/{gameId}/leaderboard/{userId}
@@ -172,5 +182,55 @@ export const getPlayerCount = async (gameId: string): Promise<number> => {
   } catch (error) {
     // console.error(`Failed to get count for ${gameId}`, error); // Silenced to prevent spam
     return 0;
+  }
+};
+
+/**
+ * Adds or updates a user's review for a game.
+ * One review per user per game.
+ */
+export const addGameReview = async (userProfile: UserProfile, gameId: string, rating: number, comment: string): Promise<GameReview> => {
+  if (!userProfile?.uid) throw new Error("User not authenticated");
+
+  const safeComment = comment.trim().slice(0, 140); // Enforce limit
+  const reviewRef = doc(db, "games", gameId, "reviews", userProfile.uid);
+  
+  // Clean payload
+  const reviewData: any = {
+    id: userProfile.uid,
+    userId: userProfile.uid,
+    nickname: userProfile.nickname || "Anonymous",
+    avatarUrl: userProfile.avatarUrl || null,
+    rating: Math.max(1, Math.min(5, Math.floor(rating))),
+    comment: safeComment,
+    timestamp: Timestamp.now()
+  };
+
+  await setDoc(reviewRef, reviewData);
+  return reviewData as GameReview;
+};
+
+/**
+ * Fetches reviews for a game.
+ */
+export const getGameReviews = async (gameId: string, limitCount: number = 50): Promise<GameReview[]> => {
+  try {
+    const q = query(
+      collection(db, "games", gameId, "reviews"),
+      orderBy("timestamp", "desc"),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const reviews: GameReview[] = [];
+
+    querySnapshot.forEach((doc) => {
+      reviews.push(doc.data() as GameReview);
+    });
+
+    return reviews;
+  } catch (error) {
+    console.warn(`Failed to fetch reviews for ${gameId}`, error);
+    return [];
   }
 };
