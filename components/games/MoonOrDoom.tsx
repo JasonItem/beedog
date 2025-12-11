@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { saveScore, getUserHighScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
-import { TrendingUp, TrendingDown, Clock, Zap, Activity, AlertTriangle, Lock, Wallet, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Activity, AlertTriangle, Lock, Wallet, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface MoonOrDoomProps {
@@ -63,14 +63,15 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   }, [userProfile]);
 
   // Load initial high score / PnL base
+  // FIX: Only re-fetch if UID changes, not on every profile update (like credit change)
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile?.uid) {
       getUserHighScore('moon_doom', userProfile.uid).then(score => {
         gameRef.current.currentCumulativePnL = score;
         setCumulativePnL(score);
       });
     }
-  }, [userProfile]);
+  }, [userProfile?.uid]);
 
   useEffect(() => {
     // Initialize history with 60 seconds of data

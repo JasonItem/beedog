@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2 } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -17,6 +17,7 @@ import { BeeSwarm } from './games/BeeSwarm';
 import { HoneyClimber } from './games/HoneyClimber';
 import { HoneySwing } from './games/HoneySwing';
 import { MoonOrDoom } from './games/MoonOrDoom';
+import { HoneyScratch } from './games/HoneyScratch';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, GameScore } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -28,6 +29,13 @@ interface MiniGamesHubProps {
 }
 
 export const GAMES = [
+  {
+    id: 'honey_scratch',
+    name: '蜜蜂刮刮乐',
+    description: '运气也是实力的一部分！三种价位，最高赢取 10,000 蜂蜜！',
+    color: 'from-purple-500 to-indigo-600',
+    icon: Ticket
+  },
   {
     id: 'moon_doom',
     name: '传奇交易员',
@@ -248,6 +256,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (activeGameId) {
+      case 'honey_scratch': return <HoneyScratch userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'moon_doom': return <MoonOrDoom userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_swing': return <HoneySwing userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_climber': return <HoneyClimber userProfile={userProfile} onGameOver={handleGameOver} />;
@@ -421,7 +430,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
                  <div className={`h-40 bg-gradient-to-br ${game.color} flex items-center justify-center relative overflow-hidden`}>
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                    <game.icon size={64} className="text-white opacity-90 drop-shadow-lg transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500" />
+                    {/* Render Icon component or Lucide Icon */}
+                    {React.isValidElement(game.icon) ? game.icon : <game.icon size={64} className="text-white opacity-90 drop-shadow-lg transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500" />}
                  </div>
                  <div className="p-6">
                     <h3 className="text-xl font-black mb-2 dark:text-white truncate">{game.name}</h3>
