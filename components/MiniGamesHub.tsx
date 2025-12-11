@@ -402,7 +402,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
           </h1>
           <p className="text-xl text-neutral-600 dark:text-neutral-300 max-w-2xl mx-auto">
              无聊了吗？来玩两把！所有分数都会记录在全网排行榜上。<br/>
-             <span className="text-brand-yellow font-bold">每日首次游玩可获得 500 蜂蜜奖励！每个游戏首玩可获得 10 蜂蜜奖励</span>
+             <span className="text-brand-yellow font-bold">每日首次游玩可获得 500 蜂蜜奖励！每个游戏每日首次游玩可获得 10 蜂蜜奖励！</span>
           </p>
         </div>
 
