@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -19,6 +19,7 @@ import { HoneySwing } from './games/HoneySwing';
 import { MoonOrDoom } from './games/MoonOrDoom';
 import { HoneyScratch } from './games/HoneyScratch';
 import { HoneyBurger } from './games/HoneyBurger';
+import { HoneySlots } from './games/HoneySlots';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -43,6 +44,16 @@ interface GameData {
 }
 
 export const GAMES: GameData[] = [
+  {
+    id: 'honey_slots',
+    name: '蜜蜂大乐透',
+    description: '经典的赌场老虎机玩法！投入蜂蜜，搏一搏单车变摩托！',
+    howToPlay: '选择下注金额，点击旋转。当三个相同的图案连成一线时即可获得高额倍数奖励。',
+    color: 'from-yellow-600 to-amber-900',
+    icon: DollarSign,
+    tags: ['运气', '博彩'],
+    isHoneyGame: true
+  },
   {
     id: 'honey_burger',
     name: '蜜蜂狗汉堡店',
@@ -395,6 +406,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   // --- RENDER GAME COMPONENT ---
   const renderGame = () => {
     switch (selectedGame.id) {
+      case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_burger': return <HoneyBurger userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_scratch': return <HoneyScratch userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'moon_doom': return <MoonOrDoom userProfile={userProfile} onGameOver={handleGameOver} />;
@@ -603,7 +615,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                     </div>
 
                     {/* Leaderboard & Reviews Tabs */}
-                    <div className="bg-white dark:bg-[#161616] rounded-3xl p-6 border border-neutral-200 dark:border-[#333] shadow-sm flex flex-col h-[500px]">
+                    <div className="bg-white dark:bg-[#161616] rounded-3xl p-6 border border-neutral-200 dark:border-[#333] shadow-sm flex flex-col flex-1 min-h-0">
                         {/* Tab Switcher */}
                         <div className="flex bg-neutral-100 dark:bg-[#222] p-1 rounded-xl mb-4 shrink-0">
                             <button 
@@ -639,7 +651,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                 </div>
 
                                 {/* List */}
-                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 mb-2 pr-1">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 mb-2 pr-1 h-[250px]">
                                     {loadingData ? (
                                         <div className="text-center text-neutral-400 py-8 text-sm">加载中...</div>
                                     ) : leaderboard.length === 0 ? (
@@ -682,7 +694,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                             /* REVIEWS TAB */
                             <div className="flex flex-col flex-1 min-h-0">
                                 {/* Review List */}
-                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 mb-4 pr-1">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 mb-4 pr-1 h-[250px]">
                                     {reviews.length === 0 ? (
                                         <div className="text-center text-neutral-400 py-8 text-sm flex flex-col items-center gap-2">
                                             <MessageSquare className="opacity-20" size={32}/>

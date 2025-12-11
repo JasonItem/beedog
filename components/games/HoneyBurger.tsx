@@ -4,7 +4,7 @@ import { UserProfile, deductCredit } from '../../services/userService';
 import { updateCumulativeScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
 import { Button } from '../Button';
-import { Play, RotateCcw, Clock, Heart, ChefHat, Check, X as XIcon, Utensils, AlertTriangle, Wallet } from 'lucide-react';
+import { Play, RotateCcw, Clock, Heart, ChefHat, Check, X as XIcon, Utensils, AlertTriangle, Wallet, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface HoneyBurgerProps {
@@ -46,6 +46,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
   const [orders, setOrders] = useState<Order[]>([]);
   const [combo, setCombo] = useState(0);
   const [feedback, setFeedback] = useState<{type: 'CORRECT' | 'WRONG', text: string} | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
   
   // Game Refs for synchronous logic
   const gameRef = useRef({
@@ -75,6 +76,7 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
 
   const startGame = () => {
     if (!userProfile) return; // Strict check
+    if (isSettling) return; // Prevent start while settling
     
     if (gameRef.current.animationId) cancelAnimationFrame(gameRef.current.animationId);
 
@@ -115,14 +117,16 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
     cancelAnimationFrame(gameRef.current.animationId);
     
     if (userProfile && finalScore > 0) {
+        setIsSettling(true);
         // Await updates to ensure consistency before UI updates
-        // Use local finalScore variable, NOT gameRef.current.score (which might be reset)
         try {
             await updateCumulativeScore(userProfile, 'honey_burger', finalScore);
             await deductCredit(userProfile.uid, -finalScore); // Negative deduct = Add
             await refreshProfile();
         } catch (e) {
             console.error("Failed to settle score:", e);
+        } finally {
+            setIsSettling(false);
         }
     }
     onGameOver();
@@ -513,10 +517,16 @@ export const HoneyBurger: React.FC<HoneyBurgerProps> = ({ userProfile, onGameOve
                     <div className="text-xs text-neutral-500 uppercase font-bold mb-2 tracking-[0.3em]">今日工资</div>
                     <div className="text-6xl font-black text-amber-400 font-mono tracking-tighter">+{score}</div>
                     <div className="text-xs text-amber-600/50 font-bold mt-1">HONEY COINS</div>
+                    
+                    {isSettling && (
+                        <div className="mt-4 flex items-center gap-2 text-yellow-400 text-sm font-bold animate-pulse">
+                            <Loader2 className="animate-spin" size={16}/> 正在发放奖励...
+                        </div>
+                    )}
                 </div>
 
-                <Button onClick={startGame} className="w-full max-w-xs mb-3 py-4 text-lg bg-white text-black hover:bg-neutral-200 border-none font-bold rounded-2xl shadow-lg">
-                    <RotateCcw className="mr-2" /> 重新入职
+                <Button onClick={startGame} disabled={isSettling} className="w-full max-w-xs mb-3 py-4 text-lg bg-white text-black hover:bg-neutral-200 border-none font-bold rounded-2xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isSettling ? "结算中..." : <><RotateCcw className="mr-2" /> 重新入职</>}
                 </Button>
             </div>
         )}
