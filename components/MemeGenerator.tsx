@@ -375,7 +375,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                    </h3>
                    {/* Credit Badge */}
                    <div className="bg-white dark:bg-black px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border border-neutral-200 dark:border-[#333] dark:text-white flex items-center gap-2">
-                      <Zap size={12} className="text-brand-yellow fill-brand-yellow"/>
+                      🍯
                       剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
