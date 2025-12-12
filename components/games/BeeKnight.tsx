@@ -432,10 +432,10 @@ export const BeeKnight: React.FC<BeeKnightProps> = ({ userProfile, onGameOver })
             } else if (obj.type === 'coin') {
                 obj.hit = true;
                 game.score += 100; // Score
-                game.sessionHoney += 3; // Money (Tripled from 1)
+                game.sessionHoney += 6; // Money (Increased to 6)
                 setScore(game.score);
                 setSessionHoney(game.sessionHoney);
-                spawnFloatingText("+3 🍯", "#fbbf24");
+                spawnFloatingText("+6 🍯", "#fbbf24");
                 audio.playScore();
                 game.objects.splice(i, 1);
             } else if (obj.type === 'food') {
@@ -457,7 +457,7 @@ export const BeeKnight: React.FC<BeeKnightProps> = ({ userProfile, onGameOver })
                     
                     const bonus = Math.floor(game.deliveryTimer / 60); // Speed bonus points
                     game.score += 500 + bonus * 10;
-                    game.sessionHoney += 15; // Flat reward (Tripled from 5)
+                    game.sessionHoney += 30; // Flat reward (Increased to 30)
                     
                     setScore(game.score);
                     setSessionHoney(game.sessionHoney);
@@ -465,7 +465,7 @@ export const BeeKnight: React.FC<BeeKnightProps> = ({ userProfile, onGameOver })
                     
                     audio.playScore(); 
                     createParticles(game.x, PLAYER_Y, '#fbbf24', 15);
-                    spawnFloatingText("+15 🍯", "#fbbf24");
+                    spawnFloatingText("+30 🍯", "#fbbf24");
                 }
             }
         }
