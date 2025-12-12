@@ -702,17 +702,16 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                 {/* Dock */}
                 <div className="absolute bottom-0 left-[10%] w-4 h-[100px] bg-[#3e2723] z-0"></div>
                 <div className="absolute bottom-0 left-[35%] w-4 h-[100px] bg-[#3e2723] z-0"></div>
-                <div className="absolute bottom-0 left-[60%] w-4 h-[100px] bg-[#3e2723] z-0"></div>
 
                 {/* Platform (Wide) */}
-                <div className="absolute bottom-[100px] left-0 w-[70%] h-[50px] z-10 bg-[#5d4037] border-t-4 border-b-8 border-[#3e2723] shadow-xl"
+                <div className="absolute bottom-[100px] left-0 w-[40%] h-[70px] z-10 bg-[#5d4037] border-t-4 border-r-4 border-b-8 border-[#3e2723] shadow-xl"
                      style={{
                          backgroundImage: 'repeating-linear-gradient(90deg, #5d4037, #5d4037 10px, #4e342e 10px, #4e342e 12px)'
                      }}>
                 </div>
 
                 {/* Character & Rod */}
-                <div className="absolute bottom-[148px] left-[35%] -translate-x-1/2 flex flex-col items-center z-20 pointer-events-none scale-[3] origin-bottom">
+                <div className="absolute bottom-[128px] left-[35%] -translate-x-1/2 flex flex-col items-center z-20 pointer-events-none scale-[3] origin-bottom">
                     <div className="relative w-[16px] h-[32px]">
                         
                         {/* Rod - HIDDEN when IDLE or CAUGHT */}
@@ -872,28 +871,35 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4">
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                         {FISH_TYPES.map((fish) => {
                             const isCaught = unlockedFish.includes(fish.id);
                             const isUnlocked = level >= fish.unlockLevel;
                             
                             return (
-                                <div key={fish.id} className={`aspect-square rounded-xl border flex flex-col items-center justify-center p-1 relative ${isCaught ? 'bg-white border-purple-200 shadow-sm' : 'bg-gray-200 border-gray-300'}`}>
+                                <div key={fish.id} className={`aspect-[4/5] rounded-xl border flex flex-col items-center justify-center p-1 relative ${isCaught ? 'bg-white border-purple-200 shadow-sm' : 'bg-gray-200 border-gray-300'}`}>
                                     {isUnlocked ? (
                                         <>
-                                            <div className={`w-8 h-8 flex items-center justify-center mb-1 ${!isCaught ? 'opacity-30 grayscale contrast-0' : ''}`}>
+                                            <div className={`w-10 h-10 flex items-center justify-center mb-1 ${!isCaught ? 'opacity-30 grayscale contrast-0' : ''}`}>
                                                 {fish.imageUrl ? <img src={fish.imageUrl} className="w-full h-full object-contain pixelated"/> : fish.icon}
                                             </div>
                                             {isCaught ? (
-                                                <div className="text-[8px] font-bold text-center leading-tight truncate w-full px-1">{fish.name.split(' ')[0]}</div>
+                                                <>
+                                                    <div className="text-[10px] font-bold text-center leading-tight truncate w-full px-1 text-slate-800">
+                                                        {fish.name.split(' ')[0]}
+                                                    </div>
+                                                    <div className="text-[10px] font-mono font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full mt-1 border border-amber-100 flex items-center gap-1">
+                                                        {fish.price} 🍯
+                                                    </div>
+                                                </>
                                             ) : (
                                                 <div className="text-[8px] text-gray-400 text-center font-bold">???</div>
                                             )}
                                         </>
                                     ) : (
                                         <div className="flex flex-col items-center justify-center text-gray-400 h-full w-full">
-                                            <Lock size={12} className="mb-1"/>
-                                            <span className="text-[8px] font-bold">Lv.{fish.unlockLevel}</span>
+                                            <Lock size={16} className="mb-1"/>
+                                            <span className="text-[10px] font-bold">Lv.{fish.unlockLevel}</span>
                                         </div>
                                     )}
                                 </div>
