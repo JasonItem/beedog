@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -20,6 +20,7 @@ import { MoonOrDoom } from './games/MoonOrDoom';
 import { HoneyScratch } from './games/HoneyScratch';
 import { HoneyBurger } from './games/HoneyBurger';
 import { HoneySlots } from './games/HoneySlots';
+import { BeeKnight } from './games/BeeKnight';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -44,6 +45,16 @@ interface GameData {
 }
 
 export const GAMES: GameData[] = [
+  {
+    id: 'bee_knight',
+    name: '蜜蜂骑士',
+    description: '行情不好去送外卖？驾驶小电驴，极速送达蜂蜜汉堡！',
+    howToPlay: '点击左右变道。捡起路上的食物包，撞向顾客完成送餐。避开障碍物！',
+    color: 'from-yellow-500 to-amber-700',
+    icon: Bike,
+    tags: ['跑酷', '反应'],
+    isHoneyGame: true
+  },
   {
     id: 'honey_slots',
     name: '蜜蜂大乐透',
@@ -406,6 +417,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   // --- RENDER GAME COMPONENT ---
   const renderGame = () => {
     switch (selectedGame.id) {
+      case 'bee_knight': return <BeeKnight userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_burger': return <HoneyBurger userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_scratch': return <HoneyScratch userProfile={userProfile} onGameOver={handleGameOver} />;
