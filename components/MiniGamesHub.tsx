@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -21,6 +21,7 @@ import { HoneyScratch } from './games/HoneyScratch';
 import { HoneyBurger } from './games/HoneyBurger';
 import { HoneySlots } from './games/HoneySlots';
 import { BeeKnight } from './games/BeeKnight';
+import { HoneyFishing } from './games/HoneyFishing'; // Import
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -45,6 +46,16 @@ interface GameData {
 }
 
 export const GAMES: GameData[] = [
+  {
+    id: 'honey_fishing',
+    name: '蜜蜂垂钓',
+    description: '悠闲的午后，来河边甩两杆？经典星露谷玩法，收集稀有鱼类！',
+    howToPlay: '按住控制绿条包住鱼。满进度钓起。可在商店升级鱼竿，鱼获可卖出换蜂蜜。',
+    color: 'from-cyan-500 to-blue-700',
+    icon: AnchorIcon,
+    tags: ['模拟', '收集', '休闲'],
+    isHoneyGame: true
+  },
   {
     id: 'bee_knight',
     name: '蜜蜂骑士',
@@ -417,6 +428,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   // --- RENDER GAME COMPONENT ---
   const renderGame = () => {
     switch (selectedGame.id) {
+      case 'honey_fishing': return <HoneyFishing userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />; // New Game
       case 'bee_knight': return <BeeKnight userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_burger': return <HoneyBurger userProfile={userProfile} onGameOver={handleGameOver} />;
