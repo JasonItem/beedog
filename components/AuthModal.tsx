@@ -15,7 +15,7 @@ import {
 import { auth } from '../firebaseConfig';
 import { ensureUserProfile, updateUserNickname, performDailyCheckIn, uploadUserAvatar } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
-import { X, LogOut, Zap, LayoutDashboard, Twitter, Mail, Lock, User as UserIcon, AlertCircle, CheckCircle, Link as LinkIcon, ArrowRight, Loader2, CalendarCheck, Camera, RefreshCw, Target } from 'lucide-react';
+import { X, LogOut, Zap, LayoutDashboard, Twitter, Mail, Lock, User as UserIcon, AlertCircle, CheckCircle, Link as LinkIcon, ArrowRight, Loader2, CalendarCheck, Camera, RefreshCw, Target, Edit2, Check } from 'lucide-react';
 import { Button } from './Button';
 
 interface AuthModalProps {
@@ -26,7 +26,7 @@ interface AuthModalProps {
 }
 
 type AuthView = 'login' | 'register' | 'forgot-pass' | 'verify-email' | 'set-nickname' | 'profile' | 'bind-email';
-type LoadingMethod = 'twitter' | 'email' | 'general' | 'upload' | 'resend' | null;
+type LoadingMethod = 'twitter' | 'email' | 'general' | 'upload' | 'resend' | 'update_name' | null;
 
 // Helper to translate Firebase errors
 const getFirebaseErrorMessage = (error: any): string => {
@@ -94,6 +94,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+  
+  // Nickname Edit State
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempNickname, setTempNickname] = useState('');
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +109,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
       setSuccessMsg('');
       setLoadingMethod(null);
       setCheckInLoading(false);
+      setIsEditingName(false); // Reset edit mode
 
       if (user) {
         if (!user.emailVerified && user.providerData.some(p => p.providerId === 'password')) {
@@ -201,12 +206,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
     }
   };
 
+  // Helper to validate and sanitize nickname
+  const validateNickname = (name: string): { valid: boolean; msg?: string } => {
+      const trimmed = name.trim();
+      if (!trimmed) return { valid: false, msg: "昵称不能为空" };
+      if (trimmed.length < 2 || trimmed.length > 16) return { valid: false, msg: "昵称长度需在 2-16 字符之间" };
+      
+      // XSS Protection & Character Whitelist
+      // Allowed: Chinese, English letters, Numbers, Underscore, Hyphen
+      const regex = /^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/;
+      if (!regex.test(trimmed)) return { valid: false, msg: "昵称包含非法字符（仅限中英文、数字、下划线）" };
+      
+      return { valid: true };
+  };
+
   const handleSetNickname = async () => {
-    if (!nickname.trim()) return setError("请输入一个昵称");
+    const valCheck = validateNickname(nickname);
+    if (!valCheck.valid) return setError(valCheck.msg!);
     if (!auth.currentUser) return;
+    
     setLoadingMethod('general');
     try {
-      await updateUserNickname(auth.currentUser.uid, nickname);
+      await updateUserNickname(auth.currentUser.uid, nickname.trim());
       await refreshProfile();
       onClose();
     } catch (err: any) {
@@ -214,6 +235,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
     } finally {
       setLoadingMethod(null);
     }
+  };
+
+  const handleUpdateNickname = async () => {
+      const valCheck = validateNickname(tempNickname);
+      if (!valCheck.valid) return setError(valCheck.msg!);
+      if (!auth.currentUser) return;
+
+      setLoadingMethod('update_name');
+      try {
+          await updateUserNickname(auth.currentUser.uid, tempNickname.trim());
+          await refreshProfile();
+          setIsEditingName(false);
+          setSuccessMsg("昵称修改成功");
+          setTimeout(() => setSuccessMsg(""), 3000);
+      } catch (err: any) {
+          setError("修改失败，请稍后再试");
+      } finally {
+          setLoadingMethod(null);
+      }
   };
 
   const handleForgotPassword = async () => {
@@ -374,6 +414,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
             {view === 'profile' && userProfile && (
                 <div className="space-y-6">
                   <div className="flex flex-col items-center">
+                    {/* Avatar Upload */}
                     <div
                         className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-4xl shadow-xl mb-4 border-4 border-white dark:border-[#333] overflow-hidden relative group cursor-pointer"
                         onClick={() => fileInputRef.current?.click()}
@@ -390,8 +431,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode: ini
                       {userProfile.avatarUrl ? <img src={userProfile.avatarUrl} alt="Avatar" className="w-full h-full object-cover"/> : '🐶'}
                     </div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/png,image/jpeg,image/gif" onChange={handleFileChange} />
-                    <h3 className="text-2xl font-bold dark:text-white">{userProfile.nickname}</h3>
-                    <p className="text-neutral-500 text-xs mt-1 bg-neutral-100 dark:bg-[#222] px-2 py-0.5 rounded text-center">ID: {userProfile.uid}</p>
+                    
+                    {/* Nickname Editing */}
+                    {isEditingName ? (
+                        <div className="flex items-center gap-2 mb-1 w-full max-w-[200px]">
+                            <input 
+                                type="text"
+                                value={tempNickname}
+                                onChange={(e) => setTempNickname(e.target.value)}
+                                className="w-full bg-neutral-100 dark:bg-[#333] border border-neutral-200 dark:border-[#444] rounded-lg px-2 py-1 text-center font-bold text-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white"
+                                autoFocus
+                                placeholder="输入新昵称"
+                            />
+                            <button 
+                                onClick={handleUpdateNickname} 
+                                disabled={loadingMethod === 'update_name'}
+                                className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                            >
+                                {loadingMethod === 'update_name' ? <Loader2 size={16} className="animate-spin"/> : <Check size={16}/>}
+                            </button>
+                            <button 
+                                onClick={() => setIsEditingName(false)} 
+                                disabled={loadingMethod === 'update_name'}
+                                className="p-1.5 bg-neutral-200 dark:bg-[#444] text-neutral-600 dark:text-neutral-300 rounded-lg hover:bg-neutral-300 dark:hover:bg-[#555] transition-colors"
+                            >
+                                <X size={16}/>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 mb-1 group">
+                            <h3 className="text-2xl font-bold dark:text-white">{userProfile.nickname}</h3>
+                            <button 
+                                onClick={() => {
+                                    setTempNickname(userProfile.nickname);
+                                    setIsEditingName(true);
+                                    setError(""); 
+                                }}
+                                className="opacity-50 group-hover:opacity-100 hover:bg-neutral-100 dark:hover:bg-[#333] p-1 rounded-full transition-all text-neutral-500 dark:text-neutral-400"
+                            >
+                                <Edit2 size={14}/>
+                            </button>
+                        </div>
+                    )}
+                    
+                    <p className="text-neutral-500 text-xs bg-neutral-100 dark:bg-[#222] px-2 py-0.5 rounded text-center">ID: {userProfile.uid}</p>
                   </div>
 
                   {/* Stats & Missions Link */}

@@ -10,11 +10,12 @@ import { GameScore } from "./gameService";
 
 /**
  * Fetch all users (Admin only)
- * Note: For large databases, this should be paginated. Here we limit to 100 for simplicity.
+ * Note: For large databases, this should be paginated.
+ * Updated: Sort by credits desc to show top holders first for easier management.
  */
 export const adminGetAllUsers = async (): Promise<UserProfile[]> => {
   try {
-    const q = query(collection(db, "users"), limit(100)); // Simple limit for now
+    const q = query(collection(db, "users"), orderBy("credits", "desc"), limit(200)); 
     const snapshot = await getDocs(q);
     const users: UserProfile[] = [];
     snapshot.forEach(doc => {
@@ -82,21 +83,27 @@ export const adminUpdateUser = async (uid: string, data: Partial<UserProfile>) =
  */
 export const adminBatchUpdateCredits = async (uids: string[], amount: number, mode: 'adjust' | 'set' = 'adjust') => {
   try {
-    const batch = writeBatch(db);
+    // Firestore batch limit is 500
+    const BATCH_SIZE = 500;
     
-    uids.forEach(uid => {
-      const ref = doc(db, "users", uid);
-      if (mode === 'set') {
-        // Overwrite the credits value
-        batch.update(ref, { credits: amount });
-      } else {
-        // If amount is positive, we add. If negative, we subtract.
-        // Using increment allows concurrency safety.
-        batch.update(ref, { credits: increment(amount) });
-      }
-    });
+    for (let i = 0; i < uids.length; i += BATCH_SIZE) {
+        const chunk = uids.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        
+        chunk.forEach(uid => {
+          const ref = doc(db, "users", uid);
+          if (mode === 'set') {
+            // Overwrite the credits value
+            batch.update(ref, { credits: amount });
+          } else {
+            // If amount is positive, we add. If negative, we subtract.
+            // Using increment allows concurrency safety.
+            batch.update(ref, { credits: increment(amount) });
+          }
+        });
 
-    await batch.commit();
+        await batch.commit();
+    }
   } catch (error) {
     console.error("Admin: Batch update credits failed", error);
     throw error;

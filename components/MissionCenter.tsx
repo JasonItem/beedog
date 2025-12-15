@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, CalendarCheck, Gamepad2, Zap, Loader2, ArrowRight, HelpCircle, Coins, AlertTriangle, Info, Trophy, Medal } from 'lucide-react';
+import { X, CheckCircle, CalendarCheck, Gamepad2, Zap, Loader2, ArrowRight, HelpCircle, Coins, AlertTriangle, Info, Trophy, Medal, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { performDailyCheckIn, getHoneyLeaderboard, UserProfile } from '../services/userService';
 import { Button } from './Button';
@@ -20,15 +20,20 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
   const [leaderboard, setLeaderboard] = useState<UserProfile[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
-  // Fetch leaderboard when tab changes
+  const fetchLeaderboard = () => {
+    setLoadingLeaderboard(true);
+    setLeaderboard([]); // Clear existing to show loading state clearly
+    getHoneyLeaderboard().then(data => {
+        setLeaderboard(data);
+    }).finally(() => {
+        setLoadingLeaderboard(false);
+    });
+  };
+
+  // Fetch leaderboard when tab changes or when Modal OPENS
   useEffect(() => {
     if (isOpen && activeTab === 'leaderboard') {
-        setLoadingLeaderboard(true);
-        getHoneyLeaderboard().then(data => {
-            setLeaderboard(data);
-        }).finally(() => {
-            setLoadingLeaderboard(false);
-        });
+        fetchLeaderboard();
     }
   }, [isOpen, activeTab]);
 
@@ -179,11 +184,16 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
 
            {activeTab === 'leaderboard' && (
                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 h-full flex flex-col">
-                   <div className="text-center mb-2">
-                       <h3 className="font-bold dark:text-white flex items-center justify-center gap-2">
-                           <Trophy className="text-brand-yellow"/> 蜂蜜富豪榜 TOP 50
-                       </h3>
-                       <p className="text-xs text-neutral-500 dark:text-neutral-400">实时更新社区最富有的蜜蜂狗</p>
+                   <div className="flex justify-between items-center mb-2">
+                       <div className="text-left">
+                           <h3 className="font-bold dark:text-white flex items-center gap-2">
+                               <Trophy className="text-brand-yellow"/> 蜂蜜富豪榜 TOP 50
+                           </h3>
+                           <p className="text-xs text-neutral-500 dark:text-neutral-400">实时更新社区最富有的蜜蜂狗</p>
+                       </div>
+                       <button onClick={fetchLeaderboard} className="p-2 hover:bg-neutral-100 dark:hover:bg-white/10 rounded-full transition-colors" disabled={loadingLeaderboard}>
+                           <RotateCcw size={18} className={`${loadingLeaderboard ? 'animate-spin' : ''} text-neutral-500`}/>
+                       </button>
                    </div>
 
                    {loadingLeaderboard ? (
@@ -191,7 +201,10 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
                            <Loader2 className="animate-spin text-brand-yellow" size={32}/>
                        </div>
                    ) : leaderboard.length === 0 ? (
-                       <div className="text-center text-neutral-400 py-10">暂无数据</div>
+                       <div className="text-center text-neutral-400 py-10 flex flex-col items-center gap-2">
+                           <div className="text-4xl">🌫️</div>
+                           <span>暂无数据</span>
+                       </div>
                    ) : (
                        <div className="space-y-2 flex-1 overflow-y-auto pr-1 pb-4">
                            {leaderboard.map((u, idx) => (

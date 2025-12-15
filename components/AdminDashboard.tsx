@@ -125,6 +125,12 @@ export const AdminDashboard: React.FC = () => {
             await adminUpdateUser(editingUser.uid, editForm);
             setUsers(prev => prev.map(u => u.uid === editingUser.uid ? { ...u, ...editForm } : u));
             setEditingUser(null);
+            
+            // If editing self, refresh profile
+            if (editingUser.uid === userProfile?.uid) {
+                await refreshProfile();
+            }
+            
             showNotif("用户信息已更新", 'success');
         } catch (e) {
             showNotif("更新失败", 'error');
@@ -156,19 +162,17 @@ export const AdminDashboard: React.FC = () => {
             return;
         }
         
+        setIsLoading(true);
         try {
             await adminBatchUpdateCredits(Array.from(selectedUserIds), amount, batchMode);
-            // Refresh local state roughly
-            setUsers(prev => prev.map(u => {
-                if (selectedUserIds.has(u.uid)) {
-                    if (batchMode === 'set') {
-                        return { ...u, credits: amount };
-                    } else {
-                        return { ...u, credits: (u.credits || 0) + amount };
-                    }
-                }
-                return u;
-            }));
+            
+            // Force reload from server to ensure consistency
+            await loadUsers();
+            
+            // If current user was in selection, refresh their profile UI
+            if (userProfile && selectedUserIds.has(userProfile.uid)) {
+                await refreshProfile();
+            }
             
             setIsBatchModalOpen(false);
             setBatchAmount('10');
@@ -176,7 +180,10 @@ export const AdminDashboard: React.FC = () => {
             setSelectedUserIds(new Set()); // Clear selection
             showNotif("批量修改成功！", 'success');
         } catch (e) {
+            console.error(e);
             showNotif("批量操作失败", 'error');
+        } finally {
+            setIsLoading(false);
         }
     };
 
