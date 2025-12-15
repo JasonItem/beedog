@@ -16,6 +16,20 @@ export interface FishingSaveData {
   unlockedFish: number[]; // Pokedex (IDs of fish caught)
 }
 
+// NEW: Farm Game Types
+export interface FarmPlot {
+  id: number; // 0-8
+  cropId: string | null; // null if empty
+  plantedAt: number; // Timestamp
+  status: 'EMPTY' | 'GROWING' | 'READY'; // Helper status, mainly derived from time
+}
+
+export interface FarmSaveData {
+  level: number;
+  xp: number;
+  plots: FarmPlot[];
+}
+
 export interface UserProfile {
   uid: string;
   email: string | null;
@@ -26,7 +40,8 @@ export interface UserProfile {
   lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
   lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
   dailyGameRewards?: Record<string, string>; // Map of gameId -> YYYY-MM-DD
-  fishingData?: FishingSaveData; // NEW: Fishing Game Save
+  fishingData?: FishingSaveData;
+  farmData?: FarmSaveData; // NEW: Farm Save
 }
 
 export interface DivinationRecord extends DivinationResult {
@@ -67,7 +82,8 @@ export const ensureUserProfile = async (user: User) => {
       credits: 0, 
       is_admin: 0,
       dailyGameRewards: {},
-      fishingData: { rodLevel: 0, baitCount: 0, level: 1, xp: 0, inventory: [], unlockedFish: [] } // Init Fishing Data
+      fishingData: { rodLevel: 0, baitCount: 0, level: 1, xp: 0, inventory: [], unlockedFish: [] },
+      farmData: { level: 1, xp: 0, plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) }
     };
 
     if (user.photoURL) {
@@ -91,14 +107,18 @@ export const ensureUserProfile = async (user: User) => {
     
     if (typeof currentData.credits === 'undefined') updates.credits = 0;
     
-    // Init fishing data if missing for old users
+    // Init fishing data if missing
     if (!currentData.fishingData) {
         updates.fishingData = { rodLevel: 0, baitCount: 0, level: 1, xp: 0, inventory: [], unlockedFish: [] };
-    } else {
-        // Migration for existing fishing data without level/xp
-        if (typeof currentData.fishingData.level === 'undefined') updates["fishingData.level"] = 1;
-        if (typeof currentData.fishingData.xp === 'undefined') updates["fishingData.xp"] = 0;
-        if (!currentData.fishingData.unlockedFish) updates["fishingData.unlockedFish"] = [];
+    }
+    
+    // Init farm data if missing
+    if (!currentData.farmData) {
+        updates.farmData = { 
+            level: 1, 
+            xp: 0, 
+            plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) 
+        };
     }
     
     if (Object.keys(updates).length > 0) {
@@ -118,7 +138,6 @@ export const updateUserNickname = async (uid: string, nickname: string) => {
 };
 
 // ... (Existing uploadUserAvatar, deductCredit, performDailyCheckIn, completeDailyGameMission, claimPerGameDailyReward, saveDivinationResult, getDivinationHistory) ...
-// KEEP EXISTING FUNCTIONS AS IS - Just re-exporting them implicitly by not changing them
 export const uploadUserAvatar = async (uid: string, file: File): Promise<string> => {
   const storageRef = ref(storage, `avatars/${uid}`);
   await uploadBytes(storageRef, file);
@@ -201,13 +220,8 @@ export const getDivinationHistory = async (uid: string): Promise<DivinationRecor
   return history;
 };
 
-/**
- * NEW: Update Fishing Data
- */
 export const updateFishingData = async (uid: string, newData: Partial<FishingSaveData>) => {
     const docRef = doc(db, "users", uid);
-    // We need to use dot notation for nested field updates in Firestore to avoid overwriting the whole object
-    // Manually constructing update object
     const updates: any = {};
     if (newData.rodLevel !== undefined) updates["fishingData.rodLevel"] = newData.rodLevel;
     if (newData.baitCount !== undefined) updates["fishingData.baitCount"] = newData.baitCount;
@@ -215,14 +229,21 @@ export const updateFishingData = async (uid: string, newData: Partial<FishingSav
     if (newData.xp !== undefined) updates["fishingData.xp"] = newData.xp;
     if (newData.inventory !== undefined) updates["fishingData.inventory"] = newData.inventory;
     if (newData.unlockedFish !== undefined) updates["fishingData.unlockedFish"] = newData.unlockedFish;
-    
     await updateDoc(docRef, updates);
 };
 
 /**
- * NEW: Get Honey Leaderboard
- * Fetches top 50 users ordered by credits desc
+ * NEW: Update Farm Data
  */
+export const updateFarmData = async (uid: string, newData: Partial<FarmSaveData>) => {
+    const docRef = doc(db, "users", uid);
+    const updates: any = {};
+    if (newData.level !== undefined) updates["farmData.level"] = newData.level;
+    if (newData.xp !== undefined) updates["farmData.xp"] = newData.xp;
+    if (newData.plots !== undefined) updates["farmData.plots"] = newData.plots;
+    await updateDoc(docRef, updates);
+};
+
 export const getHoneyLeaderboard = async (limitCount: number = 50): Promise<UserProfile[]> => {
   try {
     const q = query(collection(db, "users"), orderBy("credits", "desc"), limit(limitCount));

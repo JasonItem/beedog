@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -21,7 +21,8 @@ import { HoneyScratch } from './games/HoneyScratch';
 import { HoneyBurger } from './games/HoneyBurger';
 import { HoneySlots } from './games/HoneySlots';
 import { BeeKnight } from './games/BeeKnight';
-import { HoneyFishing } from './games/HoneyFishing'; // Import
+import { HoneyFishing } from './games/HoneyFishing';
+import { HoneyFarm } from './games/HoneyFarm'; // Import
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -46,6 +47,16 @@ interface GameData {
 }
 
 export const GAMES: GameData[] = [
+  {
+    id: 'honey_farm',
+    name: '蜜蜂农场',
+    description: '佛系挂机种菜！购买种子，坐等丰收。离线也能生长！',
+    howToPlay: '购买种子种在空地上。等待作物成熟后收获蜂蜜和经验。升级解锁更高级作物。',
+    color: 'from-green-600 to-emerald-800',
+    icon: Sprout,
+    tags: ['养成', '挂机', '经营'],
+    isHoneyGame: true
+  },
   {
     id: 'honey_fishing',
     name: '蜜蜂垂钓',
@@ -428,7 +439,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   // --- RENDER GAME COMPONENT ---
   const renderGame = () => {
     switch (selectedGame.id) {
-      case 'honey_fishing': return <HoneyFishing userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />; // New Game
+      case 'honey_farm': return <HoneyFarm userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />; // New Game
+      case 'honey_fishing': return <HoneyFishing userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
       case 'bee_knight': return <BeeKnight userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_burger': return <HoneyBurger userProfile={userProfile} onGameOver={handleGameOver} />;
