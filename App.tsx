@@ -42,6 +42,7 @@ import { BeeDogChat } from './components/BeeDogChat';
 import { MissionCenter } from './components/MissionCenter';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ShopHub } from './components/ShopHub';
+import { MessageBoard } from './components/MessageBoard'; // New Import
 import { useAuth } from './context/AuthContext';
 
 // ... (Data constants unchanged) ...
@@ -63,98 +64,6 @@ const ROADMAP_DATA: RoadmapPhase[] = [
     title: "爆发增长",
     items: ["币安阿尔法上市", "蜜蜂狗慈善基金 (救助流浪狗)", "币安合约上市", "成为 Meme 界的顶流 IP"],
     status: 'upcoming'
-  }
-];
-
-// Mock Twitter/X Data (Unchanged)
-const TWEETS_DATA = [
-  {
-    id: 1,
-    name: "蜜蜂狗 Beedog",
-    handle: "@beedog_bsc",
-    avatar: "https://pbs.twimg.com/profile_images/1975858091808944128/9O5tEdqX_400x400.jpg",
-    content: "BSC现在有一点点枯，但咱大可不必急躁。\n" +
-        "欢迎在苦苦枯坐的你\n" +
-        "来听听、来看看，关于蜜蜂狗的故事❤️",
-    image: "https://pbs.twimg.com/media/G4AhozbWAAAIcSh?format=jpg&name=medium",
-    time: "Last edited\n" +
-        "3:36 PM · Oct 24, 2025",
-    url:"https://x.com/beedog_bsc/status/1981625901994373447?t=Y9wEKZC-KhZGrV5AVkzwBw&s=19",
-    views: '14.6K'
-  },
-  {
-    id: 2,
-    name: "April",
-    handle: "@xxxApril_D13",
-    avatar: "https://pbs.twimg.com/profile_images/1884747607098146817/Monp3AwR_400x400.jpg",
-    content: "Gm ❄️\n" +
-        "\n" +
-        "我的哈基米很ok #okxdex \n" +
-        "#蜜蜂狗 竟然也3M了\n" +
-        "迁移在bsc的第一天买入已经10x\n" +
-        "毅力最强社区之一",
-    image: "https://pbs.twimg.com/media/G3EdLnDbYAAIryx?format=jpg&name=medium",
-    time: "11:19 PM · Oct 12, 2025",
-    url:"https://x.com/xxxApril_D13/status/1977393805423755718",
-    views: '23.1K'
-  },
-  {
-    id: 3,
-    name: "CryptoCat | 猫姐 🐈",
-    handle: "@Crypto_Cat888",
-    avatar: "https://pbs.twimg.com/profile_images/1995408731694366720/C8mvQZhf_400x400.jpg",
-    content: "今天很多建设标开始慢慢地回调了\n" +
-        "\n" +
-        "甚至最近出来了很多借“建设之名”快速收割的\n" +
-        "\n" +
-        "潮水退却才会知道谁在裸泳\n" +
-        "\n" +
-        "优秀的社区会在磨砺中愈发强大并脱颖而出\n" +
-        "\n" +
-        "如果一个人借这波建设，你得想清楚这个人会坚持几天，别人我不知道，蜜蜂狗已经整整坚持了100天➕\n" +
-        "\n" +
-        "Hold and Build\n",
-    image: "https://pbs.twimg.com/media/G3ISxw_aAAEVGB9?format=jpg&name=small",
-    time: "5:12 PM · Oct 13, 2025",
-    url:"https://x.com/Crypto_Cat888/status/1977663837882253399?t=Ur2uMhp6koomjKFxjZD80w&s=19",
-    views: '23.1K'
-  },
-  {
-    id: 4,
-    name: "ming_lau",
-    handle: "@minglaugodel",
-    avatar: "https://pbs.twimg.com/profile_images/1868326100621000704/qUtDgzr5_400x400.jpg",
-    content: "蜜蜂狗的社区气氛我感觉也是一个100m的潜力币\n" +
-        "虽然说社区 build都挺扯淡\n" +
-        "但还是有点不同的\n" +
-        "lowb当初就很有趣，10多万人群每天聊天记录翻不到头\n" +
-        "只不过时机不对\n" +
-        "在没有庄的情况下，最高400m\n" +
-        "放现在，币安alpha肯定上了\n" +
-        "合约可能也上了",
-    image: "https://pbs.twimg.com/media/G3tFUptXkAALyhz?format=jpg&name=medium",
-    time: "6:07 PM · Oct 15, 2025",
-    url:"https://x.com/minglaugodel/status/1978402359211344065",
-    views: '7,427'
-  },
-  {
-    id: 5,
-    name: "老八只白嫖",
-    handle: "@BTCOld8",
-    avatar: "https://pbs.twimg.com/profile_images/1565584872776691712/VI-6Hvzd_400x400.jpg",
-    content: "感谢蜜蜂狗 \n" +
-        "@beedog_bsc\n" +
-        "项目方的空投，你们的热情我感受到了！\n" +
-        "\n" +
-        "之前在SOL链的时候就重点关注过 #蜜蜂狗 社区，以为他们不建设了，没想到一直都很有韧性，几天前就迁移到了BSC上继续建设\n" +
-        "\n" +
-        "该团队也是很大气，给很多国人KOL都发放了空投，秉持一姐把筹码散出去的原则，想打造真正拥有共识体系的社区\n" +
-        "\n" +
-        "目前市值百万以内，不算高，BSC的土狗 #meme 热度还在持续，就这格局至少值个千万级市值，感兴趣的兄弟可以关注一下！\n",
-    image: "https://pbs.twimg.com/media/G2-g3cLbwAY9Qd0?format=jpg&name=900x900",
-    time: "7:39 PM · Oct 11, 2025",
-    url:"https://x.com/BTCOld8/status/1976975826303275445?t=pZn0n6zaOLtxkz9PZnOYCA&s=19",
-    views: '23.7K'
   }
 ];
 
@@ -283,7 +192,7 @@ const App: React.FC = () => {
 
             <div className="hidden md:flex gap-1 bg-white/50 dark:bg-black/20 p-1 rounded-full backdrop-blur-md border border-white/20 dark:border-white/5">
               <button onClick={() => navigateToSection('narrative')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">起源</button>
-              <button onClick={() => navigateToSection('community')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">社区</button>
+              <button onClick={() => navigateToSection('community-board')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">留言板</button>
               <button 
                 onClick={navigateToGames} 
                 className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'games' ? 'bg-brand-yellow text-black shadow-md' : 'hover:bg-white dark:hover:bg-white/10'}`}
@@ -349,7 +258,7 @@ const App: React.FC = () => {
         {isMenuOpen && (
           <div className="md:hidden absolute top-full left-4 right-4 mt-2 p-4 rounded-3xl glass shadow-2xl animate-in slide-in-from-top-5 space-y-2 origin-top">
             <button onClick={() => navigateToSection('narrative')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">起源故事</button>
-            <button onClick={() => navigateToSection('community')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">社区力量</button>
+            <button onClick={() => navigateToSection('community-board')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">留言板</button>
             <button onClick={navigateToGames} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2"><Gamepad2 size={18}/> 小游戏</button>
             <button onClick={navigateToToolbox} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-brand-orange flex items-center gap-2"><Bot size={18}/> AI 工具箱</button>
             <button onClick={navigateToShop} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-green-600 flex items-center gap-2"><ShoppingBag size={18}/> 商店</button>
@@ -607,61 +516,8 @@ const App: React.FC = () => {
             </div>
           </section>
 
-          {/* Social Buzz */}
-          <section id="social" className="py-32 relative overflow-hidden bg-neutral-100 dark:bg-[#080808]">
-            <div className="absolute inset-0 bg-brand-yellow/5 -z-10"></div>
-            <div className="container mx-auto px-4">
-              <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16 gap-6">
-                 <div>
-                    <h2 className="text-4xl md:text-5xl font-display font-black mb-2">社媒热议</h2>
-                    <p className="text-neutral-500">看看 X (Twitter) 上大家都在说什么</p>
-                 </div>
-                 <Button onClick={() => window.open(`https://x.com/intent/tweet?text=${encodeURIComponent("#蜜蜂狗 to the moon!🐝🐕")}`, "_blank")} variant="secondary">
-                    <Twitter className="mr-2" size={18}/> 发推支持
-                 </Button>
-              </div>
-              
-              <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
-                {TWEETS_DATA.map((tweet) => (
-                  <div key={tweet.id} onClick={() => window.open(`${tweet.url}`, "_blank")} className="break-inside-avoid bg-white dark:bg-[#161616] rounded-3xl p-6 shadow-sm border border-neutral-200 dark:border-white/5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="flex gap-3">
-                          <img src={tweet.avatar} alt={tweet.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-neutral-100 dark:ring-neutral-800" />
-                          <div>
-                              <h4 className="font-bold text-sm flex items-center gap-1">
-                                {tweet.name} 
-                                <span className="text-blue-500"><svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg></span>
-                              </h4>
-                              <p className="text-neutral-400 text-xs">{tweet.handle}</p>
-                          </div>
-                        </div>
-                        <Twitter size={16} className="text-neutral-300 group-hover:text-blue-400 transition-colors" />
-                    </div>
-                    
-                    <p className="text-sm leading-relaxed whitespace-pre-line mb-4 text-neutral-700 dark:text-neutral-300">
-                        {tweet.content}
-                    </p>
-
-                    {tweet.image && (
-                        <div className="rounded-2xl overflow-hidden mb-4 border border-black/5 dark:border-white/5">
-                          <img src={tweet.image} alt="Tweet media" className="w-full h-auto hover:scale-105 transition-transform duration-500" />
-                        </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-4 border-t border-neutral-100 dark:border-white/5">
-                        <span>{tweet.time.split('\n')[1]}</span>
-                        <div className="flex gap-4">
-                           {/* Updated: Heart removed, Repeat removed, Views added */}
-                           <span className="flex items-center gap-1 hover:text-blue-500 transition-colors" title="Views">
-                               <BarChart3 size={16}/> {tweet.views}
-                           </span>
-                        </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
+          {/* Message Board Section - Replaces Social Buzz */}
+          <MessageBoard onLoginRequest={openLogin} />
 
           {/* Tokenomics */}
           <section id={SectionId.TOKENOMICS} className="py-32 bg-white dark:bg-black">

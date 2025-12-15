@@ -50,8 +50,6 @@ service cloud.firestore {
       
       // Update: Admin can update anything.
       // Users can update ONLY IF they are performing a purchase transaction (decreasing stock)
-      // For simplicity in this MVP, we allow authenticated users to update products (stock),
-      // relying on client-side logic.
       allow update: if isAdmin() || isSignedIn();
     }
     
@@ -80,6 +78,27 @@ service cloud.firestore {
     match /games/{gameId}/reviews/{userId} {
       allow read: if true;
       allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // --- MESSAGE BOARD ---
+    match /messages/{messageId} {
+      // Public Read
+      allow read: if true;
+      
+      // Create Rules:
+      // 1. Must be logged in
+      // 2. userId in document must match auth.uid (Prevent spoofing)
+      // 3. Content must be string and within length limits (1-500 chars)
+      // 4. Nickname must be present
+      allow create: if isSignedIn() 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.content is string
+        && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 500
+        && request.resource.data.nickname is string;
+      
+      // Only Admin can delete messages
+      allow delete: if isAdmin();
     }
   }
 }

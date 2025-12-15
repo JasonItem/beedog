@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { adminGetAllUsers, adminSearchUsers, adminUpdateUser, adminDeleteUser, adminUpdateScore, adminDeleteScore, adminBatchUpdateCredits, adminClearLeaderboard } from '../services/adminService';
 import { getProducts, saveProduct, deleteProduct, getOrders, updateOrderStatus, adminBatchUpdateOrderStatus, uploadProductImage, Product, Order, FormFieldConfig } from '../services/shopService';
+import { getMessages, deleteMessage, adminBatchDeleteMessages, Message } from '../services/messageService'; // Import Message Service
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { GAMES } from './MiniGamesHub';
 import { UserProfile } from '../services/userService';
-import { Shield, Search, Edit2, Trash2, Save, X, RotateCcw, AlertTriangle, CheckCircle, Database, Zap, Plus, Minus, CheckSquare, Square, Settings, Sliders, ShoppingBag, Package, List, Eye, ArrowLeft, ArrowRight, Upload, Image as ImageIcon, Loader2, Lock, Download, Filter } from 'lucide-react';
+import { Shield, Search, Edit2, Trash2, Save, X, RotateCcw, AlertTriangle, CheckCircle, Database, Zap, Plus, Minus, CheckSquare, Square, Settings, Sliders, ShoppingBag, Package, List, Eye, ArrowLeft, ArrowRight, Upload, Image as ImageIcon, Loader2, Lock, Download, Filter, MessageSquare } from 'lucide-react';
 import { Button } from './Button';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
 
@@ -30,7 +31,7 @@ const EditModal = ({ isOpen, onClose, title, children, maxWidth = "max-w-md" }: 
 
 export const AdminDashboard: React.FC = () => {
     const { userProfile, refreshProfile } = useAuth();
-    const [activeTab, setActiveTab] = useState<'USERS' | 'GAMES' | 'SHOP_PRODUCTS' | 'SHOP_ORDERS'>('USERS');
+    const [activeTab, setActiveTab] = useState<'USERS' | 'GAMES' | 'SHOP_PRODUCTS' | 'SHOP_ORDERS' | 'MESSAGES'>('USERS');
     const [isLoading, setIsLoading] = useState(false);
     const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
     const [permissionError, setPermissionError] = useState(false);
@@ -71,6 +72,12 @@ export const AdminDashboard: React.FC = () => {
     const [orderPage, setOrderPage] = useState(1);
     const [orderCursors, setOrderCursors] = useState<(QueryDocumentSnapshot | null)[]>([null]);
 
+    // Messages State
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set());
+    const [msgPage, setMsgPage] = useState(1);
+    const [msgCursors, setMsgCursors] = useState<(QueryDocumentSnapshot | null)[]>([null]);
+
     // Initial Load
     useEffect(() => {
         setPermissionError(false);
@@ -78,8 +85,10 @@ export const AdminDashboard: React.FC = () => {
         else if (activeTab === 'GAMES') loadScores();
         else if (activeTab === 'SHOP_PRODUCTS') loadProducts();
         else if (activeTab === 'SHOP_ORDERS') {
-            loadProducts(); // Load products to have names/images available
+            loadProducts(); 
             loadOrders();
+        } else if (activeTab === 'MESSAGES') {
+            loadMessages();
         }
     }, [activeTab, selectedGameId]);
 
@@ -98,7 +107,6 @@ export const AdminDashboard: React.FC = () => {
             setUsers(data);
             setSelectedUserIds(new Set()); // Reset selections on page change
             
-            // Manage cursors
             const newCursors = [...userCursors];
             newCursors[pageIndex + 1] = lastVisible;
             setUserCursors(newCursors);
@@ -124,7 +132,6 @@ export const AdminDashboard: React.FC = () => {
             const data = await adminSearchUsers(searchTerm);
             setUsers(data);
             setSelectedUserIds(new Set());
-            // Disable pagination during search result view
             setUserCursors([null]); 
             setUserPage(1);
         } catch (e) { showNotif("搜索失败", 'error'); } finally { setIsLoading(false); }
@@ -153,20 +160,17 @@ export const AdminDashboard: React.FC = () => {
     const toggleSelectUser = (uid: string) => {
         setSelectedUserIds(prev => { const next = new Set(prev); if (next.has(uid)) next.delete(uid); else next.add(uid); return next; });
     };
-    // Updated Select All: Toggles based on whether all current page users are selected
     const toggleSelectAll = () => {
         const allOnPage = users.map(u => u.uid);
         const allSelected = allOnPage.every(uid => selectedUserIds.has(uid));
         
         if (allSelected) {
-            // Deselect all on page
             setSelectedUserIds(prev => {
                 const next = new Set(prev);
                 allOnPage.forEach(uid => next.delete(uid));
                 return next;
             });
         } else {
-            // Select all on page
             setSelectedUserIds(prev => {
                 const next = new Set(prev);
                 allOnPage.forEach(uid => next.add(uid));
@@ -178,7 +182,7 @@ export const AdminDashboard: React.FC = () => {
         setIsLoading(true);
         try {
             await adminBatchUpdateCredits(Array.from(selectedUserIds), parseInt(batchAmount), batchMode);
-            await loadUsers(userPage - 1); // Reload current page
+            await loadUsers(userPage - 1); 
             setIsBatchModalOpen(false);
             showNotif("批量操作成功", 'success');
         } catch (e) { showNotif("批量操作失败", 'error'); } finally { setIsLoading(false); }
@@ -217,6 +221,74 @@ export const AdminDashboard: React.FC = () => {
             setEditingScore(null);
             showNotif("更新成功", 'success');
         } catch (e) { showNotif("更新失败", 'error'); }
+    };
+
+    // --- MESSAGE ACTIONS (NEW) ---
+    const loadMessages = async (pageIndex = 0) => {
+        setIsLoading(true);
+        try {
+            const cursor = msgCursors[pageIndex];
+            const { messages: data, lastVisible } = await getMessages(cursor || undefined, 20);
+            
+            setMessages(data);
+            setSelectedMsgIds(new Set()); 
+            
+            const newCursors = [...msgCursors];
+            newCursors[pageIndex + 1] = lastVisible;
+            setMsgCursors(newCursors);
+            setMsgPage(pageIndex + 1);
+        } catch (e: any) {
+            console.error(e);
+            showNotif("加载留言失败", 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleMsgPageChange = (dir: number) => {
+        const newPageIdx = msgPage - 1 + dir;
+        if (newPageIdx < 0) return;
+        loadMessages(newPageIdx);
+    };
+
+    const handleDeleteMessage = async (id: string) => {
+        if (!confirm("确定删除此留言?")) return;
+        try {
+            await deleteMessage(id);
+            setMessages(prev => prev.filter(m => m.id !== id));
+            showNotif("留言已删除", 'success');
+        } catch (e) { showNotif("删除失败", 'error'); }
+    };
+
+    const toggleSelectMsg = (id: string) => {
+        setSelectedMsgIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+    };
+
+    const toggleSelectAllMsgs = () => {
+        const allOnPage = messages.map(m => m.id);
+        const allSelected = allOnPage.every(id => selectedMsgIds.has(id));
+        if (allSelected) {
+            setSelectedMsgIds(prev => { const next = new Set(prev); allOnPage.forEach(id => next.delete(id)); return next; });
+        } else {
+            setSelectedMsgIds(prev => { const next = new Set(prev); allOnPage.forEach(id => next.add(id)); return next; });
+        }
+    };
+
+    const handleBatchDeleteMsgs = async () => {
+        if (selectedMsgIds.size === 0) return;
+        if (!confirm(`确定删除选中的 ${selectedMsgIds.size} 条留言?`)) return;
+        
+        setIsLoading(true);
+        try {
+            await adminBatchDeleteMessages(Array.from(selectedMsgIds));
+            // Reload current page
+            await loadMessages(msgPage - 1);
+            showNotif("批量删除成功", 'success');
+        } catch (e) {
+            showNotif("批量删除失败", 'error');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // --- SHOP ACTIONS ---
@@ -500,6 +572,7 @@ export const AdminDashboard: React.FC = () => {
 
     const allPageUsersSelected = users.length > 0 && users.every(u => selectedUserIds.has(u.uid));
     const allPageOrdersSelected = orders.length > 0 && orders.every(o => selectedOrderIds.has(o.id));
+    const allPageMsgsSelected = messages.length > 0 && messages.every(m => selectedMsgIds.has(m.id));
 
     return (
         <div className="min-h-screen pt-24 pb-12 bg-neutral-100 dark:bg-[#050505]">
@@ -531,6 +604,7 @@ export const AdminDashboard: React.FC = () => {
                     {[
                         { id: 'USERS', label: '用户管理', icon: null },
                         { id: 'GAMES', label: '游戏榜单', icon: null },
+                        { id: 'MESSAGES', label: '留言管理', icon: <MessageSquare size={16}/> },
                         { id: 'SHOP_PRODUCTS', label: '商品管理', icon: <ShoppingBag size={16}/> },
                         { id: 'SHOP_ORDERS', label: '订单管理', icon: <List size={16}/> },
                     ].map(tab => (
@@ -625,6 +699,69 @@ export const AdminDashboard: React.FC = () => {
                                     </tbody>
                                 </table>
                              </div>
+                        </div>
+                    )}
+
+                    {/* --- MESSAGES TAB (NEW) --- */}
+                    {activeTab === 'MESSAGES' && (
+                        <div>
+                            <div className="flex gap-2 mb-4 justify-between items-center">
+                                <div className="flex gap-2">
+                                    <Button onClick={() => loadMessages(0)} size="sm" variant="outline"><RotateCcw size={16}/></Button>
+                                    {selectedMsgIds.size > 0 && (
+                                        <Button onClick={handleBatchDeleteMsgs} size="sm" className="bg-red-600 text-white hover:bg-red-500">
+                                            批量删除 ({selectedMsgIds.size})
+                                        </Button>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <button onClick={() => handleMsgPageChange(-1)} disabled={msgPage <= 1} className="p-2 border rounded hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50"><ArrowLeft size={16}/></button>
+                                    <span className="text-sm">Page {msgPage}</span>
+                                    <button onClick={() => handleMsgPageChange(1)} disabled={messages.length < 20} className="p-2 border rounded hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50"><ArrowRight size={16}/></button>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm dark:text-neutral-300 table-fixed">
+                                    <thead className="bg-neutral-50 dark:bg-[#2a2a2a]">
+                                        <tr>
+                                            <th className="p-2 w-10">
+                                                <button onClick={toggleSelectAllMsgs}>
+                                                    {allPageMsgsSelected ? <CheckSquare size={16}/> : <Square size={16}/>}
+                                                </button>
+                                            </th>
+                                            <th className="p-2 w-32">用户</th>
+                                            <th className="p-2 w-2/3">内容</th>
+                                            <th className="p-2 w-32">时间</th>
+                                            <th className="p-2 w-16">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {messages.map(m => (
+                                            <tr key={m.id} className="border-b dark:border-[#333] hover:bg-neutral-50 dark:hover:bg-[#252525]">
+                                                <td className="p-2 align-top">
+                                                    <button onClick={() => toggleSelectMsg(m.id)}>
+                                                        {selectedMsgIds.has(m.id) ? <CheckSquare size={16}/> : <Square size={16}/>}
+                                                    </button>
+                                                </td>
+                                                <td className="p-2 align-top">
+                                                    <div className="font-bold truncate">{m.nickname}</div>
+                                                    <div className="text-xs text-gray-400 font-mono">{m.userId.slice(0, 6)}</div>
+                                                </td>
+                                                <td className="p-2 align-top break-words">
+                                                    {m.content}
+                                                </td>
+                                                <td className="p-2 align-top text-xs text-gray-500">
+                                                    {m.timestamp?.seconds ? new Date(m.timestamp.seconds * 1000).toLocaleString() : ''}
+                                                </td>
+                                                <td className="p-2 align-top">
+                                                    <button onClick={() => handleDeleteMessage(m.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
