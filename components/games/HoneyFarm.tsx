@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, deductCredit, updateFarmData, FarmPlot } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService'; // Used for XP Leaderboard
 import { audio } from '../../services/audioService';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../Button';
-import { Sprout, Clock, Lock, Zap, ArrowUpCircle, ShoppingBasket, Shovel, Info, TrendingUp, Hourglass } from 'lucide-react';
+import { Sprout, Clock, Lock, Zap, ArrowUpCircle, ShoppingBasket, Shovel, Info, TrendingUp, Hourglass, Loader2 } from 'lucide-react';
 
 interface HoneyFarmProps {
   userProfile: UserProfile | null;
@@ -25,19 +25,22 @@ interface CropType {
   unlockLevel: number;
 }
 
-// Updated Stats: 50x Yield, Minimum 5 minutes
+// Updated Stats: Balanced for longer gameplay loop (Minimum 3 days to max level)
 const CROPS: CropType[] = [
-  { id: 'wheat', name: '小麦', icon: '🌾', cost: 10, yield: 500, growthTime: 300, xp: 10, unlockLevel: 1 }, // 5 mins
-  { id: 'carrot', name: '胡萝卜', icon: '🥕', cost: 50, yield: 2500, growthTime: 600, xp: 25, unlockLevel: 2 }, // 10 mins
-  { id: 'corn', name: '玉米', icon: '🌽', cost: 200, yield: 10000, growthTime: 1800, xp: 80, unlockLevel: 3 }, // 30 mins
-  { id: 'potato', name: '土豆', icon: '🥔', cost: 500, yield: 25000, growthTime: 3600, xp: 200, unlockLevel: 5 }, // 1 hour
-  { id: 'rose', name: '玫瑰', icon: '🌹', cost: 1000, yield: 50000, growthTime: 7200, xp: 500, unlockLevel: 8 }, // 2 hours
-  { id: 'pumpkin', name: '南瓜', icon: '🎃', cost: 5000, yield: 250000, growthTime: 21600, xp: 2000, unlockLevel: 12 }, // 6 hours
-  { id: 'tree', name: '摇钱树', icon: '🌳', cost: 20000, yield: 1000000, growthTime: 86400, xp: 10000, unlockLevel: 20 }, // 24 hours
+  { id: 'wheat', name: '小麦', icon: '🌾', cost: 10, yield: 20, growthTime: 60, xp: 5, unlockLevel: 1 }, // 1 min (Starter)
+  { id: 'carrot', name: '胡萝卜', icon: '🥕', cost: 50, yield: 120, growthTime: 300, xp: 20, unlockLevel: 2 }, // 5 mins
+  { id: 'corn', name: '玉米', icon: '🌽', cost: 200, yield: 500, growthTime: 1800, xp: 80, unlockLevel: 4 }, // 30 mins
+  { id: 'potato', name: '土豆', icon: '🥔', cost: 500, yield: 1500, growthTime: 7200, xp: 300, unlockLevel: 7 }, // 2 hours
+  { id: 'rose', name: '玫瑰', icon: '🌹', cost: 2000, yield: 7000, growthTime: 21600, xp: 1200, unlockLevel: 12 }, // 6 hours
+  { id: 'pumpkin', name: '南瓜', icon: '🎃', cost: 10000, yield: 40000, growthTime: 43200, xp: 5000, unlockLevel: 18 }, // 12 hours
+  { id: 'tree', name: '摇钱树', icon: '🌳', cost: 50000, yield: 250000, growthTime: 86400, xp: 20000, unlockLevel: 25 }, // 24 hours
 ];
 
-// XP Curve
-const getXpForNextLevel = (level: number) => Math.floor(100 * Math.pow(1.2, level - 1));
+// Rebalanced XP Curve: Exponential growth to slow down late game significantly
+// Level 1->2: 200 XP
+// Level 10: ~7,600 XP
+// Level 20: ~440,000 XP
+const getXpForNextLevel = (level: number) => Math.floor(200 * Math.pow(1.5, level - 1));
 
 export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, onLoginRequest }) => {
   const { refreshProfile } = useAuth();
@@ -49,21 +52,27 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
   const [credits, setCredits] = useState(userProfile?.credits || 0);
   const [selectedCrop, setSelectedCrop] = useState<CropType | null>(null);
   const [now, setNow] = useState(Date.now());
-  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Interaction State
+  const [isProcessing, setIsProcessing] = useState(false); // Only used for Harvest now
+  const [loadingPlotId, setLoadingPlotId] = useState<number | null>(null); // For local loading states
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error' | 'levelup'} | null>(null);
 
   // Initialize Data
   useEffect(() => {
     if (userProfile?.farmData) {
-        setPlots(userProfile.farmData.plots);
-        setLevel(userProfile.farmData.level);
-        setXp(userProfile.farmData.xp);
+        setPlots(userProfile.farmData.plots || []);
+        // Safety check: ensure numbers to prevent NaN
+        setLevel(Number(userProfile.farmData.level) || 1);
+        setXp(Number(userProfile.farmData.xp) || 0);
     } else {
-        // Fallback or Init for new users (though ensureUserProfile handles this)
+        // Fallback or Init for new users
         const emptyPlots = Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' } as FarmPlot));
         setPlots(emptyPlots);
+        setLevel(1);
+        setXp(0);
     }
-    setCredits(userProfile?.credits || 0);
+    setCredits(Number(userProfile?.credits) || 0);
   }, [userProfile]);
 
   // Timer Loop (Update every second to check growth)
@@ -90,25 +99,25 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
 
   const handlePlotClick = async (plotIndex: number) => {
       if (!userProfile) { onLoginRequest(); return; }
-      if (isProcessing) return;
-
+      
       const plot = plots[plotIndex];
       const status = getPlotStatus(plot);
 
-      // CASE 1: Harvest
+      // CASE 1: Harvest (Requires Network Wait usually, but we want it fast)
       if (status === 'READY') {
+          if (isProcessing) return; // Prevent double harvest
           await harvestCrop(plotIndex);
           return;
       }
 
-      // CASE 2: Plant
+      // CASE 2: Plant (Optimistic Update)
       if (status === 'EMPTY') {
           if (!selectedCrop) {
               showNotif("请先在下方选择种子", 'error');
           } else if (level < selectedCrop.unlockLevel) {
               showNotif(`等级不足，需 Lv.${selectedCrop.unlockLevel}`, 'error');
           } else {
-              await plantCrop(plotIndex, selectedCrop);
+              plantCropOptimistic(plotIndex, selectedCrop);
           }
           return;
       }
@@ -118,52 +127,71 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
           const crop = CROPS.find(c => c.id === plot.cropId)!;
           const elapsed = (now - plot.plantedAt) / 1000;
           const timeLeft = Math.ceil(crop.growthTime - elapsed);
-          showNotif(`还需 ${formatTime(timeLeft)}`, 'success'); 
+          showNotif(`还需 ${formatTime(timeLeft)} 成熟`, 'success'); 
       }
   };
 
-  const plantCrop = async (plotIndex: number, crop: CropType) => {
+  /**
+   * OPTIMISTIC PLANTING
+   * 1. Check local balance
+   * 2. Update UI immediately (Plant & Deduct credits)
+   * 3. Send request to backend
+   * 4. If fails, revert UI
+   */
+  const plantCropOptimistic = async (plotIndex: number, crop: CropType) => {
+      // 1. Local Check
       if (credits < crop.cost) {
           showNotif("蜂蜜不足，无法购买种子", 'error');
           return;
       }
 
-      setIsProcessing(true);
+      // Snapshot for rollback
+      const previousPlots = [...plots];
+      const previousCredits = credits;
+
+      // 2. Optimistic Update
+      const newPlots = [...plots];
+      newPlots[plotIndex] = {
+          ...newPlots[plotIndex],
+          cropId: crop.id,
+          plantedAt: Date.now(), // Local time is fine for optimistic
+          status: 'GROWING'
+      };
+      
+      setPlots(newPlots);
+      setCredits(prev => prev - crop.cost);
+      audio.playStep(); // Instant Feedback
+
+      // 3. Background Sync
       try {
-          // Deduct
+          // This transaction handles both deducting money AND saving the plot state
+          // Note: In a real app, you might want to chain these or use a batch. 
+          // Here we assume deductCredit is the critical financial part.
           const success = await deductCredit(userProfile!.uid, crop.cost);
+          
           if (!success) {
-              showNotif("交易失败", 'error');
-              return;
+              throw new Error("Insufficient funds on server");
           }
-          
-          setCredits(prev => prev - crop.cost); // Optimistic UI
 
-          // Update Plot
-          const newPlots = [...plots];
-          newPlots[plotIndex] = {
-              ...newPlots[plotIndex],
-              cropId: crop.id,
-              plantedAt: Date.now(),
-              status: 'GROWING'
-          };
-          setPlots(newPlots);
-
-          // Save
+          // If payment success, save the plot state to DB
           await updateFarmData(userProfile!.uid, { plots: newPlots });
-          await refreshProfile();
           
-          audio.playStep();
+          // Sync profile quietly to ensure consistency
+          refreshProfile(); 
+          
       } catch (e) {
-          console.error(e);
-          showNotif("种植失败", 'error');
-      } finally {
-          setIsProcessing(false);
+          console.error("Planting failed:", e);
+          // 4. Rollback on failure
+          setPlots(previousPlots);
+          setCredits(previousCredits);
+          showNotif("网络错误，种植失败", 'error');
       }
   };
 
   const harvestCrop = async (plotIndex: number) => {
       setIsProcessing(true);
+      setLoadingPlotId(plotIndex); // Show spinner only on this plot if needed
+      
       try {
           const plot = plots[plotIndex];
           const crop = CROPS.find(c => c.id === plot.cropId)!;
@@ -172,8 +200,8 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
           // We use negative deductCredit to add credits
           await deductCredit(userProfile!.uid, -crop.yield);
           
-          let newXp = xp + crop.xp;
-          let newLevel = level;
+          let newXp = Number(xp) + Number(crop.xp);
+          let newLevel = Number(level);
           let leveledUp = false;
           
           // Check Level Up
@@ -205,7 +233,9 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
           });
           
           // Leaderboard update logic
-          const powerScore = newLevel * 1000 + newXp;
+          // Fix NaN: Ensure inputs are numbers. Weight Level heavily.
+          // Score = Level * 100000 + XP (so Lv 5 with 0 XP > Lv 4 with 900 XP)
+          const powerScore = (newLevel * 100000) + newXp; 
           await saveHighScore(userProfile!, 'honey_farm', powerScore);
 
           await refreshProfile();
@@ -223,6 +253,7 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
           showNotif("收获失败", 'error');
       } finally {
           setIsProcessing(false);
+          setLoadingPlotId(null);
       }
   };
 
@@ -243,29 +274,34 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
       return Math.min(100, (elapsed / crop.growthTime) * 100);
   };
 
+  const currentXpNeeded = getXpForNextLevel(level);
+
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto min-h-[600px] bg-[#f0fdf4] rounded-3xl overflow-hidden shadow-2xl border-4 border-green-600 relative font-sans select-none">
         
         {/* Top HUD */}
         <div className="w-full bg-green-600 p-4 pb-12 shadow-md relative z-10">
             <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-white border-2 border-green-300 flex items-center justify-center font-black text-green-700 text-lg shadow-sm">
+                <div className="flex items-center gap-3 flex-1">
+                    <div className="w-12 h-12 rounded-full bg-white border-4 border-green-300 flex items-center justify-center font-black text-green-700 text-xl shadow-sm shrink-0">
                         {level}
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-white text-xs font-bold opacity-80">FARM LEVEL</span>
-                        <div className="w-24 h-2 bg-green-800 rounded-full overflow-hidden">
+                    <div className="flex flex-col flex-1 max-w-[140px]">
+                        <div className="flex justify-between text-white text-[10px] font-bold opacity-90 mb-1">
+                            <span>EXP</span>
+                            <span>{Math.floor(xp)}/{Math.floor(currentXpNeeded)}</span>
+                        </div>
+                        <div className="w-full h-3 bg-green-800/50 rounded-full overflow-hidden border border-green-500/50">
                             <div 
-                                className="h-full bg-yellow-400 transition-all duration-300" 
-                                style={{ width: `${(xp / getXpForNextLevel(level)) * 100}%` }}
+                                className="h-full bg-yellow-400 transition-all duration-300 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
+                                style={{ width: `${Math.min(100, (xp / currentXpNeeded) * 100)}%` }}
                             ></div>
                         </div>
                     </div>
                 </div>
-                <div className="bg-black/20 text-white px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 backdrop-blur-sm">
-                    <span>🍯</span>
-                    <span className="font-mono font-bold">{credits}</span>
+                <div className="bg-black/20 text-white px-3 py-1.5 rounded-xl flex items-center gap-2 border border-white/10 backdrop-blur-sm shrink-0">
+                    <span className="text-xl">🍯</span>
+                    <span className="font-mono font-bold text-lg">{credits.toLocaleString()}</span>
                 </div>
             </div>
         </div>
@@ -294,18 +330,25 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
                     const status = getPlotStatus(plot);
                     const crop = CROPS.find(c => c.id === plot.cropId);
                     const progress = getProgress(plot);
+                    const isLoading = loadingPlotId === idx;
 
                     return (
                         <button
                             key={plot.id}
                             onClick={() => handlePlotClick(idx)}
-                            disabled={isProcessing}
+                            disabled={isProcessing && !isLoading}
                             className={`aspect-square rounded-2xl relative overflow-hidden transition-all active:scale-95 shadow-[0_4px_0_rgba(0,0,0,0.2)] border-b-4 border-black/10
                                 ${status === 'EMPTY' ? 'bg-[#7c5e3a] hover:bg-[#8b6b43]' : 
                                   status === 'GROWING' ? 'bg-[#5d4037]' : 
                                   'bg-[#86efac] border-green-400 ring-2 ring-green-300'}
                             `}
                         >
+                            {isLoading && (
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10">
+                                    <Loader2 className="animate-spin text-white" />
+                                </div>
+                            )}
+
                             {status === 'EMPTY' && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-[#a18260] opacity-50">
                                     <Shovel size={24} />
@@ -318,6 +361,10 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
                                     <div className="text-3xl animate-pulse scale-75 opacity-80 filter grayscale">{crop.icon}</div>
                                     <div className="absolute bottom-2 left-2 right-2 h-1.5 bg-black/30 rounded-full overflow-hidden">
                                         <div className="h-full bg-green-400 transition-all duration-1000 linear" style={{width: `${progress}%`}}></div>
+                                    </div>
+                                    {/* Crop Name Tag */}
+                                    <div className="absolute top-1 left-1 bg-black/30 text-white text-[8px] px-1 rounded">
+                                        {crop.name}
                                     </div>
                                     <div className="absolute top-1 right-1">
                                         <Clock size={12} className="text-white/50"/>
@@ -367,7 +414,7 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
                         <button
                             key={crop.id}
                             onClick={() => setSelectedCrop(crop)}
-                            className={`flex-shrink-0 w-28 h-32 rounded-xl border-2 flex flex-col items-center justify-between p-2 relative transition-all
+                            className={`flex-shrink-0 w-28 h-36 rounded-xl border-2 flex flex-col items-center justify-between p-2 relative transition-all
                                 ${isLocked ? 'bg-gray-50 border-gray-200 opacity-80 grayscale-[0.8]' : 
                                   isSelected ? 'bg-green-50 border-green-500 shadow-lg transform -translate-y-1' : 
                                   'bg-white border-gray-200 hover:border-green-300'}
@@ -389,7 +436,11 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
                                     <span>收益</span>
                                     <span className="font-mono font-bold text-green-600">+{crop.yield}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px] text-gray-500 bg-gray-100 rounded px-1 py-0.5">
+                                <div className="flex justify-between items-center text-[10px] text-gray-500">
+                                    <span>经验</span>
+                                    <span className="font-mono font-bold text-blue-500">+{crop.xp}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-gray-500 bg-gray-100 rounded px-1 py-0.5 mt-1">
                                     <span className="flex items-center gap-0.5"><Hourglass size={8}/> 时间</span>
                                     <span className="font-mono">{formatTime(crop.growthTime)}</span>
                                 </div>

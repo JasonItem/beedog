@@ -1,0 +1,31 @@
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Avatars: Users can read all, but only write their own
+    match /avatars/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Products: Admins (or authorized users) can upload
+    // For MVP, allow any signed in user to upload product images (since Admin dashboard uses client SDK)
+    // Ideally this should be restricted to admins via custom claims or Firestore lookup
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    
+    // Default fallback
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+  }
+}

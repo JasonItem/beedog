@@ -29,7 +29,8 @@ import {
   ChevronLeft, MoreHorizontal, Mic, Smile, Plus,
   Globe,
   Sparkles,
-  Target
+  Target,
+  ShoppingBag
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { StatsChart } from './components/StatsChart';
@@ -40,9 +41,10 @@ import { MiniGamesHub } from './components/MiniGamesHub';
 import { BeeDogChat } from './components/BeeDogChat';
 import { MissionCenter } from './components/MissionCenter';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ShopHub } from './components/ShopHub';
 import { useAuth } from './context/AuthContext';
 
-// --- DATA ---
+// ... (Data constants unchanged) ...
 const ROADMAP_DATA: RoadmapPhase[] = [
   {
     phase: "起步阶段",
@@ -64,7 +66,7 @@ const ROADMAP_DATA: RoadmapPhase[] = [
   }
 ];
 
-// Mock Twitter/X Data
+// Mock Twitter/X Data (Unchanged)
 const TWEETS_DATA = [
   {
     id: 1,
@@ -156,7 +158,7 @@ const TWEETS_DATA = [
   }
 ];
 
-type ViewState = 'landing' | 'toolbox' | 'games' | 'admin';
+type ViewState = 'landing' | 'toolbox' | 'games' | 'admin' | 'shop';
 
 const App: React.FC = () => {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -220,6 +222,12 @@ const App: React.FC = () => {
     setIsMenuOpen(false);
   }
 
+  const navigateToShop = () => {
+    setCurrentView('shop');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsMenuOpen(false);
+  }
+
   const navigateToAdmin = () => {
     setCurrentView('admin');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -276,7 +284,6 @@ const App: React.FC = () => {
             <div className="hidden md:flex gap-1 bg-white/50 dark:bg-black/20 p-1 rounded-full backdrop-blur-md border border-white/20 dark:border-white/5">
               <button onClick={() => navigateToSection('narrative')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">起源</button>
               <button onClick={() => navigateToSection('community')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">社区</button>
-              <button onClick={() => navigateToSection('social')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 transition-all">社媒</button>
               <button 
                 onClick={navigateToGames} 
                 className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'games' ? 'bg-brand-yellow text-black shadow-md' : 'hover:bg-white dark:hover:bg-white/10'}`}
@@ -288,6 +295,12 @@ const App: React.FC = () => {
                 className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'toolbox' ? 'bg-brand-yellow text-black shadow-md' : 'text-brand-orange hover:bg-white dark:hover:bg-white/10'}`}
               >
                 <Bot size={16} /> AI 工具
+              </button>
+              <button 
+                onClick={navigateToShop} 
+                className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-1.5 transition-all ${currentView === 'shop' ? 'bg-brand-yellow text-black shadow-md' : 'hover:bg-white dark:hover:bg-white/10'}`}
+              >
+                <ShoppingBag size={16} /> 商店
               </button>
               {isAdmin && (
                   <button 
@@ -339,6 +352,7 @@ const App: React.FC = () => {
             <button onClick={() => navigateToSection('community')} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold">社区力量</button>
             <button onClick={navigateToGames} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold flex items-center gap-2"><Gamepad2 size={18}/> 小游戏</button>
             <button onClick={navigateToToolbox} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-brand-orange flex items-center gap-2"><Bot size={18}/> AI 工具箱</button>
+            <button onClick={navigateToShop} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-green-600 flex items-center gap-2"><ShoppingBag size={18}/> 商店</button>
              {isAdmin && (
                 <button onClick={navigateToAdmin} className="w-full p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-left font-bold text-red-600 flex items-center gap-2"><Shield size={18}/> 管理后台</button>
              )}
@@ -364,6 +378,8 @@ const App: React.FC = () => {
         <AIToolbox onLoginRequest={openLogin} />
       ) : currentView === 'games' ? (
         <MiniGamesHub onLoginRequest={openLogin} />
+      ) : currentView === 'shop' ? (
+        <ShopHub onLoginRequest={openLogin} />
       ) : currentView === 'admin' ? (
         <AdminDashboard />
       ) : (

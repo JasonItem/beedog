@@ -41,7 +41,8 @@ export interface UserProfile {
   lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
   dailyGameRewards?: Record<string, string>; // Map of gameId -> YYYY-MM-DD
   fishingData?: FishingSaveData;
-  farmData?: FarmSaveData; // NEW: Farm Save
+  farmData?: FarmSaveData;
+  productUsage?: Record<string, number>; // NEW: Map of productId -> count purchased
 }
 
 export interface DivinationRecord extends DivinationResult {
@@ -83,7 +84,8 @@ export const ensureUserProfile = async (user: User) => {
       is_admin: 0,
       dailyGameRewards: {},
       fishingData: { rodLevel: 0, baitCount: 0, level: 1, xp: 0, inventory: [], unlockedFish: [] },
-      farmData: { level: 1, xp: 0, plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) }
+      farmData: { level: 1, xp: 0, plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) },
+      productUsage: {}
     };
 
     if (user.photoURL) {
@@ -119,6 +121,11 @@ export const ensureUserProfile = async (user: User) => {
             xp: 0, 
             plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) 
         };
+    }
+
+    // Init product usage if missing
+    if (!currentData.productUsage) {
+        updates.productUsage = {};
     }
     
     if (Object.keys(updates).length > 0) {

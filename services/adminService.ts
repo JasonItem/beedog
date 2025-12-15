@@ -1,6 +1,6 @@
 
 import { db } from "../firebaseConfig";
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, where, writeBatch, increment } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, where, writeBatch, increment, startAfter, QueryDocumentSnapshot } from "firebase/firestore";
 import { UserProfile } from "./userService";
 import { GameScore } from "./gameService";
 
@@ -9,19 +9,27 @@ import { GameScore } from "./gameService";
 // or the backend rules rejecting the request.
 
 /**
- * Fetch all users (Admin only)
- * Note: For large databases, this should be paginated.
- * Updated: Sort by credits desc to show top holders first for easier management.
+ * Fetch all users (Admin only) with Pagination
  */
-export const adminGetAllUsers = async (): Promise<UserProfile[]> => {
+export const adminGetAllUsers = async (
+    lastDoc?: QueryDocumentSnapshot, 
+    pageSize: number = 20
+): Promise<{ users: UserProfile[], lastVisible: QueryDocumentSnapshot | null }> => {
   try {
-    const q = query(collection(db, "users"), orderBy("credits", "desc"), limit(200)); 
+    let q = query(collection(db, "users"), orderBy("credits", "desc"), limit(pageSize));
+    
+    if (lastDoc) {
+        q = query(collection(db, "users"), orderBy("credits", "desc"), startAfter(lastDoc), limit(pageSize));
+    }
+
     const snapshot = await getDocs(q);
     const users: UserProfile[] = [];
     snapshot.forEach(doc => {
       users.push(doc.data() as UserProfile);
     });
-    return users;
+    
+    const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
+    return { users, lastVisible };
   } catch (error) {
     console.error("Admin: Failed to fetch users", error);
     throw error;
