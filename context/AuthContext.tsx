@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore'; // Import onSnapshot
 import { getUserProfile, UserProfile } from '../services/userService';
 
 interface AuthContextType {
@@ -18,6 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Legacy manual fetch - kept for specific edge cases, but mainly relies on listener now
   const fetchProfile = async (uid: string) => {
     try {
       const profile = await getUserProfile(uid);
@@ -28,17 +31,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      // Cleanup previous listener if user switches or logs out
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
       if (currentUser) {
-        await fetchProfile(currentUser.uid);
+        // --- REAL-TIME LISTENER SETUP ---
+        // This ensures that if Tab A updates data, Tab B updates instantly.
+        const userDocRef = doc(db, "users", currentUser.uid);
+        
+        unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as any;
+                
+                // Basic data migration/safety checks identical to getUserProfile
+                if (typeof data.credits === 'undefined') {
+                    // Note: We avoid writing inside the listener to prevent loops, 
+                    // relying on the initial creation logic in userService instead.
+                    data.credits = 0; 
+                }
+                
+                setUserProfile(data as UserProfile);
+            } else {
+                // Doc doesn't exist yet (e.g. creating account), handle gracefully
+                setUserProfile(null);
+            }
+            setLoading(false);
+        }, (error) => {
+            console.error("Real-time sync error:", error);
+            setLoading(false);
+        });
+
       } else {
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
 
   const logout = async () => {
@@ -48,7 +88,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshProfile = async () => {
+    // With onSnapshot, this is mostly redundant, but we keep it for 
+    // code compatibility where manual awaits are expected.
     if (user) {
+      // We can do a manual fetch if we really want to ensure consistency before a critical action
       await fetchProfile(user.uid);
     }
   };
