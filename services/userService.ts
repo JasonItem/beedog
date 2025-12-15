@@ -1,6 +1,6 @@
 
 import { db, storage } from "../firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy, runTransaction } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy, limit, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User } from "firebase/auth";
 import { DivinationResult } from "./geminiService";
@@ -217,4 +217,23 @@ export const updateFishingData = async (uid: string, newData: Partial<FishingSav
     if (newData.unlockedFish !== undefined) updates["fishingData.unlockedFish"] = newData.unlockedFish;
     
     await updateDoc(docRef, updates);
+};
+
+/**
+ * NEW: Get Honey Leaderboard
+ * Fetches top 50 users ordered by credits desc
+ */
+export const getHoneyLeaderboard = async (limitCount: number = 50): Promise<UserProfile[]> => {
+  try {
+    const q = query(collection(db, "users"), orderBy("credits", "desc"), limit(limitCount));
+    const snapshot = await getDocs(q);
+    const users: UserProfile[] = [];
+    snapshot.forEach((doc) => {
+      users.push(doc.data() as UserProfile);
+    });
+    return users;
+  } catch (error) {
+    console.warn("Failed to fetch leaderboard", error);
+    return [];
+  }
 };

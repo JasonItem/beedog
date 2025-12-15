@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { X, CheckCircle, CalendarCheck, Gamepad2, Zap, Loader2, ArrowRight, HelpCircle, Coins, AlertTriangle, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle, CalendarCheck, Gamepad2, Zap, Loader2, ArrowRight, HelpCircle, Coins, AlertTriangle, Info, Trophy, Medal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { performDailyCheckIn } from '../services/userService';
+import { performDailyCheckIn, getHoneyLeaderboard, UserProfile } from '../services/userService';
 import { Button } from './Button';
 
 interface MissionCenterProps {
@@ -14,7 +14,23 @@ interface MissionCenterProps {
 export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, onNavigateToGames }) => {
   const { user, userProfile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'earn' | 'guide'>('earn');
+  const [activeTab, setActiveTab] = useState<'earn' | 'leaderboard' | 'guide'>('earn');
+  
+  // Leaderboard State
+  const [leaderboard, setLeaderboard] = useState<UserProfile[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  // Fetch leaderboard when tab changes
+  useEffect(() => {
+    if (isOpen && activeTab === 'leaderboard') {
+        setLoadingLeaderboard(true);
+        getHoneyLeaderboard().then(data => {
+            setLeaderboard(data);
+        }).finally(() => {
+            setLoadingLeaderboard(false);
+        });
+    }
+  }, [isOpen, activeTab]);
 
   if (!isOpen) return null;
 
@@ -46,6 +62,13 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
     onNavigateToGames();
   };
 
+  const renderRankIcon = (index: number) => {
+      if (index === 0) return <Trophy className="text-yellow-500 fill-yellow-500" size={20} />;
+      if (index === 1) return <Medal className="text-gray-400 fill-gray-400" size={20} />;
+      if (index === 2) return <Medal className="text-amber-700 fill-amber-700" size={20} />;
+      return <span className="font-bold text-neutral-500 w-5 text-center">{index + 1}</span>;
+  };
+
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-[#161616] rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-neutral-200 dark:border-[#333] relative flex flex-col max-h-[85vh]">
@@ -70,22 +93,28 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
                 onClick={() => setActiveTab('earn')}
                 className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'earn' ? 'bg-white dark:bg-[#333] shadow-sm text-black dark:text-white' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white'}`}
               >
-                赚取任务
+                赚取
+              </button>
+              <button 
+                onClick={() => setActiveTab('leaderboard')}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'leaderboard' ? 'bg-white dark:bg-[#333] shadow-sm text-black dark:text-white' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white'}`}
+              >
+                排行榜
               </button>
               <button 
                 onClick={() => setActiveTab('guide')}
                 className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1 ${activeTab === 'guide' ? 'bg-white dark:bg-[#333] shadow-sm text-brand-yellow' : 'text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white'}`}
               >
-                <HelpCircle size={14}/> 积分说明
+                说明
               </button>
            </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto custom-scrollbar">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
            
-           {activeTab === 'earn' ? (
-             <div className="space-y-4">
+           {activeTab === 'earn' && (
+             <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
                <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mb-2">
                   完成每日任务，积累蜂蜜兑换权益！
                </p>
@@ -146,7 +175,64 @@ export const MissionCenter: React.FC<MissionCenterProps> = ({ isOpen, onClose, o
                   )}
                </div>
              </div>
-           ) : (
+           )}
+
+           {activeTab === 'leaderboard' && (
+               <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 h-full flex flex-col">
+                   <div className="text-center mb-2">
+                       <h3 className="font-bold dark:text-white flex items-center justify-center gap-2">
+                           <Trophy className="text-brand-yellow"/> 蜂蜜富豪榜 TOP 50
+                       </h3>
+                       <p className="text-xs text-neutral-500 dark:text-neutral-400">实时更新社区最富有的蜜蜂狗</p>
+                   </div>
+
+                   {loadingLeaderboard ? (
+                       <div className="flex justify-center py-10">
+                           <Loader2 className="animate-spin text-brand-yellow" size={32}/>
+                       </div>
+                   ) : leaderboard.length === 0 ? (
+                       <div className="text-center text-neutral-400 py-10">暂无数据</div>
+                   ) : (
+                       <div className="space-y-2 flex-1 overflow-y-auto pr-1 pb-4">
+                           {leaderboard.map((u, idx) => (
+                               <div key={u.uid} className={`flex items-center justify-between p-3 rounded-xl border ${u.uid === user?.uid ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' : 'bg-neutral-50 dark:bg-[#222] border-neutral-100 dark:border-[#333]'}`}>
+                                   <div className="flex items-center gap-3">
+                                       <div className="w-6 flex justify-center">
+                                           {renderRankIcon(idx)}
+                                       </div>
+                                       <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] overflow-hidden border border-neutral-200 dark:border-[#444] shrink-0">
+                                            {u.avatarUrl ? <img src={u.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs">🐶</div>}
+                                       </div>
+                                       <div className="flex flex-col">
+                                           <span className={`font-bold text-sm ${u.uid === user?.uid ? 'text-brand-yellow' : 'dark:text-neutral-200'} truncate max-w-[100px]`}>
+                                               {u.nickname || '蜜蜂狗'}
+                                           </span>
+                                       </div>
+                                   </div>
+                                   <div className="font-mono font-black text-brand-yellow text-sm">
+                                       {u.credits.toLocaleString()} 🍯
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                   )}
+                   
+                   {/* User's own rank indicator if logged in */}
+                   {userProfile && (
+                       <div className="bg-neutral-900 dark:bg-white text-white dark:text-black p-3 rounded-xl flex justify-between items-center shadow-lg mt-auto shrink-0">
+                           <div className="flex items-center gap-2">
+                               <div className="w-6 h-6 rounded-full bg-brand-yellow flex items-center justify-center text-xs font-bold text-black">
+                                   我
+                               </div>
+                               <span className="font-bold text-sm">我的资产</span>
+                           </div>
+                           <span className="font-mono font-black">{userProfile.credits.toLocaleString()} 🍯</span>
+                       </div>
+                   )}
+               </div>
+           )}
+
+           {activeTab === 'guide' && (
              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                 {/* Intro */}
                 <div className="bg-brand-yellow/10 p-4 rounded-2xl border border-brand-yellow/20">
