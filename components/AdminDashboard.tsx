@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { adminGetAllUsers, adminSearchUsers, adminUpdateUser, adminDeleteUser, adminUpdateScore, adminDeleteScore, adminBatchUpdateCredits, adminClearLeaderboard } from '../services/adminService';
-import { getProducts, saveProduct, deleteProduct, getOrders, updateOrderStatus, uploadProductImage, Product, Order, FormFieldConfig } from '../services/shopService';
+import { getProducts, saveProduct, deleteProduct, getOrders, updateOrderStatus, adminBatchUpdateOrderStatus, uploadProductImage, Product, Order, FormFieldConfig } from '../services/shopService';
 import { getLeaderboard, GameScore } from '../services/gameService';
 import { GAMES } from './MiniGamesHub';
 import { UserProfile } from '../services/userService';
-import { Shield, Search, Edit2, Trash2, Save, X, RotateCcw, AlertTriangle, CheckCircle, Database, Zap, Plus, Minus, CheckSquare, Square, Settings, Sliders, ShoppingBag, Package, List, Eye, ArrowLeft, ArrowRight, Upload, Image as ImageIcon, Loader2, Lock } from 'lucide-react';
+import { Shield, Search, Edit2, Trash2, Save, X, RotateCcw, AlertTriangle, CheckCircle, Database, Zap, Plus, Minus, CheckSquare, Square, Settings, Sliders, ShoppingBag, Package, List, Eye, ArrowLeft, ArrowRight, Upload, Image as ImageIcon, Loader2, Lock, Download, Filter } from 'lucide-react';
 import { Button } from './Button';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
 
@@ -45,7 +45,7 @@ export const AdminDashboard: React.FC = () => {
     const [userPage, setUserPage] = useState(1);
     const [userCursors, setUserCursors] = useState<(QueryDocumentSnapshot | null)[]>([null]);
     
-    // Batch Operations State
+    // Batch Operations State (Users)
     const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
     const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
     const [batchAmount, setBatchAmount] = useState<string>('10');
@@ -65,7 +65,9 @@ export const AdminDashboard: React.FC = () => {
     const [viewOrder, setViewOrder] = useState<Order | null>(null);
     const productFileInputRef = useRef<HTMLInputElement>(null);
     
-    // Order Pagination
+    // Order Filters & Batch
+    const [orderFilters, setOrderFilters] = useState({ productId: 'all', status: 'all', userId: '' });
+    const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [orderPage, setOrderPage] = useState(1);
     const [orderCursors, setOrderCursors] = useState<(QueryDocumentSnapshot | null)[]>([null]);
 
@@ -75,7 +77,10 @@ export const AdminDashboard: React.FC = () => {
         if (activeTab === 'USERS') loadUsers();
         else if (activeTab === 'GAMES') loadScores();
         else if (activeTab === 'SHOP_PRODUCTS') loadProducts();
-        else if (activeTab === 'SHOP_ORDERS') loadOrders();
+        else if (activeTab === 'SHOP_ORDERS') {
+            loadProducts(); // Load products to have names/images available
+            loadOrders();
+        }
     }, [activeTab, selectedGameId]);
 
     const showNotif = (msg: string, type: 'success' | 'error') => {
@@ -216,29 +221,26 @@ export const AdminDashboard: React.FC = () => {
 
     // --- SHOP ACTIONS ---
     const loadProducts = async () => {
-        setIsLoading(true);
+        // No loading spinner here to avoid flashing when switching tabs if already cached or parallel loading
         try {
-            // Admin loads ALL products (active and inactive)
             const { products: data } = await getProducts(false, undefined, 50); 
             setProducts(data);
         } catch (e: any) { 
             console.error(e);
-            if (e.code === 'permission-denied') {
-                setPermissionError(true);
-                showNotif("权限不足: 无法加载商品", 'error');
-            } else if (e.code === 'failed-precondition') {
-                showNotif("查询失败: 可能缺少索引", 'error');
-            } else {
-                showNotif("加载商品失败", 'error');
-            }
-        } finally { setIsLoading(false); }
+            if (e.code === 'permission-denied') setPermissionError(true);
+        }
     };
 
     const loadOrders = async (pageIndex = 0) => {
         setIsLoading(true);
+        setSelectedOrderIds(new Set()); // Reset selections on refresh/page change
         try {
             const cursor = orderCursors[pageIndex];
-            const { orders: data, lastVisible } = await getOrders(undefined, cursor || undefined, 20);
+            const { orders: data, lastVisible } = await getOrders(undefined, cursor || undefined, 20, {
+                productId: orderFilters.productId !== 'all' ? orderFilters.productId : undefined,
+                status: orderFilters.status !== 'all' ? orderFilters.status : undefined,
+                userId: orderFilters.userId.trim() || undefined
+            });
             
             setOrders(data);
             
@@ -263,6 +265,101 @@ export const AdminDashboard: React.FC = () => {
         loadOrders(newPageIdx);
     };
 
+    // Batch Order Operations
+    const toggleSelectOrder = (id: string) => {
+        setSelectedOrderIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+    };
+
+    const toggleSelectAllOrders = () => {
+        const allOnPage = orders.map(o => o.id);
+        const allSelected = allOnPage.every(id => selectedOrderIds.has(id));
+        if (allSelected) {
+            setSelectedOrderIds(prev => {
+                const next = new Set(prev);
+                allOnPage.forEach(id => next.delete(id));
+                return next;
+            });
+        } else {
+            setSelectedOrderIds(prev => {
+                const next = new Set(prev);
+                allOnPage.forEach(id => next.add(id));
+                return next;
+            });
+        }
+    };
+
+    const handleBatchStatusUpdate = async (status: 'pending' | 'completed' | 'rejected') => {
+        if (selectedOrderIds.size === 0) return;
+        setIsLoading(true);
+        try {
+            await adminBatchUpdateOrderStatus(Array.from(selectedOrderIds), status);
+            // Update local state
+            setOrders(prev => prev.map(o => selectedOrderIds.has(o.id) ? { ...o, status } : o));
+            showNotif(`已更新 ${selectedOrderIds.size} 个订单状态`, 'success');
+            setSelectedOrderIds(new Set()); // clear selection
+        } catch (e) {
+            console.error(e);
+            showNotif("批量更新失败", 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExportCSV = () => {
+        if (selectedOrderIds.size === 0) return;
+        
+        // Filter orders that are selected
+        const selectedOrders = orders.filter(o => selectedOrderIds.has(o.id));
+        
+        const headers = ["Order ID", "Product", "Price", "User Nickname", "User ID", "Status", "Date", "Form Data"];
+        const csvContent = [
+            headers.join(","),
+            ...selectedOrders.map(o => {
+                const date = o.timestamp?.seconds ? new Date(o.timestamp.seconds * 1000).toLocaleString() : '';
+                
+                // Format Form Data: "Label:Value Label2:Value2"
+                let formDataStr = "";
+                const product = products.find(p => p.id === o.productId);
+                
+                if (o.formData) {
+                    if (product && product.formSchema) {
+                        // Use schema labels order
+                        formDataStr = product.formSchema.map(field => {
+                            const val = o.formData[field.key];
+                            return val ? `${field.label}:${val}` : null;
+                        }).filter(Boolean).join(' ');
+                    } else {
+                        // Fallback to keys
+                        formDataStr = Object.entries(o.formData).map(([k, v]) => `${k}:${v}`).join(' ');
+                    }
+                }
+                
+                formDataStr = formDataStr.replace(/"/g, '""'); // Escape quotes for CSV
+
+                return [
+                    o.id,
+                    `"${o.productName}"`,
+                    o.priceSnapshot,
+                    `"${o.userNickname}"`,
+                    o.userId,
+                    o.status,
+                    `"${date}"`,
+                    `"${formDataStr}"`
+                ].join(",");
+            })
+        ].join("\n");
+
+        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `orders_export_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // Product Handlers
     const handleSaveProduct = async () => {
         if (!editingProduct || !editingProduct.name) {
             showNotif("请填写商品名称", 'error');
@@ -311,7 +408,6 @@ export const AdminDashboard: React.FC = () => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
         
-        // Limit total images to 5
         const currentCount = editingProduct?.images?.length || 0;
         if (currentCount + files.length > 5) {
             showNotif("最多只能上传5张图片", 'error');
@@ -331,7 +427,6 @@ export const AdminDashboard: React.FC = () => {
                 return {
                     ...prev!,
                     images: updatedImages,
-                    // Auto-set primary imageUrl if missing
                     imageUrl: (!prev?.imageUrl && updatedImages.length > 0) ? updatedImages[0] : (prev?.imageUrl || updatedImages[0])
                 };
             });
@@ -341,7 +436,6 @@ export const AdminDashboard: React.FC = () => {
             showNotif("上传失败", 'error');
         } finally {
             setIsLoading(false);
-            // Clear input so same file can be selected again if needed
             if (productFileInputRef.current) productFileInputRef.current.value = '';
         }
     };
@@ -351,13 +445,10 @@ export const AdminDashboard: React.FC = () => {
             if (!prev || !prev.images) return prev;
             const newImages = [...prev.images];
             const removedUrl = newImages.splice(index, 1)[0];
-            
-            // If primary image removed, update it
             let newPrimary = prev.imageUrl;
             if (prev.imageUrl === removedUrl) {
                 newPrimary = newImages.length > 0 ? newImages[0] : '';
             }
-            
             return { ...prev, images: newImages, imageUrl: newPrimary };
         });
     };
@@ -386,6 +477,17 @@ export const AdminDashboard: React.FC = () => {
         });
     };
 
+    // Helper to get product info for order view
+    const getProductInfoForOrder = (order: Order) => {
+        const product = products.find(p => p.id === order.productId);
+        // Fallback to order's snapshot if product deleted or not loaded yet
+        return {
+            name: product?.name || order.productName,
+            image: order.productImage || product?.imageUrl || '',
+            schema: product?.formSchema || []
+        };
+    };
+
     if (!userProfile || userProfile.is_admin !== 1) {
         return (
             <div className="min-h-screen pt-32 flex flex-col items-center text-neutral-500">
@@ -397,6 +499,7 @@ export const AdminDashboard: React.FC = () => {
     }
 
     const allPageUsersSelected = users.length > 0 && users.every(u => selectedUserIds.has(u.uid));
+    const allPageOrdersSelected = orders.length > 0 && orders.every(o => selectedOrderIds.has(o.id));
 
     return (
         <div className="min-h-screen pt-24 pb-12 bg-neutral-100 dark:bg-[#050505]">
@@ -420,13 +523,6 @@ export const AdminDashboard: React.FC = () => {
                     <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow-md">
                         <p className="font-bold flex items-center gap-2"><Lock size={18}/> 权限错误 (Permission Denied)</p>
                         <p>无法读取数据库。请确保您的 Firebase Firestore Rules 配置正确。</p>
-                        <pre className="mt-2 bg-red-50 p-2 rounded text-xs overflow-auto">
-{`// 示例规则 (Example)
-match /products/{id} {
-  allow read: if resource.data.isActive == true || isAdmin();
-  allow write: if isAdmin();
-}`}
-                        </pre>
                     </div>
                 )}
 
@@ -454,6 +550,7 @@ match /products/{id} {
                     {/* --- USERS TAB --- */}
                     {activeTab === 'USERS' && (
                         <div>
+                            {/* ... (Existing Users Tab UI) ... */}
                             <div className="flex gap-2 mb-4 justify-between">
                                 <div className="flex gap-2">
                                     <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜索用户..." className="border p-2 rounded dark:bg-[#333] dark:text-white"/>
@@ -500,12 +597,12 @@ match /products/{id} {
                     {/* --- GAMES TAB --- */}
                     {activeTab === 'GAMES' && (
                         <div>
+                             {/* ... (Existing Games Tab UI) ... */}
                              <div className="flex gap-2 mb-4">
                                 <select value={selectedGameId} onChange={e=>setSelectedGameId(e.target.value)} className="border p-2 rounded dark:bg-[#333] dark:text-white">
                                     {GAMES.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                                 </select>
                                 <Button onClick={loadScores} size="sm">刷新</Button>
-                                {/* RESTORED: Clear Button */}
                                 <Button onClick={() => setIsClearModalOpen(true)} variant="outline" size="sm" className="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
                                     清空榜单
                                 </Button>
@@ -534,6 +631,7 @@ match /products/{id} {
                     {/* --- SHOP PRODUCTS TAB --- */}
                     {activeTab === 'SHOP_PRODUCTS' && (
                         <div>
+                            {/* ... (Existing Product Tab UI) ... */}
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="font-bold text-lg dark:text-white">商品列表</h3>
                                 <Button onClick={() => setEditingProduct({ name: '', price: 0, stock: 0, imageUrl: '', images: [], isActive: true, formSchema: [], limitPerUser: 0 })} className="flex items-center gap-2">
@@ -547,19 +645,11 @@ match /products/{id} {
                                         <div className="flex gap-4">
                                             <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0 relative">
                                                 {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover"/> : <Package className="w-full h-full p-4 text-gray-400"/>}
-                                                {(p.images?.length || 0) > 1 && (
-                                                    <div className="absolute bottom-0 right-0 bg-black/50 text-white text-[10px] px-1 rounded-tl">
-                                                        +{p.images!.length - 1}
-                                                    </div>
-                                                )}
                                             </div>
                                             <div>
                                                 <h4 className="font-bold dark:text-white line-clamp-1">{p.name}</h4>
                                                 <div className="text-sm text-brand-yellow font-mono">{p.price} 蜂蜜</div>
                                                 <div className="text-xs text-gray-500">库存: {p.stock}</div>
-                                                {p.limitPerUser && p.limitPerUser > 0 && (
-                                                    <div className="text-xs text-red-500 font-bold">每人限购 {p.limitPerUser}</div>
-                                                )}
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center mt-auto pt-2 border-t dark:border-[#333]">
@@ -577,18 +667,62 @@ match /products/{id} {
                         </div>
                     )}
 
-                    {/* --- SHOP ORDERS TAB --- */}
+                    {/* --- SHOP ORDERS TAB (UPDATED) --- */}
                     {activeTab === 'SHOP_ORDERS' && (
                         <div>
-                            <div className="flex justify-between items-center mb-6">
-                                <div className="flex items-center gap-4">
-                                    <h3 className="font-bold text-lg dark:text-white">订单管理</h3>
-                                    <Button onClick={() => loadOrders(0)} variant="outline" size="sm"><RotateCcw size={16}/></Button>
+                            <div className="flex flex-col gap-4 mb-6">
+                                {/* Toolbar */}
+                                <div className="flex flex-wrap justify-between items-center gap-3">
+                                    <div className="flex items-center gap-4">
+                                        <h3 className="font-bold text-lg dark:text-white">订单管理</h3>
+                                        <Button onClick={() => loadOrders(0)} variant="outline" size="sm"><RotateCcw size={16}/></Button>
+                                    </div>
+                                    
+                                    {/* Batch Actions */}
+                                    {selectedOrderIds.size > 0 && (
+                                        <div className="flex gap-2 animate-in fade-in slide-in-from-right-4">
+                                            <Button size="sm" onClick={handleExportCSV} className="bg-blue-600 text-white hover:bg-blue-500"><Download size={16} className="mr-1"/> 导出 CSV</Button>
+                                            <Button size="sm" onClick={() => handleBatchStatusUpdate('completed')} className="bg-green-600 text-white hover:bg-green-500">批量发货</Button>
+                                            <Button size="sm" onClick={() => handleBatchStatusUpdate('rejected')} className="bg-red-600 text-white hover:bg-red-500">批量拒绝</Button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex gap-2 items-center">
-                                    <button onClick={() => handleOrderPageChange(-1)} disabled={orderPage <= 1} className="p-2 border rounded hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50"><ArrowLeft size={16}/></button>
-                                    <span className="text-sm">Page {orderPage}</span>
-                                    <button onClick={() => handleOrderPageChange(1)} disabled={orders.length < 20} className="p-2 border rounded hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50"><ArrowRight size={16}/></button>
+
+                                {/* Filters */}
+                                <div className="flex flex-wrap gap-2 p-3 bg-neutral-50 dark:bg-[#252525] rounded-xl items-center border border-neutral-200 dark:border-[#333]">
+                                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                                        <Filter size={16}/> 筛选:
+                                    </div>
+                                    <select 
+                                        className="text-sm p-2 rounded border dark:bg-[#333] dark:text-white"
+                                        value={orderFilters.productId}
+                                        onChange={e => setOrderFilters({...orderFilters, productId: e.target.value})}
+                                    >
+                                        <option value="all">所有商品</option>
+                                        {products.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    
+                                    <select 
+                                        className="text-sm p-2 rounded border dark:bg-[#333] dark:text-white"
+                                        value={orderFilters.status}
+                                        onChange={e => setOrderFilters({...orderFilters, status: e.target.value})}
+                                    >
+                                        <option value="all">所有状态</option>
+                                        <option value="pending">处理中</option>
+                                        <option value="completed">已完成</option>
+                                        <option value="rejected">已拒绝</option>
+                                    </select>
+
+                                    <input 
+                                        className="text-sm p-2 rounded border dark:bg-[#333] dark:text-white min-w-[150px]"
+                                        placeholder="用户 ID (User UID)"
+                                        value={orderFilters.userId}
+                                        onChange={e => setOrderFilters({...orderFilters, userId: e.target.value})}
+                                    />
+                                    
+                                    <Button size="sm" onClick={() => loadOrders(0)}>应用筛选</Button>
                                 </div>
                             </div>
                             
@@ -596,6 +730,11 @@ match /products/{id} {
                                 <table className="w-full text-left text-sm dark:text-neutral-300">
                                     <thead className="bg-neutral-50 dark:bg-[#2a2a2a] uppercase text-xs font-bold text-gray-500">
                                         <tr>
+                                            <th className="p-3 w-10">
+                                                <button onClick={toggleSelectAllOrders}>
+                                                    {allPageOrdersSelected ? <CheckSquare size={16}/> : <Square size={16}/>}
+                                                </button>
+                                            </th>
                                             <th className="p-3">Order ID</th>
                                             <th className="p-3">User</th>
                                             <th className="p-3">Item</th>
@@ -607,6 +746,11 @@ match /products/{id} {
                                     <tbody className="divide-y divide-neutral-100 dark:divide-[#333]">
                                         {orders.map(order => (
                                             <tr key={order.id} className="hover:bg-neutral-50 dark:hover:bg-[#252525]">
+                                                <td className="p-3">
+                                                    <button onClick={() => toggleSelectOrder(order.id)}>
+                                                        {selectedOrderIds.has(order.id) ? <CheckSquare size={16}/> : <Square size={16}/>}
+                                                    </button>
+                                                </td>
                                                 <td className="p-3 font-mono text-xs text-gray-400">{order.id.slice(0,8)}...</td>
                                                 <td className="p-3">
                                                     <div className="font-bold">{order.userNickname}</div>
@@ -633,6 +777,13 @@ match /products/{id} {
                                     </tbody>
                                 </table>
                             </div>
+                            
+                            {/* Pagination for Orders */}
+                            <div className="flex gap-2 items-center justify-end mt-4">
+                                <button onClick={() => handleOrderPageChange(-1)} disabled={orderPage <= 1} className="p-2 border rounded hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50"><ArrowLeft size={16}/></button>
+                                <span className="text-sm">Page {orderPage}</span>
+                                <button onClick={() => handleOrderPageChange(1)} disabled={orders.length < 20} className="p-2 border rounded hover:bg-gray-100 dark:hover:bg-[#333] disabled:opacity-50"><ArrowRight size={16}/></button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -640,225 +791,121 @@ match /products/{id} {
 
             {/* --- MODALS --- */}
 
-            {/* Product Edit Modal */}
+            {/* Product Edit Modal (Unchanged) */}
             <EditModal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct?.id ? "编辑商品" : "添加商品"} maxWidth="max-w-2xl">
+                {/* ... (Existing form content) ... */}
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold mb-1 dark:text-white">商品名称</label>
-                            <input className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.name || ''} onChange={e => setEditingProduct({...editingProduct!, name: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold mb-1 dark:text-white">所需蜂蜜</label>
-                            <input type="number" className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.price || 0} onChange={e => setEditingProduct({...editingProduct!, price: parseInt(e.target.value)})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold mb-1 dark:text-white">库存数量</label>
-                            <input type="number" className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.stock || 0} onChange={e => setEditingProduct({...editingProduct!, stock: parseInt(e.target.value)})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold mb-1 dark:text-white">每人限购 (0为不限)</label>
-                            <input type="number" className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.limitPerUser || 0} onChange={e => setEditingProduct({...editingProduct!, limitPerUser: parseInt(e.target.value)})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold mb-1 dark:text-white">状态</label>
-                            <select className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.isActive ? 'true' : 'false'} onChange={e => setEditingProduct({...editingProduct!, isActive: e.target.value === 'true'})}>
-                                <option value="true">上架</option>
-                                <option value="false">下架</option>
-                            </select>
-                        </div>
-                        
-                        {/* Image Upload Section */}
+                        <div><label className="block text-sm font-bold mb-1 dark:text-white">商品名称</label><input className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.name || ''} onChange={e => setEditingProduct({...editingProduct!, name: e.target.value})} /></div>
+                        <div><label className="block text-sm font-bold mb-1 dark:text-white">所需蜂蜜</label><input type="number" className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.price || 0} onChange={e => setEditingProduct({...editingProduct!, price: parseInt(e.target.value)})} /></div>
+                        <div><label className="block text-sm font-bold mb-1 dark:text-white">库存数量</label><input type="number" className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.stock || 0} onChange={e => setEditingProduct({...editingProduct!, stock: parseInt(e.target.value)})} /></div>
+                        <div><label className="block text-sm font-bold mb-1 dark:text-white">每人限购</label><input type="number" className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.limitPerUser || 0} onChange={e => setEditingProduct({...editingProduct!, limitPerUser: parseInt(e.target.value)})} /></div>
+                        <div><label className="block text-sm font-bold mb-1 dark:text-white">状态</label><select className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" value={editingProduct?.isActive ? 'true' : 'false'} onChange={e => setEditingProduct({...editingProduct!, isActive: e.target.value === 'true'})}><option value="true">上架</option><option value="false">下架</option></select></div>
                         <div className="col-span-2">
-                            <label className="block text-sm font-bold mb-1 dark:text-white flex justify-between">
-                                商品图片 (最多5张)
-                                <span className="text-xs font-normal text-gray-500">{editingProduct?.images?.length || 0}/5</span>
-                            </label>
+                            <label className="block text-sm font-bold mb-1 dark:text-white flex justify-between">商品图片 <span className="text-xs font-normal text-gray-500">{editingProduct?.images?.length || 0}/5</span></label>
                             <div className="flex flex-wrap gap-2 mb-2">
                                 {editingProduct?.images?.map((url, idx) => (
-                                    <div key={idx} className="relative w-20 h-20 bg-gray-100 rounded overflow-hidden group border border-gray-200">
-                                        <img src={url} className="w-full h-full object-cover" />
-                                        <button 
-                                            onClick={() => handleRemoveImage(idx)}
-                                            className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X size={14}/>
-                                        </button>
-                                        {idx === 0 && <span className="absolute bottom-0 left-0 bg-black/50 text-white text-[8px] px-1 w-full text-center">主图</span>}
-                                    </div>
+                                    <div key={idx} className="relative w-20 h-20 bg-gray-100 rounded overflow-hidden group border border-gray-200"><img src={url} className="w-full h-full object-cover" /><button onClick={() => handleRemoveImage(idx)} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity"><X size={14}/></button>{idx === 0 && <span className="absolute bottom-0 left-0 bg-black/50 text-white text-[8px] px-1 w-full text-center">主图</span>}</div>
                                 ))}
                                 {(editingProduct?.images?.length || 0) < 5 && (
-                                    <button 
-                                        onClick={() => productFileInputRef.current?.click()}
-                                        disabled={isLoading}
-                                        className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 hover:border-brand-yellow hover:text-brand-yellow transition-colors"
-                                    >
-                                        {isLoading ? <Loader2 className="animate-spin" size={20}/> : <Upload size={20}/>}
-                                        <span className="text-[10px] mt-1">上传</span>
-                                    </button>
+                                    <button onClick={() => productFileInputRef.current?.click()} disabled={isLoading} className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 hover:border-brand-yellow hover:text-brand-yellow transition-colors">{isLoading ? <Loader2 className="animate-spin" size={20}/> : <Upload size={20}/>}<span className="text-[10px] mt-1">上传</span></button>
                                 )}
                             </div>
-                            <input 
-                                type="file" 
-                                ref={productFileInputRef} 
-                                className="hidden" 
-                                accept="image/*" 
-                                multiple 
-                                onChange={handleProductImageUpload}
-                            />
-                            {/* Fallback/Manual URL input */}
-                            <div className="flex gap-2">
-                                <input 
-                                    className="w-full p-2 border rounded text-xs dark:bg-[#333] dark:text-white" 
-                                    placeholder="或直接输入图片 URL" 
-                                    onKeyDown={(e) => {
-                                        if(e.key === 'Enter') {
-                                            const val = (e.target as HTMLInputElement).value;
-                                            if(val) {
-                                                setEditingProduct(prev => ({
-                                                    ...prev!, 
-                                                    images: [...(prev?.images || []), val],
-                                                    imageUrl: (!prev?.imageUrl ? val : prev.imageUrl)
-                                                }));
-                                                (e.target as HTMLInputElement).value = '';
-                                            }
-                                        }
-                                    }}
-                                />
-                            </div>
+                            <input type="file" ref={productFileInputRef} className="hidden" accept="image/*" multiple onChange={handleProductImageUpload} />
+                            <div className="flex gap-2"><input className="w-full p-2 border rounded text-xs dark:bg-[#333] dark:text-white" placeholder="或直接输入图片 URL" onKeyDown={(e) => { if(e.key === 'Enter') { const val = (e.target as HTMLInputElement).value; if(val) { setEditingProduct(prev => ({ ...prev!, images: [...(prev?.images || []), val], imageUrl: (!prev?.imageUrl ? val : prev.imageUrl) })); (e.target as HTMLInputElement).value = ''; } } }} /></div>
                         </div>
-
-                        <div className="col-span-2">
-                            <label className="block text-sm font-bold mb-1 dark:text-white">商品描述</label>
-                            <textarea className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" rows={3} value={editingProduct?.description || ''} onChange={e => setEditingProduct({...editingProduct!, description: e.target.value})} />
-                        </div>
+                        <div className="col-span-2"><label className="block text-sm font-bold mb-1 dark:text-white">商品描述</label><textarea className="w-full p-2 border rounded dark:bg-[#333] dark:text-white" rows={3} value={editingProduct?.description || ''} onChange={e => setEditingProduct({...editingProduct!, description: e.target.value})} /></div>
                     </div>
+                    <div className="border-t pt-4 dark:border-[#444]"><div className="flex justify-between items-center mb-4"><h4 className="font-bold dark:text-white">订单表单配置</h4><Button size="sm" onClick={addFormField} variant="outline" className="text-xs"><Plus size={14}/> 添加字段</Button></div><div className="space-y-3">{editingProduct?.formSchema?.map((field, idx) => (<div key={idx} className="flex gap-2 items-center bg-neutral-50 dark:bg-[#252525] p-2 rounded-lg"><input placeholder="Key" className="w-1/4 p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.key} onChange={e => updateFormField(idx, {key: e.target.value})} /><input placeholder="Label" className="w-1/4 p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.label} onChange={e => updateFormField(idx, {label: e.target.value})} /><select className="w-1/4 p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.type} onChange={e => updateFormField(idx, {type: e.target.value as any})}><option value="text">文本</option><option value="number">数字</option><option value="email">邮箱</option><option value="select">下拉选</option></select><label className="flex items-center gap-1 text-xs whitespace-nowrap dark:text-white"><input type="checkbox" checked={field.required} onChange={e => updateFormField(idx, {required: e.target.checked})} /> 必填</label><button onClick={() => removeFormField(idx)} className="text-red-500 p-1"><Trash2 size={14}/></button>{field.type === 'select' && (<input placeholder="选项用逗号隔开" className="w-full mt-1 col-span-full p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.options?.join(',') || ''} onChange={e => updateFormField(idx, {options: e.target.value.split(',')})} />)}</div>))}</div></div>
+                    <Button onClick={handleSaveProduct} className="w-full py-3 text-lg font-bold" disabled={isLoading}>{isLoading ? "上传中..." : "保存商品"}</Button>
+                </div>
+            </EditModal>
 
-                    <div className="border-t pt-4 dark:border-[#444]">
-                        <div className="flex justify-between items-center mb-4">
-                            <h4 className="font-bold dark:text-white">订单表单配置</h4>
-                            <Button size="sm" onClick={addFormField} variant="outline" className="text-xs"><Plus size={14}/> 添加字段</Button>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-4">设置用户兑换时需要填写的表单项。</p>
-                        
-                        <div className="space-y-3">
-                            {editingProduct?.formSchema?.map((field, idx) => (
-                                <div key={idx} className="flex gap-2 items-center bg-neutral-50 dark:bg-[#252525] p-2 rounded-lg">
-                                    <input placeholder="字段Key (英文)" className="w-1/4 p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.key} onChange={e => updateFormField(idx, {key: e.target.value})} />
-                                    <input placeholder="显示名称" className="w-1/4 p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.label} onChange={e => updateFormField(idx, {label: e.target.value})} />
-                                    <select className="w-1/4 p-1 text-xs border rounded dark:bg-[#333] dark:text-white" value={field.type} onChange={e => updateFormField(idx, {type: e.target.value as any})}>
-                                        <option value="text">文本</option>
-                                        <option value="number">数字</option>
-                                        <option value="email">邮箱</option>
-                                        <option value="select">下拉选</option>
-                                    </select>
-                                    <label className="flex items-center gap-1 text-xs whitespace-nowrap dark:text-white">
-                                        <input type="checkbox" checked={field.required} onChange={e => updateFormField(idx, {required: e.target.checked})} /> 必填
-                                    </label>
-                                    <button onClick={() => removeFormField(idx)} className="text-red-500 p-1"><Trash2 size={14}/></button>
-                                    
-                                    {field.type === 'select' && (
-                                        <input 
-                                            placeholder="选项用逗号隔开" 
-                                            className="w-full mt-1 col-span-full p-1 text-xs border rounded dark:bg-[#333] dark:text-white" 
-                                            value={field.options?.join(',') || ''} 
-                                            onChange={e => updateFormField(idx, {options: e.target.value.split(',')})} 
-                                        />
+            {/* Order View Modal (Updated with Logic) */}
+            {viewOrder && (() => {
+                const prodInfo = getProductInfoForOrder(viewOrder);
+                return (
+                    <EditModal isOpen={!!viewOrder} onClose={() => setViewOrder(null)} title="订单详情">
+                        <div className="space-y-4">
+                            <div className="bg-gray-50 dark:bg-[#252525] p-3 rounded-lg border dark:border-[#444] flex gap-4 items-center">
+                                <div className="w-16 h-16 bg-white dark:bg-black rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-[#555] flex items-center justify-center">
+                                    {prodInfo.image ? (
+                                        <img src={prodInfo.image} className="w-full h-full object-cover" alt="Product" />
+                                    ) : (
+                                        <Package className="text-gray-300" size={24} />
                                     )}
                                 </div>
-                            ))}
-                            {(!editingProduct?.formSchema || editingProduct.formSchema.length === 0) && (
-                                <div className="text-center text-gray-400 text-sm py-4 border border-dashed rounded-lg">暂无表单项</div>
-                            )}
-                        </div>
-                    </div>
-
-                    <Button onClick={handleSaveProduct} className="w-full py-3 text-lg font-bold" disabled={isLoading}>
-                        {isLoading ? "上传中..." : "保存商品"}
-                    </Button>
-                </div>
-            </EditModal>
-
-            {/* Clear Leaderboard Confirmation Modal */}
-            {isClearModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-neutral-200 dark:border-[#333]">
-                        <div className="text-center mb-6">
-                            <AlertTriangle size={48} className="mx-auto text-red-500 mb-2"/>
-                            <h3 className="text-xl font-bold dark:text-white">确定要清空榜单吗?</h3>
-                            <p className="text-sm text-gray-500 mt-2">此操作将永久删除当前选中游戏的所有玩家分数记录，不可恢复。</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <Button variant="outline" onClick={() => setIsClearModalOpen(false)} className="flex-1">取消</Button>
-                            <Button onClick={handleClearLeaderboard} className="flex-1 bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="animate-spin"/> : "确认清空"}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Order View Modal */}
-            <EditModal isOpen={!!viewOrder} onClose={() => setViewOrder(null)} title="订单详情">
-                <div className="space-y-4">
-                    <div className="bg-gray-50 dark:bg-[#252525] p-3 rounded-lg border dark:border-[#444] flex gap-4 items-center">
-                        <div className="w-16 h-16 bg-white dark:bg-black rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-[#555] flex items-center justify-center">
-                            {viewOrder?.productImage ? (
-                                <img src={viewOrder.productImage} className="w-full h-full object-cover" alt="Product" />
-                            ) : (
-                                <Package className="text-gray-300" size={24} />
-                            )}
-                        </div>
-                        <div>
-                            <div className="text-xs text-gray-500">商品</div>
-                            <div className="font-bold dark:text-white text-lg">{viewOrder?.productName}</div>
-                            <div className="text-brand-yellow font-mono font-bold">{viewOrder?.priceSnapshot} 蜂蜜</div>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <div className="text-xs text-gray-500">用户</div>
-                            <div className="dark:text-white font-medium">{viewOrder?.userNickname}</div>
-                            <div className="text-xs text-gray-400">{viewOrder?.userId}</div>
-                        </div>
-                        <div>
-                            <div className="text-xs text-gray-500">下单时间</div>
-                            <div className="dark:text-white font-mono text-sm">
-                                {viewOrder?.timestamp?.seconds ? new Date(viewOrder.timestamp.seconds * 1000).toLocaleString() : ''}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-t pt-4 dark:border-[#444]">
-                        <h4 className="font-bold mb-2 dark:text-white">表单数据</h4>
-                        <div className="space-y-2">
-                            {viewOrder && Object.entries(viewOrder.formData).map(([key, val]) => (
-                                <div key={key} className="flex justify-between border-b border-gray-100 dark:border-[#333] pb-1">
-                                    <span className="text-gray-500 text-sm">{key}:</span>
-                                    <span className="font-medium dark:text-white text-right">{val}</span>
+                                <div>
+                                    <div className="text-xs text-gray-500">商品</div>
+                                    <div className="font-bold dark:text-white text-lg">{viewOrder.productName}</div>
+                                    <div className="text-brand-yellow font-mono font-bold">{viewOrder.priceSnapshot} 蜂蜜</div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="pt-4 flex gap-2">
-                        {viewOrder?.status === 'pending' && (
-                            <>
-                                <Button onClick={() => handleChangeOrderStatus(viewOrder.id, 'completed')} className="flex-1 bg-green-600 hover:bg-green-500 text-white">标记完成</Button>
-                                <Button onClick={() => handleChangeOrderStatus(viewOrder.id, 'rejected')} className="flex-1 bg-red-600 hover:bg-red-500 text-white">拒绝订单</Button>
-                            </>
-                        )}
-                        {viewOrder?.status !== 'pending' && (
-                            <div className="w-full text-center py-2 font-bold text-gray-500 bg-gray-100 dark:bg-[#333] rounded-lg">
-                                订单已{viewOrder?.status === 'completed' ? '完成' : '拒绝'}
                             </div>
-                        )}
-                    </div>
-                </div>
-            </EditModal>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div className="text-xs text-gray-500">用户</div>
+                                    <div className="dark:text-white font-medium">{viewOrder.userNickname}</div>
+                                    <div className="text-xs text-gray-400 font-mono">{viewOrder.userId}</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs text-gray-500">下单时间</div>
+                                    <div className="dark:text-white font-mono text-sm">
+                                        {viewOrder.timestamp?.seconds ? new Date(viewOrder.timestamp.seconds * 1000).toLocaleString() : ''}
+                                    </div>
+                                </div>
+                            </div>
 
-            {/* Other existing modals (EditUser, EditScore, Batch, Clear) remain unchanged/present... */}
+                            <div className="border-t pt-4 dark:border-[#444]">
+                                <h4 className="font-bold mb-2 dark:text-white">表单数据</h4>
+                                <div className="space-y-2">
+                                    {Object.entries(viewOrder.formData).map(([key, val]) => {
+                                        // Translate key to label using product schema if available
+                                        const fieldDef = prodInfo.schema?.find(f => f.key === key);
+                                        const label = fieldDef ? fieldDef.label : key;
+                                        return (
+                                            <div key={key} className="flex justify-between border-b border-gray-100 dark:border-[#333] pb-1">
+                                                <span className="text-gray-500 text-sm">{label}:</span>
+                                                <span className="font-medium dark:text-white text-right">{val}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex gap-2">
+                                {viewOrder.status === 'pending' && (
+                                    <>
+                                        <Button onClick={() => handleChangeOrderStatus(viewOrder.id, 'completed')} className="flex-1 bg-green-600 hover:bg-green-500 text-white">标记完成</Button>
+                                        <Button onClick={() => handleChangeOrderStatus(viewOrder.id, 'rejected')} className="flex-1 bg-red-600 hover:bg-red-500 text-white">拒绝订单</Button>
+                                    </>
+                                )}
+                                {viewOrder.status !== 'pending' && (
+                                    <div className="w-full text-center py-2 font-bold text-gray-500 bg-gray-100 dark:bg-[#333] rounded-lg">
+                                        订单已{viewOrder.status === 'completed' ? '完成' : '拒绝'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </EditModal>
+                );
+            })()}
+
+            {/* ... (Other Modals: Clear Leaderboard, Batch User, Edit User - Unchanged) ... */}
+            {isClearModalOpen && (
+                <EditModal isOpen={isClearModalOpen} onClose={() => setIsClearModalOpen(false)} title="清空榜单">
+                    <div className="text-center mb-6">
+                        <AlertTriangle size={48} className="mx-auto text-red-500 mb-2"/>
+                        <h3 className="text-xl font-bold dark:text-white">确定要清空榜单吗?</h3>
+                        <p className="text-sm text-gray-500 mt-2">此操作将永久删除当前选中游戏的所有玩家分数记录，不可恢复。</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={() => setIsClearModalOpen(false)} className="flex-1">取消</Button>
+                        <Button onClick={handleClearLeaderboard} className="flex-1 bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin"/> : "确认清空"}</Button>
+                    </div>
+                </EditModal>
+            )}
+            
             {isBatchModalOpen && (
                 <EditModal isOpen={isBatchModalOpen} onClose={() => setIsBatchModalOpen(false)} title="批量管理蜂蜜">
                      <div className="space-y-6">

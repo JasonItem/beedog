@@ -54,7 +54,7 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
   const [now, setNow] = useState(Date.now());
   
   // Interaction State
-  const [isProcessing, setIsProcessing] = useState(false); // Only used for Harvest now
+  const [isProcessing, setIsProcessing] = useState(false); // Used for global locks
   const [loadingPlotId, setLoadingPlotId] = useState<number | null>(null); // For local loading states
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error' | 'levelup'} | null>(null);
 
@@ -99,25 +99,25 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
 
   const handlePlotClick = async (plotIndex: number) => {
       if (!userProfile) { onLoginRequest(); return; }
+      if (loadingPlotId !== null || isProcessing) return; // Prevent clicking while any action is in progress
       
       const plot = plots[plotIndex];
       const status = getPlotStatus(plot);
 
-      // CASE 1: Harvest (Requires Network Wait usually, but we want it fast)
+      // CASE 1: Harvest
       if (status === 'READY') {
-          if (isProcessing) return; // Prevent double harvest
           await harvestCrop(plotIndex);
           return;
       }
 
-      // CASE 2: Plant (Optimistic Update)
+      // CASE 2: Plant
       if (status === 'EMPTY') {
           if (!selectedCrop) {
               showNotif("请先在下方选择种子", 'error');
           } else if (level < selectedCrop.unlockLevel) {
               showNotif(`等级不足，需 Lv.${selectedCrop.unlockLevel}`, 'error');
           } else {
-              plantCropOptimistic(plotIndex, selectedCrop);
+              plantCrop(plotIndex, selectedCrop);
           }
           return;
       }
@@ -132,65 +132,60 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
   };
 
   /**
-   * OPTIMISTIC PLANTING
+   * PLANTING LOGIC
    * 1. Check local balance
-   * 2. Update UI immediately (Plant & Deduct credits)
-   * 3. Send request to backend
-   * 4. If fails, revert UI
+   * 2. Set loading state to prevent double clicks
+   * 3. Send request to backend to deduct honey
+   * 4. If successful, update plots
    */
-  const plantCropOptimistic = async (plotIndex: number, crop: CropType) => {
+  const plantCrop = async (plotIndex: number, crop: CropType) => {
       // 1. Local Check
       if (credits < crop.cost) {
           showNotif("蜂蜜不足，无法购买种子", 'error');
           return;
       }
 
-      // Snapshot for rollback
-      const previousPlots = [...plots];
-      const previousCredits = credits;
+      setLoadingPlotId(plotIndex);
 
-      // 2. Optimistic Update
-      const newPlots = [...plots];
-      newPlots[plotIndex] = {
-          ...newPlots[plotIndex],
-          cropId: crop.id,
-          plantedAt: Date.now(), // Local time is fine for optimistic
-          status: 'GROWING'
-      };
-      
-      setPlots(newPlots);
-      setCredits(prev => prev - crop.cost);
-      audio.playStep(); // Instant Feedback
-
-      // 3. Background Sync
       try {
-          // This transaction handles both deducting money AND saving the plot state
-          // Note: In a real app, you might want to chain these or use a batch. 
-          // Here we assume deductCredit is the critical financial part.
+          // 2. Server Transaction
           const success = await deductCredit(userProfile!.uid, crop.cost);
           
           if (!success) {
-              throw new Error("Insufficient funds on server");
+              throw new Error("Insufficient funds or network error");
           }
 
-          // If payment success, save the plot state to DB
+          // 3. Update State on Success
+          const newPlots = [...plots];
+          newPlots[plotIndex] = {
+              ...newPlots[plotIndex],
+              cropId: crop.id,
+              plantedAt: Date.now(),
+              status: 'GROWING'
+          };
+          
+          // Save DB
           await updateFarmData(userProfile!.uid, { plots: newPlots });
           
-          // Sync profile quietly to ensure consistency
+          // Update UI
+          setPlots(newPlots);
+          setCredits(prev => prev - crop.cost);
+          audio.playStep();
+          
+          // Sync profile
           refreshProfile(); 
           
       } catch (e) {
           console.error("Planting failed:", e);
-          // 4. Rollback on failure
-          setPlots(previousPlots);
-          setCredits(previousCredits);
-          showNotif("网络错误，种植失败", 'error');
+          showNotif("交易失败，请重试", 'error');
+      } finally {
+          setLoadingPlotId(null);
       }
   };
 
   const harvestCrop = async (plotIndex: number) => {
       setIsProcessing(true);
-      setLoadingPlotId(plotIndex); // Show spinner only on this plot if needed
+      setLoadingPlotId(plotIndex);
       
       try {
           const plot = plots[plotIndex];
@@ -233,8 +228,6 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
           });
           
           // Leaderboard update logic
-          // Fix NaN: Ensure inputs are numbers. Weight Level heavily.
-          // Score = Level * 100000 + XP (so Lv 5 with 0 XP > Lv 4 with 900 XP)
           const powerScore = (newLevel * 100000) + newXp; 
           await saveHighScore(userProfile!, 'honey_farm', powerScore);
 
@@ -336,7 +329,7 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
                         <button
                             key={plot.id}
                             onClick={() => handlePlotClick(idx)}
-                            disabled={isProcessing && !isLoading}
+                            disabled={isLoading || (isProcessing && loadingPlotId !== null)} // Disable if THIS plot loading OR processing generally
                             className={`aspect-square rounded-2xl relative overflow-hidden transition-all active:scale-95 shadow-[0_4px_0_rgba(0,0,0,0.2)] border-b-4 border-black/10
                                 ${status === 'EMPTY' ? 'bg-[#7c5e3a] hover:bg-[#8b6b43]' : 
                                   status === 'GROWING' ? 'bg-[#5d4037]' : 
@@ -344,7 +337,7 @@ export const HoneyFarm: React.FC<HoneyFarmProps> = ({ userProfile, onGameOver, o
                             `}
                         >
                             {isLoading && (
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10">
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-20">
                                     <Loader2 className="animate-spin text-white" />
                                 </div>
                             )}

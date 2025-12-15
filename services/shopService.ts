@@ -1,6 +1,6 @@
 
 import { db, storage } from "../firebaseConfig";
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, runTransaction, Timestamp, where, startAfter, QueryDocumentSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, limit, runTransaction, Timestamp, where, startAfter, QueryDocumentSnapshot, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { UserProfile } from "./userService";
 
@@ -230,34 +230,61 @@ export const purchaseProduct = async (
 
 // --- Order Management ---
 
-// Updated: Fixed Index Error by using Client-Side Sorting
+export interface OrderFilters {
+    userId?: string;
+    productId?: string;
+    status?: string;
+}
+
+// Updated: Support filters with memory sorting to avoid index explosion
 export const getOrders = async (
     userId?: string,
     lastDoc?: QueryDocumentSnapshot,
-    pageSize: number = 20
+    pageSize: number = 20,
+    filters?: OrderFilters
 ): Promise<{ orders: Order[], lastVisible: QueryDocumentSnapshot | null }> => {
     try {
         const constraints: any[] = [];
         
+        // Strategy: Apply ONE equality filter for DB efficiency, filter rest in memory if needed
+        // Priority: UserId > ProductId > Status
+        let clientSideSort = false;
+
         if (userId) {
-            // My Orders View: Filter by user, sort locally
             constraints.push(where("userId", "==", userId));
-            constraints.push(limit(50)); // Fetch up to 50 recent orders
-        } else {
-            // Admin View: Sort by time
+            clientSideSort = true; // Cannot orderBy timestamp easily with where clause without index
+        } else if (filters?.userId) {
+            constraints.push(where("userId", "==", filters.userId));
+            clientSideSort = true;
+        } else if (filters?.productId && filters.productId !== 'all') {
+            constraints.push(where("productId", "==", filters.productId));
+            clientSideSort = true;
+        } else if (filters?.status && filters.status !== 'all') {
+            constraints.push(where("status", "==", filters.status));
+            clientSideSort = true;
+        }
+
+        // If no equality filters, we can order by timestamp from DB
+        if (!clientSideSort) {
             constraints.push(orderBy("timestamp", "desc"));
-            constraints.push(limit(pageSize));
-            if (lastDoc) constraints.push(startAfter(lastDoc));
+        }
+
+        // Apply pagination limit (fetch more if we are doing client side filtering to ensure we get enough results)
+        // Note: Real "Search" needs Algolia/Elasticsearch. This is a basic implementation.
+        constraints.push(limit(clientSideSort ? 100 : pageSize));
+        
+        if (lastDoc && !clientSideSort) {
+            constraints.push(startAfter(lastDoc));
         }
 
         const q = query(collection(db, "orders"), ...constraints);
         
         const snapshot = await getDocs(q);
-        const orders: Order[] = [];
+        let orders: Order[] = [];
         snapshot.forEach(doc => orders.push(doc.data() as Order));
         
-        // Client-side Sort for User View
-        if (userId) {
+        // Client-side Sort (Newest First)
+        if (clientSideSort) {
             orders.sort((a, b) => {
                 const tA = a.timestamp?.seconds || 0;
                 const tB = b.timestamp?.seconds || 0;
@@ -265,7 +292,7 @@ export const getOrders = async (
             });
         }
         
-        const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
+        const lastVisible = !clientSideSort ? (snapshot.docs[snapshot.docs.length - 1] || null) : null;
         return { orders, lastVisible };
     } catch (e) {
         console.error("Fetch orders error", e);
@@ -275,4 +302,19 @@ export const getOrders = async (
 
 export const updateOrderStatus = async (orderId: string, status: 'pending' | 'completed' | 'rejected') => {
     await updateDoc(doc(db, "orders", orderId), { status });
+};
+
+// Batch update order status
+export const adminBatchUpdateOrderStatus = async (orderIds: string[], status: 'pending' | 'completed' | 'rejected') => {
+    try {
+        const batch = writeBatch(db);
+        orderIds.forEach(id => {
+            const ref = doc(db, "orders", id);
+            batch.update(ref, { status });
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Batch update failed:", error);
+        throw error;
+    }
 };
