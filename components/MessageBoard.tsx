@@ -203,7 +203,7 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
                                                     <div className="w-full h-full flex items-center justify-center"><User size={12}/></div>
                                                 )}
                                             </div>
-                                            <span className="font-bold text-sm text-neutral-800 dark:text-white max-w-[200px] truncate">
+                                            <span className="font-bold text-sm text-neutral-800 dark:text-white whitespace-nowrap">
                                                 {msg.content}
                                             </span>
                                         </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout, Footprints } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -22,7 +22,8 @@ import { HoneyBurger } from './games/HoneyBurger';
 import { HoneySlots } from './games/HoneySlots';
 import { BeeKnight } from './games/BeeKnight';
 import { HoneyFishing } from './games/HoneyFishing';
-import { HoneyFarm } from './games/HoneyFarm'; // Import
+import { HoneyFarm } from './games/HoneyFarm';
+import { HoneyJump } from './games/HoneyJump'; // Import
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -47,6 +48,16 @@ interface GameData {
 }
 
 export const GAMES: GameData[] = [
+  {
+    id: 'honey_jump',
+    name: '蜜蜂狗跳一跳',
+    description: '像冒险猫一样刺激！蓄力跳跃，小心尖刺陷阱会把你弹飞！',
+    howToPlay: '按住屏幕蓄力，松开跳跃。落在尖刺上会被向后弹飞，连续失误弹飞更远！',
+    color: 'from-sky-500 to-blue-600',
+    icon: Footprints,
+    tags: ['动作', '挑战', '热门'],
+    isHoneyGame: false
+  },
   {
     id: 'honey_farm',
     name: '蜜蜂农场',
@@ -439,7 +450,8 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   // --- RENDER GAME COMPONENT ---
   const renderGame = () => {
     switch (selectedGame.id) {
-      case 'honey_farm': return <HoneyFarm userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />; // New Game
+      case 'honey_jump': return <HoneyJump userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_farm': return <HoneyFarm userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
       case 'honey_fishing': return <HoneyFishing userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
       case 'bee_knight': return <BeeKnight userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
