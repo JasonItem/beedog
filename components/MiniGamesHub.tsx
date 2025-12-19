@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout, Footprints } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
@@ -282,6 +282,7 @@ export const GAMES: GameData[] = [
 
 export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const fullscreenRef = useRef<HTMLDivElement>(null);
   
   // Layout State
   const [selectedGame, setSelectedGame] = useState<GameData>(GAMES[0]);
@@ -373,7 +374,28 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const handleGameStart = () => {
       audio.init();
       setIsPlaying(true);
+      
+      // Attempt True Fullscreen
+      if (fullscreenRef.current) {
+          fullscreenRef.current.requestFullscreen().catch(err => {
+              console.log("Fullscreen request denied or not supported:", err);
+              // Fallback is handled by CSS (fixed inset-0)
+          });
+      }
   };
+
+  // Monitor Fullscreen Changes
+  useEffect(() => {
+      const handleFsChange = () => {
+          if (!document.fullscreenElement) {
+              // Optional: You could auto-exit playing mode here, but keeping it active 
+              // in "windowed fullscreen" is also valid if user pressed Esc.
+              // For now, we rely on the X button to close.
+          }
+      };
+      document.addEventListener('fullscreenchange', handleFsChange);
+      return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
 
   const handleGameOver = async () => {
     if (selectedGame) {
@@ -480,36 +502,63 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   // --- FULLSCREEN PLAY MODE ---
   if (isPlaying) {
       return (
-        <div className="fixed inset-0 z-[100] bg-[#050505] flex flex-col items-center justify-center p-4 overflow-hidden animate-in fade-in zoom-in duration-300">
-             <div className="absolute top-6 right-6 z-[110] flex gap-3">
-                 <button 
-                    onClick={toggleMute}
-                    className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg"
-                 >
-                    {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                 </button>
-                 <button 
-                    onClick={() => { 
-                        setIsPlaying(false); 
-                        audio.init(); 
-                        handleGameOver(); // Trigger data refresh on exit
-                    }}
-                    className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white hover:bg-white/20 transition-all border border-white/10 shadow-lg group"
-                 >
-                    <Minimize2 size={24} className="group-hover:scale-90 transition-transform" />
-                 </button>
+        <div 
+            ref={fullscreenRef}
+            className="fixed inset-0 z-[200] bg-[#050505] flex flex-col animate-in fade-in zoom-in duration-300"
+        >
+             {/* 1. Navbar (Fixed at top) */}
+             <div className="w-full bg-[#121212] border-b border-white/10 px-4 py-3 shrink-0 flex items-center justify-between shadow-xl z-[210]">
+                 {/* Left: Game Info */}
+                 <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedGame.color} flex items-center justify-center text-white shadow-lg`}>
+                        <selectedGame.icon size={18} />
+                    </div>
+                    <div>
+                        <div className="font-black text-white text-sm leading-none">{selectedGame.name}</div>
+                        <div className="text-[10px] text-neutral-400 mt-0.5 font-bold">正在游玩</div>
+                    </div>
+                 </div>
+
+                 {/* Right: Controls */}
+                 <div className="flex gap-2">
+                     <button 
+                        onClick={toggleMute}
+                        className="w-9 h-9 rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition-all border border-white/10 flex items-center justify-center"
+                     >
+                        {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                     </button>
+                     <button 
+                        onClick={() => { 
+                            setIsPlaying(false); 
+                            audio.init(); 
+                            handleGameOver(); // Trigger data refresh on exit
+                        }}
+                        className="w-9 h-9 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 flex items-center justify-center"
+                     >
+                        <Minimize2 size={18} />
+                     </button>
+                 </div>
              </div>
              
+             {/* Notification Container */}
              {notification && (
-                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-top-4 pointer-events-none">
-                    <div className={`bg-yellow-500 text-black font-bold px-6 py-3 rounded-full shadow-xl border-2 border-white flex items-center gap-2 ${notification.type === 'error' ? 'bg-red-500 text-white' : ''}`}>
-                        <Star className="fill-current" size={20}/> {notification.msg}
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[220] w-max max-w-[90%] pointer-events-none flex justify-center">
+                    <div className={`px-5 py-2.5 rounded-full shadow-2xl border flex items-center gap-2 font-bold animate-in slide-in-from-top-4 ${
+                        notification.type === 'error' 
+                        ? 'bg-red-600 border-red-400 text-white' 
+                        : 'bg-green-600 border-green-400 text-white'
+                    }`}>
+                        {notification.type === 'error' ? <AlertCircle size={16}/> : <Star size={16} className="fill-current"/>}
+                        {notification.msg}
                     </div>
                 </div>
              )}
 
-             <div className="w-full h-full flex items-center justify-center">
-                {renderGame()}
+             {/* Game Scroll Area */}
+             <div className="flex-1 w-full overflow-y-auto custom-scrollbar relative bg-[#050505]">
+                 <div className="min-h-full flex flex-col items-center justify-center p-4 pb-20">
+                    {renderGame()}
+                 </div>
              </div>
         </div>
       );
