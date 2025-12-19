@@ -1,11 +1,11 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { UserProfile, deductCredit, updateFishingData } from '../../services/userService';
+import { UserProfile, deductCredit, updateFishingData, RodItem } from '../../services/userService';
 import { saveHighScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../Button';
-import { ArrowLeft, ShoppingBag, BookOpen, Lock, Loader2, DollarSign, X, Anchor, Book } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, BookOpen, Lock, Loader2, DollarSign, X, Anchor, Book, Battery, Zap } from 'lucide-react';
 
 interface HoneyFishingProps {
   userProfile: UserProfile | null;
@@ -21,10 +21,12 @@ interface HoneyFishingProps {
 const CHAR_SPRITE_URL = "https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/game%2F2%2FWilly..png?alt=media&token=4bf86376-e5f4-4177-b72e-6a1a9492e46e";
 
 // 鱼竿配置
+// Durability: # of catches before breaking
+// Luck: Reduces wait time & Increases rare fish chance
 const RODS = [
-    { id: 0, name: "竹竿 (Bamboo)", barSize: 80, price: 0, color: "#d4a373" },
-    { id: 1, name: "玻纤竿 (Fiberglass)", barSize: 110, price: 500, color: "#60a5fa" },
-    { id: 2, name: "铱金竿 (Iridium)", barSize: 150, price: 2000, color: "#a855f7" }
+    { id: 0, name: "竹竿 (Bamboo)", barSize: 45, price: 50, color: "#d4a373", durability: 50, luck: 0 }, 
+    { id: 1, name: "玻纤竿 (Fiberglass)", barSize: 60, price: 500, color: "#60a5fa", durability: 50, luck: 5 }, 
+    { id: 2, name: "铱金竿 (Iridium)", barSize: 80, price: 2000, color: "#a855f7", durability: 100, luck: 15 } 
 ];
 
 // 经验值公式: Level N -> N+1 需要的XP
@@ -40,8 +42,7 @@ const calculateTotalXp = (level: number, currentXp: number) => {
     return Math.floor(total + currentXp);
 };
 
-// 50种鱼类图鉴 (Based on Stardew Valley)
-// Difficulty: 0.5 (Easy) -> 5.0 (Legendary)
+// 50种鱼类图鉴
 const FISH_TYPES = [
     // Level 1-5 (Basic)
     { id: 0, name: "太阳鱼 (Sunfish)", price: 30, difficulty: 0.5, weight: 100, unlockLevel: 1, icon: "🐟", imageUrl: "https://stardewvalleywiki.com/mediawiki/images/5/56/Sunfish.png", moveType: 'mixed' },
@@ -104,7 +105,7 @@ const FISH_TYPES = [
     { id: 49, name: "传说之鱼 (Legend)", price: 5000, difficulty: 6.0, weight: 1, unlockLevel: 50, icon: "👑", imageUrl: "https://stardewvalleywiki.com/mediawiki/images/1/10/Legend.png", moveType: 'dart' },
 ];
 
-const BAIT_PRICE = 10; 
+const BAIT_PRICE = 2; // Price per single bait
 
 type FishingPhase = 'IDLE' | 'CHARGING' | 'CASTING' | 'WAITING' | 'BITE' | 'MINIGAME' | 'CAUGHT' | 'MISSED';
 
@@ -124,10 +125,15 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
   
   const [inventory, setInventory] = useState<{ id: string, typeId: number, name: string, price: number, rarity: number }[]>([]);
   const [unlockedFish, setUnlockedFish] = useState<number[]>([]);
-  const [rodLevel, setRodLevel] = useState(0);
+  const [rodLevel, setRodLevel] = useState(0); // Legacy: used for visual determination if activeRodId missing
   const [baitCount, setBaitCount] = useState(0);
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
+  
+  // New States for Features
+  const [ownedRods, setOwnedRods] = useState<RodItem[]>([]);
+  const [activeRodId, setActiveRodId] = useState<string>('starter');
+  const [buyBaitAmount, setBuyBaitAmount] = useState<number>(5);
   
   // Game Logic States
   const [chargePower, setChargePower] = useState(0); 
@@ -164,6 +170,11 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
           setLevel(userProfile.fishingData.level || 1);
           setXp(userProfile.fishingData.xp || 0);
           setUnlockedFish(userProfile.fishingData.unlockedFish || []);
+          
+          // Load new data structures
+          // Default start durability set to 50
+          setOwnedRods(userProfile.fishingData.rods || [{ id: 'starter', typeId: 0, durability: 50, maxDurability: 50 }]);
+          setActiveRodId(userProfile.fishingData.activeRodId || 'starter');
       }
       setCredits(userProfile?.credits || 0);
   }, [userProfile]);
@@ -204,22 +215,43 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
   // --- MINIGAME LOOP ---
   useEffect(() => {
       if (phase === 'MINIGAME') {
-          const rod = RODS[rodLevel];
+          // Get current rod stats
+          const currentRod = ownedRods.find(r => r.id === activeRodId) || ownedRods[0];
+          const rodType = RODS[currentRod.typeId];
           
           // Filter available fish based on user Level
           const availableFish = FISH_TYPES.filter(f => f.unlockLevel <= level);
           
-          const totalWeight = availableFish.reduce((acc, f) => acc + f.weight, 0);
+          // Luck influence on Rarity (Price)
+          // Higher luck = higher chance for expensive fish
+          const luck = rodType.luck;
+          
+          const totalWeight = availableFish.reduce((acc, f) => {
+              // Weight formula: Base weight + Luck Bonus for Expensive fish
+              let weight = f.weight;
+              if (f.price > 100) {
+                  weight += luck * 5; // Boost expensive fish weight by luck
+              }
+              return acc + weight;
+          }, 0);
+
           let rand = Math.random() * totalWeight;
           let selectedFish = availableFish[0] || FISH_TYPES[0];
           
           for (const fish of availableFish) {
-              rand -= fish.weight;
+              let weight = fish.weight;
+              if (fish.price > 100) weight += luck * 5;
+              
+              rand -= weight;
               if (rand <= 0) {
                   selectedFish = fish;
                   break;
               }
           }
+
+          // Difficulty scaling based on Price
+          // Cheap fish (30g) -> factor 0.15. Expensive (5000g) -> factor 25.
+          const priceFactor = selectedFish.price / 200; 
 
           gameRef.current = {
               ...gameRef.current,
@@ -231,8 +263,8 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
               barVelocity: 0,
               progress: 30, 
               currentFishId: selectedFish.id,
-              barSize: rod.barSize / 3, 
-              difficulty: selectedFish.difficulty,
+              barSize: rodType.barSize / 3, // Normalized bar size 
+              difficulty: 0.5 + priceFactor, // Base + Price Scaling
               moveType: selectedFish.moveType as any,
               isRunning: true,
               lastFrameTime: performance.now()
@@ -243,7 +275,7 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       return () => {
           cancelAnimationFrame(gameRef.current.animationId);
       };
-  }, [phase, level]); // Depend on level to update fish pool
+  }, [phase, level]); 
 
   const showNotif = (msg: string, type: 'success' | 'error' | 'info') => {
       setNotification({ msg, type });
@@ -252,34 +284,46 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
 
   const saveProgress = async (
       newInv?: any[], 
-      newRod?: number, 
+      newRod?: RodItem[], 
       newBait?: number, 
       newXp?: number, 
-      newLevel?: number,
-      newUnlockedFish?: number[]
+      newLevel?: number, 
+      newUnlockedFish?: number[],
+      newActiveRodId?: string
   ) => {
       if (!userProfile) return;
-      const data = {
+      const data: any = {
           inventory: newInv !== undefined ? newInv : inventory,
-          rodLevel: newRod !== undefined ? newRod : rodLevel,
+          rods: newRod !== undefined ? newRod : ownedRods,
           baitCount: newBait !== undefined ? newBait : baitCount,
           xp: newXp !== undefined ? newXp : xp,
           level: newLevel !== undefined ? newLevel : level,
-          unlockedFish: newUnlockedFish !== undefined ? newUnlockedFish : unlockedFish
+          unlockedFish: newUnlockedFish !== undefined ? newUnlockedFish : unlockedFish,
+          activeRodId: newActiveRodId !== undefined ? newActiveRodId : activeRodId
       };
       
+      // Legacy field update for visuals if needed (rodLevel)
+      // Find current active rod type
+      const activeRod = (data.rods || []).find((r: any) => r.id === data.activeRodId);
+      if (activeRod) data.rodLevel = activeRod.typeId;
+
       if (newInv) setInventory(newInv);
-      if (newRod !== undefined) setRodLevel(newRod);
+      if (newRod !== undefined) setOwnedRods(newRod);
       if (newBait !== undefined) setBaitCount(newBait);
       if (newXp !== undefined) setXp(newXp);
       if (newLevel !== undefined) setLevel(newLevel);
       if (newUnlockedFish !== undefined) setUnlockedFish(newUnlockedFish);
+      if (newActiveRodId !== undefined) setActiveRodId(newActiveRodId);
       
       await updateFishingData(userProfile.uid, data);
       await refreshProfile();
   };
 
   // --- INTERACTIONS ---
+
+  const startMiniGame = () => {
+      setPhase('MINIGAME');
+  };
 
   const handleActionDown = (e: React.MouseEvent | React.TouchEvent) => {
       e.preventDefault(); 
@@ -294,6 +338,14 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
 
       if (phase === 'IDLE') {
           if (baitCount <= 0) { showNotif("缺少鱼饵! 请去商店购买", 'error'); return; }
+          
+          // Check Rod Durability
+          const currentRod = ownedRods.find(r => r.id === activeRodId);
+          if (!currentRod || currentRod.durability <= 0) {
+              showNotif("鱼竿已损坏! 请去背包切换或商店购买", 'error');
+              return;
+          }
+
           setPhase('CHARGING');
       } else if (phase === 'WAITING') {
           cancelFishing("太早了!"); 
@@ -329,7 +381,17 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
   };
 
   const startWaiting = () => {
-      const waitTime = 1000 + Math.random() * 3000;
+      // Calculate Wait Time based on Luck
+      const currentRod = ownedRods.find(r => r.id === activeRodId) || ownedRods[0];
+      const rodType = RODS[currentRod.typeId];
+      const luck = rodType.luck;
+
+      // Base max wait is 60s. Luck reduces max wait by 2s per point. Min 5s.
+      const maxWait = Math.max(5000, 60000 - (luck * 2000)); 
+      const minWait = 2000;
+      
+      const waitTime = minWait + Math.random() * (maxWait - minWait);
+      
       waitTimerRef.current = setTimeout(() => {
           setPhase('BITE');
           audio.playScore(); 
@@ -353,12 +415,6 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
   };
 
   // --- MINIGAME LOGIC ---
-
-  const startMiniGame = () => {
-      if (waitTimerRef.current) clearTimeout(waitTimerRef.current);
-      if (biteTimerRef.current) clearTimeout(biteTimerRef.current);
-      setPhase('MINIGAME');
-  };
 
   const handleMiniGameCatch = () => {
       gameRef.current.isRunning = false;
@@ -397,8 +453,22 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
           showNotif(`+${xpGain} XP`, 'info');
       }
 
+      // Rod Durability Logic
+      const newRods = ownedRods.map(r => {
+          if (r.id === activeRodId) {
+              return { ...r, durability: Math.max(0, r.durability - 1) };
+          }
+          return r;
+      });
+      
+      // Check if rod broke
+      const currentRod = newRods.find(r => r.id === activeRodId);
+      if (currentRod && currentRod.durability === 0) {
+          showNotif("鱼竿损坏了!", 'error');
+      }
+
       // Save Data
-      saveProgress(newInv, undefined, undefined, nextXp, nextLevel, newUnlocked);
+      saveProgress(newInv, newRods, undefined, nextXp, nextLevel, newUnlocked);
       
       // Update Leaderboard with Total XP
       if (userProfile) {
@@ -430,35 +500,39 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       
       const game = gameRef.current;
       
-      // Fish AI
+      // Fish AI - Dynamic Difficulty
       if (game.fishMoveTimer <= 0) {
           if (game.moveType === 'floater') {
-              game.fishTarget = game.fishPos + (Math.random() - 0.5) * 40;
-              game.fishMoveTimer = 20;
+              game.fishTarget = game.fishPos + (Math.random() - 0.5) * 60; 
+              game.fishMoveTimer = Math.random() * 20 + 10;
           } else if (game.moveType === 'dart') {
-              game.fishTarget = Math.random() * 90 + 5;
-              game.fishMoveTimer = Math.random() * 30 + 10;
+              game.fishTarget = Math.random() * 100;
+              game.fishMoveTimer = Math.random() * 20 + 5; 
           } else {
-              game.fishTarget = Math.random() * 90 + 5; 
-              game.fishMoveTimer = Math.max(10, 60 - game.difficulty * 8);
+              game.fishTarget = Math.random() * 100; 
+              // Higher difficulty = Faster direction changes
+              game.fishMoveTimer = Math.max(5, 40 - game.difficulty * 8); 
           }
       } else {
           game.fishMoveTimer--;
       }
       
-      let speed = 0.5 + game.difficulty * 0.3;
+      // Speed scales with difficulty
+      let speed = 0.5 + game.difficulty * 0.2;
       if (game.moveType === 'dart') speed *= 1.5;
       
       if (game.fishPos < game.fishTarget) game.fishPos += speed;
       if (game.fishPos > game.fishTarget) game.fishPos -= speed;
-      game.fishPos += (Math.random() - 0.5) * (game.difficulty * 0.5);
+      
+      // Add jitter for hard fish
+      game.fishPos += (Math.random() - 0.5) * (game.difficulty * 0.8);
       game.fishPos = Math.max(0, Math.min(100, game.fishPos));
 
       // Bar Physics
       if (game.isMouseDown) {
-          game.barVelocity -= 0.5; 
+          game.barVelocity -= 0.6; 
       } else {
-          game.barVelocity += 0.4; 
+          game.barVelocity += 0.5; 
       }
       game.barVelocity *= 0.94; 
       game.barPos += game.barVelocity;
@@ -593,31 +667,25 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       }
   };
 
-  const buyItem = async (type: 'bait' | 'rod', id?: number) => {
+  const buyBait = async () => {
       if (isTransactionPending || !userProfile) return;
+      if (buyBaitAmount <= 0) return;
+      
+      const cost = buyBaitAmount * BAIT_PRICE;
+      if (credits < cost) {
+          showNotif("蜂蜜不足", 'error');
+          return;
+      }
+
       setIsTransactionPending(true);
       try {
-          let cost = 0;
-          if (type === 'bait') cost = BAIT_PRICE;
-          if (type === 'rod' && id !== undefined) cost = RODS[id].price;
-          
-          if (credits < cost) {
-              showNotif("蜂蜜不足", 'error');
-              return;
-          }
-          
           const success = await deductCredit(userProfile.uid, cost);
           if (success) {
               setCredits(prev => prev - cost);
-              if (type === 'bait') {
-                  const newBait = baitCount + 5;
-                  setBaitCount(newBait);
-                  await saveProgress(undefined, undefined, newBait);
-                  showNotif("购买成功 +5 鱼饵", 'success');
-              } else if (type === 'rod' && id !== undefined) {
-                  await saveProgress(undefined, id);
-                  showNotif(`购买成功: ${RODS[id].name}`, 'success');
-              }
+              const newBait = baitCount + buyBaitAmount;
+              setBaitCount(newBait);
+              await saveProgress(undefined, undefined, newBait);
+              showNotif(`购买成功 +${buyBaitAmount} 鱼饵`, 'success');
               refreshProfile();
               audio.playStep();
           } else {
@@ -627,6 +695,55 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
           showNotif("系统错误", 'error');
       } finally {
           setIsTransactionPending(false);
+      }
+  };
+
+  const buyRod = async (rodId: number) => {
+      if (isTransactionPending || !userProfile) return;
+      const rod = RODS[rodId];
+      if (credits < rod.price) {
+          showNotif("蜂蜜不足", 'error');
+          return;
+      }
+      
+      setIsTransactionPending(true);
+      try {
+          const success = await deductCredit(userProfile.uid, rod.price);
+          if (success) {
+              setCredits(prev => prev - rod.price);
+              
+              // Add new rod instance to inventory
+              const newRodItem = {
+                  id: Date.now().toString(),
+                  typeId: rod.id,
+                  durability: rod.durability,
+                  maxDurability: rod.durability
+              };
+              const newRods = [...ownedRods, newRodItem];
+              setOwnedRods(newRods);
+              
+              await saveProgress(undefined, newRods);
+              showNotif(`购买成功: ${rod.name}`, 'success');
+              refreshProfile();
+              audio.playStep();
+          } else {
+              showNotif("交易失败", 'error');
+          }
+      } catch (e) {
+          showNotif("系统错误", 'error');
+      } finally {
+          setIsTransactionPending(false);
+      }
+  };
+
+  const equipRod = async (rodItemId: string) => {
+      setActiveRodId(rodItemId);
+      // Find type to set rodLevel for visuals
+      const rod = ownedRods.find(r => r.id === rodItemId);
+      if (rod) {
+          setRodLevel(rod.typeId);
+          await saveProgress(undefined, undefined, undefined, undefined, undefined, undefined, rodItemId);
+          showNotif("装备成功", 'success');
       }
   };
 
@@ -660,6 +777,11 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       spriteY = 0; // Front
       spriteX = 0;
   }
+
+  // Visual rod color
+  const activeRodItem = ownedRods.find(r => r.id === activeRodId);
+  const activeRodType = activeRodItem ? RODS[activeRodItem.typeId] : RODS[0];
+  const activeRodColor = activeRodType.color;
 
   let rodRotation = -20; 
   if (phase === 'CHARGING') rodRotation = -45 - (chargePower/100) * 30; 
@@ -710,17 +832,17 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                      }}>
                 </div>
 
-                {/* Character & Rod */}
+                {/* Character & Rod Container */}
                 <div className="absolute bottom-[128px] left-[35%] -translate-x-1/2 flex flex-col items-center z-20 pointer-events-none scale-[3] origin-bottom">
                     <div className="relative w-[16px] h-[32px]">
                         
                         {/* Rod - HIDDEN when IDLE or CAUGHT */}
                         {phase !== 'IDLE' && phase !== 'CAUGHT' && (
                             <div 
-                                className="absolute top-[18px] left-[4px] w-[45px] h-[1px] bg-[#a855f7] origin-left transition-transform duration-200"
+                                className="absolute top-[18px] left-[4px] w-[45px] h-[1px] origin-left transition-transform duration-200"
                                 style={{ 
                                     transform: `rotate(${rodRotation}deg)`,
-                                    backgroundColor: RODS[rodLevel].color
+                                    backgroundColor: activeRodColor
                                 }}
                             >
                                 {/* Charging Line (Gravity) */}
@@ -737,29 +859,10 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                                         <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 border-b border-l border-gray-400 rounded-bl-full transform -rotate-45"></div>
                                     </div>
                                 )}
-
-                                {/* Casting Line (Curve) */}
-                                {(phase === 'CASTING' || phase === 'WAITING' || phase === 'BITE' || phase === 'MINIGAME') && (
-                                    <svg 
-                                        className="absolute top-0 left-[45px] w-[100px] h-[100px] overflow-visible pointer-events-none" 
-                                        style={{
-                                            transform: `rotate(${-rodRotation}deg)`,
-                                            transformOrigin: '0 0' 
-                                        }}
-                                    >
-                                        <path 
-                                            d={`M 0,0 Q 5,20 ${bobberDist/3},${bobberDist}`} 
-                                            fill="none" 
-                                            stroke="rgba(255,255,255,0.8)" 
-                                            strokeWidth="0.5"
-                                        />
-                                        <circle cx={bobberDist/3} cy={bobberDist} r="2" fill="red" stroke="white" strokeWidth="0.5" />
-                                    </svg>
-                                )}
                             </div>
                         )}
 
-                        {/* Character */}
+                        {/* Character Sprite */}
                         <div 
                             style={{
                                 width: '16px',
@@ -770,8 +873,44 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                                 transform: phase === 'CHARGING' ? `translateX(${Math.sin(Date.now()/50)}px)` : 'none'
                             }}
                         />
+
+                        {/* --- FISHING LINE SVG (Inside Scaled Container) --- */}
+                        {/* Drawn only when rod is active but not charging (charging uses div) */}
+                        {(phase === 'CASTING' || phase === 'WAITING' || phase === 'BITE' || phase === 'MINIGAME') && (
+                            <svg 
+                                className="absolute top-0 left-0 overflow-visible pointer-events-none"
+                                width="100" height="100"
+                            >
+                                {/* Rod Tip Calc */}
+                                {(() => {
+                                    const rodPivotX = 4;
+                                    const rodPivotY = 18;
+                                    const rodLength = 45;
+                                    const rodAngleRad = (rodRotation * Math.PI) / 180;
+                                    const tipX = rodPivotX + rodLength * Math.cos(rodAngleRad);
+                                    const tipY = rodPivotY + rodLength * Math.sin(rodAngleRad);
+                                    const bobberX = tipX + (bobberDist * 0.1); 
+                                    const bobberY = tipY + bobberDist;
+                                    const slack = (phase === 'WAITING') ? 20 : 5;
+                                    const cpX = (tipX + bobberX) / 2;
+                                    const cpY = (tipY + bobberY) / 2 + slack;
+                                    
+                                    return (
+                                        <>
+                                            <path 
+                                                d={`M ${tipX},${tipY} Q ${cpX},${cpY} ${bobberX},${bobberY}`} 
+                                                fill="none" 
+                                                stroke="rgba(255,255,255,0.8)" 
+                                                strokeWidth="0.5"
+                                            />
+                                            <circle cx={bobberX} cy={bobberY} r="1.5" fill="red" stroke="white" strokeWidth="0.5" />
+                                        </>
+                                    );
+                                })()}
+                            </svg>
+                        )}
                         
-                        {/* Caught Fish Display - Suspended above head */}
+                        {/* Caught Fish Display */}
                         {phase === 'CAUGHT' && (
                             <div className="absolute -top-[35px] left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-2 zoom-in duration-300 flex flex-col items-center z-50">
                                 <div className="bg-white/90 p-1 rounded-full shadow-md backdrop-blur-sm border border-white">
@@ -824,6 +963,22 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                             <span className="text-lg">🪱</span> 
                             <span className="font-mono font-bold text-sm text-red-400">{baitCount}</span>
                         </div>
+                        
+                        {/* Active Rod Durability Display */}
+                        {activeRodItem && (
+                            <div className="bg-black/40 backdrop-blur-md text-white px-4 py-1.5 rounded-xl border border-white/20 flex items-center gap-3 shadow-lg mt-1">
+                                <span className="text-lg"><Battery size={16} className={activeRodItem.durability < 5 ? "text-red-500" : "text-green-400"}/></span>
+                                <div className="flex flex-col w-full">
+                                    <span className="text-[8px] uppercase font-bold text-neutral-400">{activeRodType.name}</span>
+                                    <div className="w-16 h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full ${activeRodItem.durability < 10 ? 'bg-red-500' : 'bg-green-400'}`} 
+                                            style={{ width: `${(activeRodItem.durability / (activeRodItem.maxDurability || activeRodType.durability)) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     
                     <div className="flex gap-2 pointer-events-auto">
@@ -846,9 +1001,9 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                     {phase === 'BITE' && <span className="text-yellow-300 font-black text-xl drop-shadow-md animate-bounce">点击!</span>}
                 </div>
                 
-                {/* 8. Minigame UI (Pointer events NONE so clicks pass through to global handler) */}
+                {/* 8. Minigame UI */}
                 {phase === 'MINIGAME' && (
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-40 bg-[#3e2723] border-4 border-[#5d4037] rounded-lg shadow-2xl p-1 flex items-center animate-in slide-in-from-left-10 duration-200 pointer-events-none">
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-40 bg-[#3e2723] border-4 border-[#5d4037] rounded-lg shadow-2xl p-1 flex items-center animate-in slide-in-from-left-10 duration-200 pointer-events-none">
                         <canvas 
                             ref={canvasRef} 
                             width={70} 
@@ -910,50 +1065,96 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
             </div>
         )}
 
-        {/* --- INVENTORY VIEW --- */}
+        {/* --- INVENTORY VIEW (Equipment & Bag) --- */}
         {view === 'INVENTORY' && (
             <div className="w-full h-[500px] bg-[#fffbeb] flex flex-col">
                 <div className="p-4 bg-amber-500 text-white font-bold flex items-center gap-3 shadow-md">
                     <button onClick={() => setView('SCENE')}><ArrowLeft/></button>
-                    <span>渔获背包 ({inventory.length})</span>
+                    <span>背包</span>
                     <button 
                         onClick={sellAllFish} 
                         disabled={isTransactionPending || inventory.length === 0}
                         className="ml-auto text-xs bg-white text-amber-600 px-3 py-1 rounded-full font-bold shadow-sm active:scale-95 disabled:opacity-50"
                     >
-                        {isTransactionPending ? <Loader2 className="animate-spin" size={14}/> : "全部卖出"}
+                        {isTransactionPending ? <Loader2 className="animate-spin" size={14}/> : "卖出所有鱼"}
                     </button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 gap-3 content-start">
-                    {inventory.length === 0 && (
-                        <div className="col-span-3 text-center text-neutral-400 mt-10">空空如也...</div>
-                    )}
-                    {inventory.map((fish, idx) => {
-                        const fishType = FISH_TYPES.find(f => f.id === fish.typeId);
-                        return (
-                            <div key={idx} className="bg-white p-2 rounded-xl border border-amber-200 shadow-sm flex flex-col items-center gap-1 relative group">
-                                <div className="text-3xl w-10 h-10 flex items-center justify-center">
-                                    {fishType?.imageUrl ? (
-                                        <img src={fishType.imageUrl} alt={fish.name} className="w-full h-full object-contain pixelated" onError={(e) => { e.currentTarget.style.display='none'; }}/>
-                                    ) : null}
-                                    <span className={fishType?.imageUrl ? "hidden" : "block"}>{fishType?.icon || '🐟'}</span>
-                                </div>
-                                <div className="font-bold text-xs text-amber-900 truncate w-full text-center">{fish.name}</div>
-                                <div className="text-[10px] bg-green-100 text-green-700 px-2 rounded-full font-mono">
-                                    +{fish.price}
-                                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    {/* Equipment Section */}
+                    <div>
+                        <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2"><Anchor size={18}/> 装备 (鱼竿)</h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {ownedRods.map((rodItem) => {
+                                const rodType = RODS[rodItem.typeId];
+                                const isActive = rodItem.id === activeRodId;
+                                const isBroken = rodItem.durability <= 0;
+                                const maxDurability = rodItem.maxDurability || rodType.durability;
                                 
-                                <button 
-                                    onClick={() => sellFish(idx)}
-                                    disabled={isTransactionPending}
-                                    className="absolute inset-0 bg-black/60 rounded-xl hidden group-hover:flex items-center justify-center text-white font-bold text-xs disabled:cursor-not-allowed"
-                                >
-                                    {isTransactionPending ? <Loader2 className="animate-spin"/> : <><DollarSign size={16}/> 卖出</>}
-                                </button>
-                            </div>
-                        );
-                    })}
+                                return (
+                                    <div key={rodItem.id} className={`p-3 rounded-xl border-2 flex items-center justify-between ${isActive ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-300' : 'bg-white border-neutral-200'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-2xl">
+                                                🎣
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-sm text-neutral-800">{rodType.name}</div>
+                                                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                                                    <span className={isBroken ? "text-red-500 font-bold" : ""}>耐久: {rodItem.durability}/{maxDurability}</span>
+                                                    <span className="text-purple-500 font-bold">幸运: +{rodType.luck}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            size="sm" 
+                                            disabled={isActive || isBroken || isTransactionPending} 
+                                            variant={isActive ? 'primary' : 'outline'}
+                                            onClick={() => equipRod(rodItem.id)}
+                                            // Force explicit colors to handle the fixed light background even if parent app is in dark mode
+                                            className={`text-xs px-3 py-1 h-8 ${!isActive && !isBroken ? 'bg-white border-neutral-300 text-neutral-600 hover:bg-neutral-100 hover:text-black hover:border-neutral-400' : ''}`}
+                                        >
+                                            {isActive ? "使用中" : isBroken ? "已损坏" : "装备"}
+                                        </Button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    
+                    {/* Fish Inventory */}
+                    <div>
+                        <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2"><BookOpen size={18}/> 渔获</h3>
+                        <div className="grid grid-cols-3 gap-3">
+                            {inventory.length === 0 && (
+                                <div className="col-span-3 text-center text-neutral-400 py-4 text-sm">背包空空如也...</div>
+                            )}
+                            {inventory.map((fish, idx) => {
+                                const fishType = FISH_TYPES.find(f => f.id === fish.typeId);
+                                return (
+                                    <div key={idx} className="bg-white p-2 rounded-xl border border-amber-200 shadow-sm flex flex-col items-center gap-1 relative group">
+                                        <div className="text-3xl w-10 h-10 flex items-center justify-center">
+                                            {fishType?.imageUrl ? (
+                                                <img src={fishType.imageUrl} alt={fish.name} className="w-full h-full object-contain pixelated" onError={(e) => { e.currentTarget.style.display='none'; }}/>
+                                            ) : null}
+                                            <span className={fishType?.imageUrl ? "hidden" : "block"}>{fishType?.icon || '🐟'}</span>
+                                        </div>
+                                        <div className="font-bold text-xs text-amber-900 truncate w-full text-center">{fish.name}</div>
+                                        <div className="text-[10px] bg-green-100 text-green-700 px-2 rounded-full font-mono">
+                                            +{fish.price}
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={() => sellFish(idx)}
+                                            disabled={isTransactionPending}
+                                            className="absolute inset-0 bg-black/60 rounded-xl hidden group-hover:flex items-center justify-center text-white font-bold text-xs disabled:cursor-not-allowed"
+                                        >
+                                            {isTransactionPending ? <Loader2 className="animate-spin"/> : <><DollarSign size={16}/> 卖出</>}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             </div>
         )}
@@ -970,44 +1171,50 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                 </div>
 
                 <div className="flex-1 p-4 space-y-6 overflow-y-auto">
+                    {/* Custom Bait Purchase */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-100">
                         <div className="flex justify-between items-center mb-2">
-                            <h3 className="font-bold text-slate-700 flex items-center gap-2"><span className="text-2xl">🪱</span> 普通鱼饵 (x5)</h3>
-                            <span className="text-orange-500 font-bold font-mono">{BAIT_PRICE} 🍯</span>
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2"><span className="text-2xl">🪱</span> 购买鱼饵</h3>
                         </div>
-                        <p className="text-xs text-slate-400 mb-3">没有鱼饵是钓不到鱼的。消耗品。</p>
-                        <Button size="sm" onClick={() => buyItem('bait')} className="w-full" disabled={isTransactionPending}>
-                            {isTransactionPending ? <Loader2 className="animate-spin mx-auto"/> : "购买"}
-                        </Button>
+                        <p className="text-xs text-slate-400 mb-3">没有鱼饵是钓不到鱼的。单价: {BAIT_PRICE} 🍯</p>
+                        
+                        <div className="flex gap-2 items-center">
+                            <input 
+                                type="number" 
+                                min="1" 
+                                max="100" 
+                                value={buyBaitAmount}
+                                onChange={(e) => setBuyBaitAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-20 p-2 border rounded-xl text-center font-bold bg-slate-50 text-black"
+                            />
+                            <Button size="sm" onClick={buyBait} className="flex-1" disabled={isTransactionPending}>
+                                {isTransactionPending ? <Loader2 className="animate-spin mx-auto"/> : `购买 (${buyBaitAmount * BAIT_PRICE} 🍯)`}
+                            </Button>
+                        </div>
                     </div>
 
-                    <h3 className="font-bold text-slate-500 text-sm uppercase tracking-wider ml-1">升级装备</h3>
+                    {/* Rod Shop */}
+                    <h3 className="font-bold text-slate-500 text-sm uppercase tracking-wider ml-1">购买新装备</h3>
                     {RODS.map((rod, idx) => (
-                        <div key={rod.id} className={`bg-white p-4 rounded-2xl shadow-sm border ${rodLevel === idx ? 'border-green-500 ring-1 ring-green-500' : 'border-blue-100'} relative overflow-hidden`}>
-                            {rodLevel === idx && (
-                                <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">已装备</div>
-                            )}
+                        <div key={rod.id} className={`bg-white p-4 rounded-2xl shadow-sm border border-blue-100 relative overflow-hidden`}>
                             <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-slate-700">{rod.name}</h3>
-                                {rodLevel < idx && <span className="text-orange-500 font-bold font-mono">{rod.price} 🍯</span>}
+                                <span className="text-orange-500 font-bold font-mono">{rod.price} 🍯</span>
                             </div>
                             
-                            <div className="w-full h-2 bg-slate-100 rounded-full mb-3 overflow-hidden">
-                                <div className="h-full bg-blue-400" style={{width: `${(rod.barSize / 150) * 100}%`}}></div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full mb-2 overflow-hidden">
+                                <div className="h-full bg-blue-400" style={{width: `${(rod.barSize / 100) * 100}%`}}></div>
                             </div>
                             
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs text-slate-400">绿条宽度: {rod.barSize}px</span>
-                                {rodLevel < idx ? (
-                                    <Button size="sm" onClick={() => buyItem('rod', idx)} disabled={rodLevel !== idx - 1 || isTransactionPending}>
-                                        {rodLevel < idx - 1 ? "??? (先解锁上一级)" : isTransactionPending ? <Loader2 className="animate-spin"/> : "升级"}
-                                    </Button>
-                                ) : rodLevel === idx ? (
-                                    <span className="text-green-500 text-xs font-bold">当前使用</span>
-                                ) : (
-                                    <Button size="sm" variant="outline" onClick={() => { setRodLevel(idx); saveProgress(undefined, idx); }}>装备</Button>
-                                )}
+                            <div className="flex flex-col gap-1 mb-3">
+                                <span className="text-xs text-slate-400 flex justify-between"><span>绿条宽度:</span> <span>{rod.barSize}px</span></span>
+                                <span className="text-xs text-slate-400 flex justify-between"><span>耐久度:</span> <span>{rod.durability}次</span></span>
+                                <span className="text-xs text-slate-400 flex justify-between"><span>幸运值:</span> <span className="text-purple-500">+{rod.luck}</span></span>
                             </div>
+                            
+                            <Button size="sm" onClick={() => buyRod(rod.id)} disabled={isTransactionPending} className="w-full">
+                                {isTransactionPending ? <Loader2 className="animate-spin"/> : "购买"}
+                            </Button>
                         </div>
                     ))}
                 </div>

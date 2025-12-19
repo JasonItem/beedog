@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { saveScore, getUserHighScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
-import { TrendingUp, TrendingDown, Activity, Wallet, Lock, Skull } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Wallet, Lock, Skull, AlertCircle, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface MoonOrDoomProps {
@@ -31,8 +31,6 @@ interface Position {
   timestamp: number;
 }
 
-type MarketState = 'RANGING' | 'BULL_SLOW' | 'BEAR_SLOW' | 'PUMP' | 'DUMP' | 'CHOP';
-
 export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver }) => {
   const { refreshProfile } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,7 +41,12 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const [leverage, setLeverage] = useState<number>(10);
   const [activePositions, setActivePositions] = useState<Position[]>([]);
   const [cumulativePnL, setCumulativePnL] = useState(0); 
-  const [currentPrice, setCurrentPrice] = useState(1000);
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  // Interaction Locks
+  const [isTransactionPending, setIsTransactionPending] = useState(false); // For Open Position
+  const [closingIds, setClosingIds] = useState<Set<number>>(new Set()); // For Close Position (per ID)
   
   // Notification State
   const [notification, setNotification] = useState<{msg: string, type: 'win' | 'loss' | 'info' | 'liq'} | null>(null);
@@ -51,32 +54,26 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   // Constants
   const CANVAS_WIDTH = 340;
   const CANVAS_HEIGHT = 280;
-  const MAX_LEVERAGE = 150;
+  const MAX_LEVERAGE = 125;
   const CANDLE_WIDTH = 5;
   const CANDLE_SPACING = 3;
   const MAX_CANDLES = Math.floor(CANVAS_WIDTH / (CANDLE_WIDTH + CANDLE_SPACING));
+  // REMOVED SPREAD FEE
+  const SYMBOL = 'BNBUSDT';
   
   // --- Game Loop Refs ---
   const gameRef = useRef({
     candles: [] as Candle[],
     currentCandle: null as Candle | null,
     
-    // Market Physics
-    price: 1000,
-    marketState: 'RANGING' as MarketState,
-    stateDuration: 0,
-    rangeCenter: 1000, 
-    momentum: 0,
-    volatility: 0.3,
+    price: 0,
     
     // Timers
-    lastTickTime: 0,
-    candleStartTime: 0,
     animationId: 0,
     
     positions: [] as Position[], 
     currentCumulativePnL: 0,
-    isProcessing: false
+    ws: null as WebSocket | null
   });
 
   useEffect(() => {
@@ -92,51 +89,108 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
     }
   }, [userProfile?.uid]);
 
-  // Init Chart
+  // Init Real Data
   useEffect(() => {
-    initializeMarket();
+    initRealMarket();
     startLoop();
 
     return () => {
       if (gameRef.current.animationId) cancelAnimationFrame(gameRef.current.animationId);
+      if (gameRef.current.ws) gameRef.current.ws.close();
     };
   }, []);
 
-  const initializeMarket = () => {
-      const now = Date.now();
-      let price = 1000;
-      const history: Candle[] = [];
-      
-      // Seed initial history
-      for (let i = 0; i < 40; i++) {
-          const open = price;
-          // Slight random walk
-          const change = (Math.random() - 0.5) * 5;
-          const close = open + change;
-          const high = Math.max(open, close) + Math.random() * 2;
-          const low = Math.min(open, close) - Math.random() * 2;
+  const initRealMarket = async () => {
+      try {
+          // 1. Fetch History via REST (to fill the chart immediately)
+          const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=1s&limit=${MAX_CANDLES}`);
+          const data = await response.json();
           
-          history.push({
-              time: now - (40 - i) * 1000,
-              open, high, low, close
-          });
-          price = close;
+          const history: Candle[] = data.map((k: any) => ({
+              time: k[0],
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4])
+          }));
+
+          // Take the last one as current active candle
+          const lastCandle = history.pop();
+          
+          gameRef.current.candles = history;
+          if (lastCandle) {
+            gameRef.current.currentCandle = lastCandle;
+            gameRef.current.price = lastCandle.close;
+            setCurrentPrice(lastCandle.close);
+          }
+
+          // 2. Connect WebSocket for Live Updates
+          connectWebSocket();
+
+      } catch (e) {
+          console.error("Failed to fetch market data", e);
+          showNotif("无法连接真实市场数据", 'loss');
       }
+  };
+
+  const connectWebSocket = () => {
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${SYMBOL.toLowerCase()}@kline_1s`);
       
-      gameRef.current.candles = history;
-      gameRef.current.price = price;
-      gameRef.current.rangeCenter = price;
-      gameRef.current.marketState = 'RANGING';
-      gameRef.current.stateDuration = 200;
-      
-      gameRef.current.currentCandle = {
-          time: now,
-          open: price,
-          high: price,
-          low: price,
-          close: price
+      ws.onopen = () => {
+          setIsConnected(true);
       };
-      gameRef.current.candleStartTime = now;
+
+      ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          const k = msg.k; // Kline object
+          
+          const candle: Candle = {
+              time: k.t,
+              open: parseFloat(k.o),
+              high: parseFloat(k.h),
+              low: parseFloat(k.l),
+              close: parseFloat(k.c)
+          };
+
+          gameRef.current.price = candle.close;
+          setCurrentPrice(candle.close);
+          gameRef.current.currentCandle = candle;
+
+          // If candle closed, push to history
+          if (k.x) {
+              gameRef.current.candles.push(candle);
+              if (gameRef.current.candles.length > MAX_CANDLES) {
+                  gameRef.current.candles.shift();
+              }
+          }
+
+          // Check Liquidations immediately on price update
+          checkLiquidations(candle.close);
+      };
+
+      ws.onclose = () => {
+          setIsConnected(false);
+          // Simple reconnect logic could go here
+      };
+
+      gameRef.current.ws = ws;
+  };
+
+  const checkLiquidations = (newPrice: number) => {
+      // Only liquidate active positions
+      for (let i = gameRef.current.positions.length - 1; i >= 0; i--) {
+          const pos = gameRef.current.positions[i];
+          
+          // Liquidation Logic
+          // Long: Price drops below Liq
+          if (pos.type === 'LONG' && newPrice <= pos.liquidationPrice) {
+              liquidatePosition(pos, i);
+          } 
+          // Short: Price rises above Liq
+          else if (pos.type === 'SHORT' && newPrice >= pos.liquidationPrice) {
+              liquidatePosition(pos, i);
+          }
+      }
   };
 
   const startLoop = () => {
@@ -160,7 +214,11 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
   const openPosition = async (type: 'LONG' | 'SHORT') => {
       if (!userProfile) return;
-      if (gameRef.current.isProcessing) return;
+      if (isTransactionPending) return; // Lock check
+      if (!isConnected) {
+          showNotif("正在连接交易所...", 'info');
+          return;
+      }
       
       const margin = parseInt(marginInput);
       
@@ -173,245 +231,147 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
           return;
       }
 
-      gameRef.current.isProcessing = true;
+      setIsTransactionPending(true);
 
-      // 1. Deduct Margin
-      const success = await deductCredit(userProfile.uid, margin);
-      if (!success) {
-          showNotif("交易失败", 'loss');
-          gameRef.current.isProcessing = false;
-          return;
+      try {
+        // 1. Deduct Margin
+        const success = await deductCredit(userProfile.uid, margin);
+        if (!success) {
+            showNotif("交易失败", 'loss');
+            return;
+        }
+        
+        setCredits(prev => prev - margin);
+        refreshProfile();
+
+        // 2. Create Position - NO SPREAD (Zero Fee)
+        const currentMarketPrice = gameRef.current.price;
+        const entryPrice = currentMarketPrice;
+
+        const size = margin * leverage;
+        
+        // Calculate Liquidation Price (Simulated Isolation Margin)
+        // Liquidation happens when margin is exhausted (~80% loss usually in real crypto, let's say 90% here)
+        // Long Liq: Entry * (1 - 1/Lev)
+        let liquidationPrice = 0;
+        if (type === 'LONG') {
+            liquidationPrice = entryPrice * (1 - (1/leverage) * 0.9);
+        } else {
+            liquidationPrice = entryPrice * (1 + (1/leverage) * 0.9);
+        }
+
+        const newPos: Position = {
+            id: Date.now(),
+            type,
+            entryPrice,
+            margin,
+            leverage,
+            size,
+            liquidationPrice,
+            timestamp: Date.now()
+        };
+
+        gameRef.current.positions.unshift(newPos);
+        setActivePositions([...gameRef.current.positions]);
+        
+        audio.playShoot();
+        showNotif(`${leverage}x 开仓! (价格 ${entryPrice.toFixed(2)})`, 'info');
+        
+      } catch (e) {
+          console.error(e);
+          showNotif("系统错误", 'loss');
+      } finally {
+          setIsTransactionPending(false);
       }
-      
-      setCredits(prev => prev - margin);
-      refreshProfile();
-
-      // 2. Create Position
-      const entryPrice = gameRef.current.price;
-      const size = margin * leverage;
-      
-      // Calculate Liquidation Price
-      let liquidationPrice = 0;
-      if (type === 'LONG') {
-          liquidationPrice = entryPrice * (1 - 1/leverage);
-      } else {
-          liquidationPrice = entryPrice * (1 + 1/leverage);
-      }
-
-      const newPos: Position = {
-          id: Date.now(),
-          type,
-          entryPrice,
-          margin,
-          leverage,
-          size,
-          liquidationPrice,
-          timestamp: Date.now()
-      };
-
-      gameRef.current.positions.unshift(newPos);
-      setActivePositions([...gameRef.current.positions]);
-      
-      audio.playShoot();
-      showNotif(`${leverage}x 开仓成功!`, 'info');
-      
-      gameRef.current.isProcessing = false;
   };
 
   const closePosition = async (id: number) => {
       if (!userProfile) return;
-      const posIndex = gameRef.current.positions.findIndex(p => p.id === id);
-      if (posIndex === -1) return;
+      if (closingIds.has(id)) return; // Prevent double clicking on same position
 
-      const pos = gameRef.current.positions[posIndex];
-      const closePrice = gameRef.current.price;
-      
-      // Calculate PnL
-      let pnlPercent = 0;
-      if (pos.type === 'LONG') {
-          pnlPercent = (closePrice - pos.entryPrice) / pos.entryPrice;
-      } else {
-          pnlPercent = (pos.entryPrice - closePrice) / pos.entryPrice;
-      }
-      
-      const pnlAmount = Math.floor(pos.size * pnlPercent);
-      const returnAmount = pos.margin + pnlAmount;
+      // Mark as closing
+      setClosingIds(prev => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+      });
 
-      if (returnAmount > 0) {
-          await deductCredit(userProfile.uid, -returnAmount); 
-      }
-      
       try {
-          gameRef.current.currentCumulativePnL += pnlAmount;
-          await saveScore(userProfile, 'moon_doom', Math.floor(gameRef.current.currentCumulativePnL));
-          setCumulativePnL(Math.floor(gameRef.current.currentCumulativePnL));
-      } catch (e) { console.error(e); }
+          const posIndex = gameRef.current.positions.findIndex(p => p.id === id);
+          if (posIndex === -1) return;
 
-      setCredits(prev => Math.max(0, prev + returnAmount));
-      refreshProfile();
-      
-      if (pnlAmount > 0) {
-          audio.playScore();
-          showNotif(`止盈! +${pnlAmount} 蜂蜜`, 'win');
-      } else {
-          audio.playStep();
-          showNotif(`止损! ${pnlAmount} 蜂蜜`, 'loss');
+          const pos = gameRef.current.positions[posIndex];
+          // Close price = Market Price (No Spread)
+          const closePrice = gameRef.current.price;
+          
+          // Calculate PnL
+          let pnlPercent = 0;
+          if (pos.type === 'LONG') {
+              pnlPercent = (closePrice - pos.entryPrice) / pos.entryPrice;
+          } else {
+              pnlPercent = (pos.entryPrice - closePrice) / pos.entryPrice;
+          }
+          
+          const pnlAmount = Math.floor(pos.size * pnlPercent);
+          const returnAmount = pos.margin + pnlAmount;
+
+          if (returnAmount > 0) {
+              // Add money back (negative deduction)
+              await deductCredit(userProfile.uid, -returnAmount); 
+          }
+          
+          try {
+              gameRef.current.currentCumulativePnL += pnlAmount;
+              await saveScore(userProfile, 'moon_doom', Math.floor(gameRef.current.currentCumulativePnL));
+              setCumulativePnL(Math.floor(gameRef.current.currentCumulativePnL));
+          } catch (e) { console.error(e); }
+
+          setCredits(prev => Math.max(0, prev + returnAmount));
+          refreshProfile();
+          
+          if (pnlAmount > 0) {
+              audio.playScore();
+              showNotif(`止盈! +${pnlAmount} 蜂蜜`, 'win');
+          } else {
+              audio.playStep();
+              showNotif(`止损! ${pnlAmount} 蜂蜜`, 'loss');
+          }
+
+          gameRef.current.positions.splice(posIndex, 1);
+          setActivePositions([...gameRef.current.positions]);
+          
+          onGameOver();
+      } catch (error) {
+          console.error("Close position error", error);
+      } finally {
+          // Unmark
+          setClosingIds(prev => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+          });
       }
-
-      gameRef.current.positions.splice(posIndex, 1);
-      setActivePositions([...gameRef.current.positions]);
-      
-      onGameOver();
   };
 
   const liquidatePosition = async (pos: Position, index: number) => {
-      gameRef.current.positions.splice(index, 1);
-      setActivePositions([...gameRef.current.positions]);
-      
-      audio.playGameOver();
-      showNotif(`爆仓! -${pos.margin} 蜂蜜`, 'liq');
-      
-      if (userProfile) {
-          gameRef.current.currentCumulativePnL -= pos.margin;
-          saveScore(userProfile, 'moon_doom', Math.floor(gameRef.current.currentCumulativePnL));
-          setCumulativePnL(Math.floor(gameRef.current.currentCumulativePnL));
-          onGameOver();
+      // Immediate removal to prevent double liquidation visual
+      if (index > -1 && gameRef.current.positions[index]?.id === pos.id) {
+          gameRef.current.positions.splice(index, 1);
+          setActivePositions([...gameRef.current.positions]);
+          
+          audio.playGameOver();
+          showNotif(`爆仓! -${pos.margin} 蜂蜜`, 'liq');
+          
+          if (userProfile) {
+              gameRef.current.currentCumulativePnL -= pos.margin;
+              saveScore(userProfile, 'moon_doom', Math.floor(gameRef.current.currentCumulativePnL));
+              setCumulativePnL(Math.floor(gameRef.current.currentCumulativePnL));
+              onGameOver();
+          }
       }
   };
 
-  // --- MARKET SIMULATION ENGINE ---
-
-  const updateMarket = () => {
-      const game = gameRef.current;
-      const now = Date.now();
-
-      // --- 1. State Machine & Transitions ---
-      if (game.stateDuration <= 0) {
-          const rand = Math.random();
-          
-          // State transition probabilities
-          // RANGING (40%), CHOP (15%), BULL_SLOW (15%), BEAR_SLOW (15%), PUMP (7.5%), DUMP (7.5%)
-          if (rand < 0.4) {
-              game.marketState = 'RANGING';
-              game.stateDuration = 100 + Math.random() * 200; // 3-10s
-              game.rangeCenter = game.price; 
-              game.volatility = 0.2; 
-          } else if (rand < 0.55) {
-              game.marketState = 'CHOP'; // High volatility, no direction
-              game.stateDuration = 60 + Math.random() * 60; // 2-4s
-              game.rangeCenter = game.price; 
-              game.volatility = 1.2; // High vol
-          } else if (rand < 0.70) {
-              game.marketState = 'BULL_SLOW'; // Steady climb
-              game.stateDuration = 100 + Math.random() * 150; // 3-8s
-              game.volatility = 0.4;
-          } else if (rand < 0.85) {
-              game.marketState = 'BEAR_SLOW'; // Steady drop
-              game.stateDuration = 100 + Math.random() * 150; 
-              game.volatility = 0.4;
-          } else if (rand < 0.925) {
-              game.marketState = 'PUMP'; // God candle
-              game.stateDuration = 20 + Math.random() * 40; // Short burst (0.5-2s)
-              game.volatility = 2.0; 
-          } else {
-              game.marketState = 'DUMP'; // Flash crash
-              game.stateDuration = 20 + Math.random() * 40; 
-              game.volatility = 2.0; 
-          }
-      }
-      game.stateDuration--;
-
-      // --- 2. Calculate Forces (Drift & Noise) ---
-      let force = 0;
-      const noise = (Math.random() - 0.5) * game.volatility; 
-
-      // "Scam Wick" / Fakeout Logic (Independent random event)
-      const isScamWick = Math.random() > 0.95; // 5% chance per tick to jerk price
-      const scamWickForce = isScamWick ? (Math.random() - 0.5) * (game.volatility * 10) : 0;
-
-      switch (game.marketState) {
-          case 'RANGING':
-              // Weak pull to center + noise
-              const distFromCenter = game.rangeCenter - game.price;
-              force = noise + (distFromCenter * 0.02) + scamWickForce;
-              break;
-          case 'CHOP':
-              // High noise, weak center pull (volatile sideways)
-              force = (Math.random() - 0.5) * 3 + (game.rangeCenter - game.price) * 0.01;
-              break;
-          case 'BULL_SLOW':
-              // Positive bias + noise + occasional pullback (scam wick down)
-              force = 0.15 + noise + (Math.random() > 0.8 ? -0.5 : 0);
-              break;
-          case 'BEAR_SLOW':
-              // Negative bias + noise + occasional relief bounce (scam wick up)
-              force = -0.15 + noise + (Math.random() > 0.8 ? 0.5 : 0);
-              break;
-          case 'PUMP':
-              // Strong positive bias
-              force = 1.5 + Math.random(); 
-              break;
-          case 'DUMP':
-              // Strong negative bias
-              force = -1.5 - Math.random();
-              break;
-      }
-
-      // --- 3. Apply Momentum (Smoothing) ---
-      // We use less smoothing for PUMP/DUMP/CHOP to make them feel more "instant"
-      const smoothing = (game.marketState === 'PUMP' || game.marketState === 'DUMP' || game.marketState === 'CHOP') ? 0.2 : 0.8;
-      
-      game.momentum = game.momentum * smoothing + force * (1 - smoothing);
-      
-      let newPrice = game.price + game.momentum;
-      
-      // Soft limits
-      if (newPrice < 100) { newPrice += 2; game.momentum *= -0.5; }
-      if (newPrice > 10000) { newPrice -= 2; game.momentum *= -0.5; }
-      
-      game.price = newPrice;
-      setCurrentPrice(newPrice); // UI Update
-
-      // --- 4. Update Current Candle ---
-      if (game.currentCandle) {
-          const c = game.currentCandle;
-          c.close = newPrice;
-          if (newPrice > c.high) c.high = newPrice;
-          if (newPrice < c.low) c.low = newPrice;
-      }
-
-      // --- 5. Candle Close (1s Interval) ---
-      if (now - game.candleStartTime > 1000) {
-          // Finalize current candle
-          if (game.currentCandle) {
-              game.candles.push(game.currentCandle);
-              // Limit history size
-              if (game.candles.length > MAX_CANDLES) {
-                  game.candles.shift();
-              }
-          }
-          
-          // Start new candle
-          game.candleStartTime = now;
-          game.currentCandle = {
-              time: now,
-              open: newPrice,
-              high: newPrice,
-              low: newPrice,
-              close: newPrice
-          };
-      }
-
-      // --- 6. Check Liquidations ---
-      for (let i = game.positions.length - 1; i >= 0; i--) {
-          const pos = game.positions[i];
-          if (pos.type === 'LONG' && newPrice <= pos.liquidationPrice) {
-              liquidatePosition(pos, i);
-          } else if (pos.type === 'SHORT' && newPrice >= pos.liquidationPrice) {
-              liquidatePosition(pos, i);
-          }
-      }
-  };
+  // --- RENDERING ---
 
   const drawChart = (ctx: CanvasRenderingContext2D) => {
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -422,7 +382,6 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       ctx.strokeStyle = '#27272a';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      // Draw Grid
       for (let y = 0; y < CANVAS_HEIGHT; y+=40) { ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); }
       for (let x = 0; x < CANVAS_WIDTH; x+=40) { ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); }
       ctx.stroke();
@@ -442,6 +401,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
           if (c.high > max) max = c.high;
       });
       
+      // Auto-scale padding
       const padding = (max - min) * 0.1 || 10;
       const drawMin = min - padding;
       const drawMax = max + padding;
@@ -452,17 +412,33 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       // Draw Entry Lines for Active Positions
       gameRef.current.positions.forEach(pos => {
           const y = getY(pos.entryPrice);
+          const liqY = getY(pos.liquidationPrice);
+          
+          // Entry Line
           if (y >= 0 && y <= CANVAS_HEIGHT) {
-              ctx.strokeStyle = pos.type === 'LONG' ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+              ctx.strokeStyle = '#a1a1aa';
               ctx.lineWidth = 1;
-              ctx.setLineDash([4, 4]);
+              ctx.setLineDash([4, 2]);
               ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke();
               ctx.setLineDash([]);
               
-              // Label
-              ctx.fillStyle = pos.type === 'LONG' ? '#22c55e' : '#ef4444';
+              ctx.fillStyle = '#a1a1aa';
               ctx.font = '9px sans-serif';
-              ctx.fillText(`${pos.type.slice(0,1)} @ ${pos.entryPrice.toFixed(1)}`, 5, y - 2);
+              ctx.fillText(`${pos.leverage}x Entry`, 2, y - 4);
+          }
+          
+          // Liquidation Line (Danger)
+          if (liqY >= 0 && liqY <= CANVAS_HEIGHT) {
+              ctx.strokeStyle = '#ef4444';
+              ctx.lineWidth = 1;
+              ctx.setLineDash([2, 2]);
+              ctx.beginPath(); ctx.moveTo(0, liqY); ctx.lineTo(CANVAS_WIDTH, liqY); ctx.stroke();
+              ctx.setLineDash([]);
+              
+              ctx.fillStyle = '#ef4444';
+              ctx.textAlign = 'right';
+              ctx.fillText(`LIQ ${pos.liquidationPrice.toFixed(2)}`, CANVAS_WIDTH - 2, liqY - 4);
+              ctx.textAlign = 'left';
           }
       });
 
@@ -470,10 +446,8 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       const candleWidth = CANDLE_WIDTH;
       const spacing = CANDLE_SPACING;
       
-      // Start drawing from right side
-      let x = CANVAS_WIDTH - (candleWidth/2) - 60; // 60px padding for price label
+      let x = CANVAS_WIDTH - (candleWidth/2) - 60; // Padding right for price label
 
-      // Iterate backwards
       for (let i = allData.length - 1; i >= 0; i--) {
           const c = allData[i];
           const xPos = x;
@@ -498,18 +472,18 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
           
           // Body
           const bodyTop = Math.min(yOpen, yClose);
-          const bodyHeight = Math.max(Math.abs(yOpen - yClose), 1); // Min 1px height
+          const bodyHeight = Math.max(Math.abs(yOpen - yClose), 1); 
           
           ctx.fillRect(xPos - candleWidth/2, bodyTop, candleWidth, bodyHeight);
           
           x -= (candleWidth + spacing);
-          if (x < -10) break; // Off screen
+          if (x < -10) break; 
       }
 
       // Current Price Line
       const currentY = getY(gameRef.current.price);
       ctx.strokeStyle = '#ffffff';
-      ctx.setLineDash([2, 2]);
+      ctx.setLineDash([1, 1]);
       ctx.beginPath(); ctx.moveTo(0, currentY); ctx.lineTo(CANVAS_WIDTH, currentY); ctx.stroke();
       ctx.setLineDash([]);
 
@@ -520,18 +494,12 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'right';
       ctx.fillText(gameRef.current.price.toFixed(2), CANVAS_WIDTH - 4, currentY + 4);
+      ctx.textAlign = 'left';
   };
 
   const loop = () => {
     gameRef.current.animationId = requestAnimationFrame(loop);
-
-    const now = performance.now();
-    // Update logic at 30 FPS (33ms) for smooth but controlled movement
-    if (now - gameRef.current.lastTickTime > 33) {
-        updateMarket();
-        gameRef.current.lastTickTime = now;
-    }
-
+    // Draw every frame, data updates via WebSocket async
     const canvas = canvasRef.current;
     if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -542,13 +510,15 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   // Helper to calc live PnL for list
   const getPnL = (pos: Position) => {
       const price = currentPrice;
+      const exitPrice = price; // No spread on exit either
+
       let pnlPercent = 0;
       if (pos.type === 'LONG') {
-          pnlPercent = (price - pos.entryPrice) / pos.entryPrice;
+          pnlPercent = (exitPrice - pos.entryPrice) / pos.entryPrice;
       } else {
-          pnlPercent = (pos.entryPrice - price) / pos.entryPrice;
+          pnlPercent = (pos.entryPrice - exitPrice) / pos.entryPrice;
       }
-      // Apply Leverage
+      
       const roe = pnlPercent * pos.leverage;
       const pnlValue = Math.floor(pos.margin * roe);
       return { pnlValue, roe };
@@ -576,6 +546,13 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
       {/* 2. Chart Canvas */}
       <div className="relative w-full bg-black rounded-2xl overflow-hidden shadow-2xl border-4 border-neutral-800">
+        
+        {/* Status Indicator */}
+        <div className={`absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold ${isConnected ? 'text-green-500' : 'text-red-500'} z-10 bg-black/50 px-2 py-1 rounded-full`}>
+            {isConnected ? <Wifi size={10}/> : <WifiOff size={10}/>}
+            {isConnected ? 'LIVE: BNB/USDT' : '连接中...'}
+        </div>
+
         <canvas 
             ref={canvasRef} 
             width={CANVAS_WIDTH} 
@@ -611,6 +588,12 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
             </div>
         )}
       </div>
+      
+      {/* Risk Warning (Updated: Removed fee warning) */}
+      <div className="w-full bg-red-900/30 border border-red-500/30 rounded-lg p-2 flex items-start gap-2 text-[10px] text-red-300">
+         <AlertCircle size={12} className="mt-0.5 shrink-0"/>
+         <span>真实行情模式 (BNB/USDT) | 免手续费 | 高风险提示：请谨慎控制杠杆。</span>
+      </div>
 
       {/* 3. Trading Controls */}
       <div className="w-full bg-neutral-900 rounded-2xl p-4 border border-white/5 space-y-4">
@@ -631,7 +614,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                       className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
                   />
                   <div className="flex justify-between text-[9px] text-gray-600 font-mono">
-                      <span>1x</span><span>50x</span><span>100x</span><span>150x</span>
+                      <span>1x</span><span>50x</span><span>100x</span><span className="text-red-500">125x</span>
                   </div>
               </div>
 
@@ -659,21 +642,33 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
               <button
-                disabled={!userProfile || parseInt(marginInput) <= 0 || parseInt(marginInput) > credits}
+                disabled={!userProfile || parseInt(marginInput) <= 0 || parseInt(marginInput) > credits || !isConnected || isTransactionPending}
                 onClick={() => openPosition('LONG')}
-                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white py-3 rounded-xl font-black text-lg flex flex-col items-center leading-none shadow-lg active:scale-95 transition-transform"
+                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-black text-lg flex flex-col items-center leading-none shadow-lg active:scale-95 transition-transform border-b-4 border-green-800 active:border-b-0 active:translate-y-1 relative"
               >
-                  <span className="flex items-center gap-1"><TrendingUp size={16}/> 做多 (Long)</span>
-                  <span className="text-[9px] font-normal opacity-70 mt-1">看涨</span>
+                  {isTransactionPending ? (
+                      <Loader2 className="animate-spin" size={24} />
+                  ) : (
+                      <>
+                        <span className="flex items-center gap-1"><TrendingUp size={16}/> 做多 (Long)</span>
+                        <span className="text-[9px] font-normal opacity-70 mt-1">看涨</span>
+                      </>
+                  )}
               </button>
               
               <button
-                disabled={!userProfile || parseInt(marginInput) <= 0 || parseInt(marginInput) > credits}
+                disabled={!userProfile || parseInt(marginInput) <= 0 || parseInt(marginInput) > credits || !isConnected || isTransactionPending}
                 onClick={() => openPosition('SHORT')}
-                className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white py-3 rounded-xl font-black text-lg flex flex-col items-center leading-none shadow-lg active:scale-95 transition-transform"
+                className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-black text-lg flex flex-col items-center leading-none shadow-lg active:scale-95 transition-transform border-b-4 border-red-800 active:border-b-0 active:translate-y-1 relative"
               >
-                  <span className="flex items-center gap-1"><TrendingDown size={16}/> 做空 (Short)</span>
-                  <span className="text-[9px] font-normal opacity-70 mt-1">看跌</span>
+                  {isTransactionPending ? (
+                      <Loader2 className="animate-spin" size={24} />
+                  ) : (
+                      <>
+                        <span className="flex items-center gap-1"><TrendingDown size={16}/> 做空 (Short)</span>
+                        <span className="text-[9px] font-normal opacity-70 mt-1">看跌</span>
+                      </>
+                  )}
               </button>
           </div>
       </div>
@@ -691,9 +686,10 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                   {activePositions.map((pos) => {
                       const { pnlValue, roe } = getPnL(pos);
                       const isProfit = pnlValue >= 0;
+                      const isClosing = closingIds.has(pos.id);
                       
                       return (
-                          <div key={pos.id} className="bg-neutral-800 rounded-xl p-3 border-l-4 border-l-gray-600 relative overflow-hidden">
+                          <div key={pos.id} className="bg-neutral-800 rounded-xl p-3 border-l-4 border-l-gray-600 relative overflow-hidden animate-in slide-in-from-right-2">
                               <div className={`absolute left-0 top-0 bottom-0 w-1 ${pos.type === 'LONG' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                               
                               <div className="flex justify-between items-start mb-2">
@@ -721,9 +717,10 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                                   </div>
                                   <button 
                                     onClick={() => closePosition(pos.id)}
-                                    className="bg-neutral-700 hover:bg-neutral-600 text-white text-xs px-3 py-1.5 rounded font-bold transition-colors"
+                                    disabled={isClosing}
+                                    className="bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs px-3 py-1.5 rounded font-bold transition-colors flex items-center gap-1"
                                   >
-                                      平仓
+                                      {isClosing ? <Loader2 size={12} className="animate-spin"/> : "平仓"}
                                   </button>
                               </div>
                           </div>

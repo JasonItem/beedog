@@ -7,8 +7,17 @@ import { DivinationResult } from "./geminiService";
 
 // --- Types ---
 
+export interface RodItem {
+    id: string; // Unique instance ID
+    typeId: number; // 0: Bamboo, 1: Fiberglass, 2: Iridium
+    durability: number;
+    maxDurability: number;
+}
+
 export interface FishingSaveData {
-  rodLevel: number; // 0 = Bamboo, 1 = Fiberglass, 2 = Iridium
+  rodLevel: number; // Deprecated, kept for legacy compatibility (visuals)
+  activeRodId?: string; // ID of the currently equipped rod
+  rods?: RodItem[]; // List of owned rods
   baitCount: number;
   level: number; // Current Player Level (1-50)
   xp: number; // Current XP
@@ -83,7 +92,16 @@ export const ensureUserProfile = async (user: User) => {
       credits: 0, 
       is_admin: 0,
       dailyGameRewards: {},
-      fishingData: { rodLevel: 0, baitCount: 0, level: 1, xp: 0, inventory: [], unlockedFish: [] },
+      fishingData: { 
+          rodLevel: 0, 
+          baitCount: 0, 
+          level: 1, 
+          xp: 0, 
+          inventory: [], 
+          unlockedFish: [],
+          rods: [{ id: 'starter', typeId: 0, durability: 50, maxDurability: 50 }],
+          activeRodId: 'starter'
+      },
       farmData: { level: 1, xp: 0, plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) },
       productUsage: {}
     };
@@ -111,7 +129,16 @@ export const ensureUserProfile = async (user: User) => {
     
     // Init fishing data if missing
     if (!currentData.fishingData) {
-        updates.fishingData = { rodLevel: 0, baitCount: 0, level: 1, xp: 0, inventory: [], unlockedFish: [] };
+        updates.fishingData = { 
+            rodLevel: 0, 
+            baitCount: 0, 
+            level: 1, 
+            xp: 0, 
+            inventory: [], 
+            unlockedFish: [],
+            rods: [{ id: 'starter', typeId: 0, durability: 50, maxDurability: 50 }],
+            activeRodId: 'starter'
+        };
     }
     
     // Init farm data if missing
@@ -231,6 +258,8 @@ export const updateFishingData = async (uid: string, newData: Partial<FishingSav
     const docRef = doc(db, "users", uid);
     const updates: any = {};
     if (newData.rodLevel !== undefined) updates["fishingData.rodLevel"] = newData.rodLevel;
+    if (newData.activeRodId !== undefined) updates["fishingData.activeRodId"] = newData.activeRodId;
+    if (newData.rods !== undefined) updates["fishingData.rods"] = newData.rods;
     if (newData.baitCount !== undefined) updates["fishingData.baitCount"] = newData.baitCount;
     if (newData.level !== undefined) updates["fishingData.level"] = newData.level;
     if (newData.xp !== undefined) updates["fishingData.xp"] = newData.xp;
