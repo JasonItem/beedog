@@ -4,7 +4,7 @@ import { UserProfile, deductCredit } from '../../services/userService';
 import { updateCumulativeScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
 import { Button } from '../Button';
-import { Play, RotateCcw, Zap, Coins, AlertTriangle, TrendingUp, DollarSign, Lock, Loader2 } from 'lucide-react';
+import { Play, RotateCcw, Zap, Coins, AlertTriangle, TrendingUp, DollarSign, Lock, Loader2, X, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface HoneySlotsProps {
@@ -60,6 +60,13 @@ interface Particle {
     char: string;
 }
 
+interface SpinResult {
+    grid: number[];
+    win: number;
+    lines: number[][];
+    isWin: boolean;
+}
+
 export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver }) => {
   const { refreshProfile } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,6 +78,12 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
   const [message, setMessage] = useState("准备好赢大奖了吗?");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
+
+  // 10x Spin State
+  const [isTenSpinModalOpen, setIsTenSpinModalOpen] = useState(false);
+  const [tenSpinResults, setTenSpinResults] = useState<SpinResult[]>([]);
+  const [tenSpinPhase, setTenSpinPhase] = useState<'IDLE' | 'SPINNING' | 'REVEAL'>('IDLE');
+  const [tenSpinTotalWin, setTenSpinTotalWin] = useState(0);
 
   const gameRef = useRef({
     reels: [] as ReelState[],
@@ -138,6 +151,74 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
       return 0;
   };
 
+  /**
+   * Core Spin Logic (Decoupled from Canvas)
+   * Returns the result of a single spin and updates the loss streak ref
+   */
+  const simulateSpinResult = (bet: number): SpinResult => {
+      const resultMatrix: number[][] = [];
+      let currentLossStreak = gameRef.current.lossStreak;
+
+      // PITY MECHANISM: Check if user has lost 10 times in a row
+      if (currentLossStreak >= 10) {
+          // Force a win with low tier symbols
+          const lowTierSymbols = [0, 1, 2];
+          const winningSymbol = lowTierSymbols[Math.floor(Math.random() * lowTierSymbols.length)];
+          
+          for(let col=0; col<REEL_COUNT; col++) {
+              resultMatrix.push([getWeightedSymbol(), getWeightedSymbol(), getWeightedSymbol()]);
+          }
+          // Overwrite Middle Row
+          for(let col=0; col<REEL_COUNT; col++) {
+              resultMatrix[col][1] = winningSymbol;
+          }
+      } else {
+          // Standard RNG
+          for(let col=0; col<REEL_COUNT; col++) {
+              resultMatrix.push([getWeightedSymbol(), getWeightedSymbol(), getWeightedSymbol()]);
+          }
+      }
+
+      // Convert Matrix (Col, Row) to Flat Grid (Row, Col) for Payline check
+      // Matrix: [[C0R0, C0R1, C0R2], [C1R0, C1R1, C1R2], ...]
+      // Grid: [0, 1, 2 (Row0), 3, 4, 5 (Row1), ...]
+      const gridValues: number[] = [];
+      for (let row = 0; row < 3; row++) {
+          for (let col = 0; col < 3; col++) {
+              gridValues.push(resultMatrix[col][row]);
+          }
+      }
+
+      // Calculate Win
+      let totalWin = 0;
+      const winningLines: number[][] = [];
+
+      PAYLINES.forEach(line => {
+          const s1 = gridValues[line[0]];
+          const s2 = gridValues[line[1]];
+          const s3 = gridValues[line[2]];
+
+          if (s1 === s2 && s2 === s3) {
+              const symbolData = SYMBOLS[s1];
+              totalWin += symbolData.val * bet;
+              winningLines.push(line);
+          }
+      });
+
+      if (totalWin > 0) {
+          gameRef.current.lossStreak = 0; // Reset streak
+      } else {
+          gameRef.current.lossStreak++; // Increment streak
+      }
+
+      return {
+          grid: gridValues,
+          win: totalWin,
+          lines: winningLines,
+          isWin: totalWin > 0
+      };
+  };
+
   const handleSpin = async () => {
       if (gameRef.current.status === 'SPINNING' || isProcessing || isSettling) return;
       if (!userProfile) return;
@@ -173,50 +254,31 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
           gameRef.current.winningLines = [];
           gameRef.current.spinStartTime = performance.now();
 
-          // --- Determine Outcome (Server-side simulation) ---
-          const resultMatrix: number[][] = [];
-
-          // PITY MECHANISM: Check if user has lost 10 times in a row
-          if (gameRef.current.lossStreak >= 10) {
-              // Force a win with low tier symbols (Cherries, Lemons, Grapes)
-              // This guarantees a win on the Middle Row
-              const lowTierSymbols = [0, 1, 2];
-              const winningSymbol = lowTierSymbols[Math.floor(Math.random() * lowTierSymbols.length)];
-              
-              // Generate random background first
-              for(let col=0; col<REEL_COUNT; col++) {
-                  resultMatrix.push([getWeightedSymbol(), getWeightedSymbol(), getWeightedSymbol()]);
-              }
-              
-              // Overwrite Middle Row (Index 1) to ensure win
-              for(let col=0; col<REEL_COUNT; col++) {
-                  resultMatrix[col][1] = winningSymbol;
-              }
-              // Loss streak will be reset in checkWin when the win is detected
-          } else {
-              // Standard RNG
-              for(let col=0; col<REEL_COUNT; col++) {
-                  const colRes = [getWeightedSymbol(), getWeightedSymbol(), getWeightedSymbol()];
-                  resultMatrix.push(colRes);
-              }
-          }
-
-          // Configure Reels to land on these results
+          // --- Determine Outcome ---
+          const result = simulateSpinResult(betAmount);
+          
+          // Map flat grid back to column-based strips for animation
+          // grid: 0 1 2 (Row 0), 3 4 5 (Row 1)...
+          // reels need: Col 0: [0, 3, 6], Col 1: [1, 4, 7]...
+          
           gameRef.current.reels.forEach((reel, colIndex) => {
               reel.state = 'SPINNING';
               reel.speed = 30 + Math.random() * 10;
-              // We need to patch the reel strip so the target landing spots match the result
               const stopIndex = 20 + (colIndex * 10); // Ensure enough runway
               reel.targetIndex = stopIndex;
               
               // Overwrite strip at stop position
-              const results = resultMatrix[colIndex];
-              reel.symbols[stopIndex] = results[0];
-              reel.symbols[stopIndex + 1] = results[1];
-              reel.symbols[stopIndex + 2] = results[2];
+              reel.symbols[stopIndex] = result.grid[colIndex];     // Row 0
+              reel.symbols[stopIndex + 1] = result.grid[colIndex + 3]; // Row 1
+              reel.symbols[stopIndex + 2] = result.grid[colIndex + 6]; // Row 2
           });
           
           audio.playShoot(); // Spin sound
+
+          // Store result to check when animation stops
+          // We attach it to the gameRef temporarily or re-calculate at end.
+          // Re-calculation at end ensures sync, but we already have it.
+          // Let's rely on the reel state matching the result.
 
       } catch (e) {
           console.error(e);
@@ -224,6 +286,84 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
           setGameState('IDLE');
           gameRef.current.status = 'IDLE';
       } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  const handleTenSpin = async () => {
+      if (gameRef.current.status === 'SPINNING' || isProcessing || isSettling) return;
+      if (!userProfile) return;
+      
+      const totalCost = betAmount * 10;
+      if (credits < totalCost) {
+          setMessage("蜂蜜不足 (需要 " + totalCost + ")");
+          return;
+      }
+
+      setIsProcessing(true);
+      setIsTenSpinModalOpen(true);
+      setTenSpinPhase('SPINNING');
+      setTenSpinResults([]);
+      setTenSpinTotalWin(0);
+
+      try {
+          // Optimistic Update
+          setCredits(prev => prev - totalCost);
+          
+          // Deduct
+          const success = await deductCredit(userProfile.uid, totalCost);
+          if (!success) {
+              setCredits(prev => prev + totalCost);
+              setIsTenSpinModalOpen(false);
+              setMessage("扣款失败");
+              setIsProcessing(false);
+              return;
+          }
+          refreshProfile();
+
+          // Calculate 10 Results
+          const results: SpinResult[] = [];
+          let totalWin = 0;
+          
+          for(let i=0; i<10; i++) {
+              const res = simulateSpinResult(betAmount);
+              results.push(res);
+              totalWin += res.win;
+          }
+
+          setTenSpinResults(results);
+          setTenSpinTotalWin(totalWin);
+          audio.playShoot(); // Start sound
+
+          // Animation Delay
+          setTimeout(async () => {
+              setTenSpinPhase('REVEAL');
+              
+              if (totalWin > 0) {
+                  audio.playScore();
+                  const newSessionTotal = sessionWinnings + totalWin;
+                  setSessionWinnings(newSessionTotal);
+                  setCredits(prev => prev + totalWin);
+
+                  // Update Backend
+                  try {
+                      await updateCumulativeScore(userProfile, 'honey_slots', totalWin);
+                      await deductCredit(userProfile.uid, -totalWin); 
+                      await refreshProfile();
+                  } catch(e) { console.error("Payout failed", e); }
+                  
+                  // Update Main Game Score if high
+                  onGameOver();
+              } else {
+                  audio.playGameOver();
+              }
+              
+              setIsProcessing(false);
+          }, 2000); // 2 seconds spin time
+
+      } catch (e) {
+          console.error(e);
+          setIsTenSpinModalOpen(false);
           setIsProcessing(false);
       }
   };
@@ -288,9 +428,8 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
           }
           onGameOver();
       } else {
-          // Increment Loss Streak
-          gameRef.current.lossStreak += 1;
-
+          // Increment Loss Streak - Already handled in simulateSpinResult, but for single spin
+          // the logic was mixed. Since we use simulateSpinResult now, let's just update UI
           setGameState('IDLE');
           gameRef.current.status = 'IDLE';
           setMessage("再试一次?");
@@ -477,6 +616,28 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
       });
   };
 
+  const MiniSlot = ({ result }: { result: SpinResult }) => {
+      return (
+          <div className={`
+            relative bg-white dark:bg-[#222] rounded-lg p-1.5 border-2 flex flex-col items-center justify-center aspect-square shadow-sm
+            ${result.isWin ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'border-neutral-200 dark:border-[#444]'}
+          `}>
+              <div className="grid grid-cols-3 grid-rows-3 gap-0.5 w-full h-full">
+                  {result.grid.map((symId, i) => (
+                      <div key={i} className="flex items-center justify-center bg-gray-100 dark:bg-[#333] rounded-sm overflow-hidden">
+                          <span className="text-base sm:text-lg leading-none select-none">{SYMBOLS[symId].char}</span>
+                      </div>
+                  ))}
+              </div>
+              {result.win > 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg animate-in zoom-in">
+                      <div className="text-yellow-400 font-black text-lg drop-shadow-md">+{result.win}</div>
+                  </div>
+              )}
+          </div>
+      );
+  };
+
   return (
     <div className="flex flex-col items-center gap-4">
       {/* HUD */}
@@ -529,8 +690,8 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
       </div>
 
       {/* Controls */}
-      <div className="w-full max-w-sm grid grid-cols-3 gap-3">
-          <div className="col-span-3 flex justify-center gap-2 mb-2">
+      <div className="w-full max-w-sm grid grid-cols-2 gap-3">
+          <div className="col-span-2 flex justify-center gap-2 mb-2">
               {[10, 50, 100].map(amt => (
                   <button 
                     key={amt}
@@ -550,15 +711,23 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
           <Button 
             onClick={handleSpin} 
             disabled={gameState === 'SPINNING' || !userProfile || isProcessing || isSettling}
-            className="col-span-3 py-4 text-xl font-black bg-gradient-to-r from-yellow-500 to-orange-600 border-b-4 border-orange-800 active:border-b-0 active:translate-y-1 shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="py-4 text-xl font-black bg-gradient-to-r from-yellow-500 to-orange-600 border-b-4 border-orange-800 active:border-b-0 active:translate-y-1 shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-              {gameState === 'SPINNING' || isProcessing ? (
+              {gameState === 'SPINNING' || isProcessing && !isTenSpinModalOpen ? (
                   <><Loader2 className="animate-spin" size={24}/> 旋转中...</>
-              ) : isSettling ? (
-                  <><Loader2 className="animate-spin" size={24}/> 发放奖励中...</>
+              ) : isSettling && !isTenSpinModalOpen ? (
+                  <><Loader2 className="animate-spin" size={24}/> 结算...</>
               ) : (
-                  <>开始旋转 <Coins size={20} className="ml-1"/></>
+                  <>SPIN <Coins size={20} className="ml-1"/></>
               )}
+          </Button>
+
+          <Button 
+            onClick={handleTenSpin}
+            disabled={gameState === 'SPINNING' || !userProfile || isProcessing || isSettling}
+            className="py-4 text-lg font-black bg-purple-600 hover:bg-purple-500 border-b-4 border-purple-800 active:border-b-0 active:translate-y-1 shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+             10连抽 <Sparkles size={18}/>
           </Button>
       </div>
 
@@ -577,6 +746,55 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
               ))}
           </div>
       </div>
+
+      {/* 10x Spin Modal */}
+      {isTenSpinModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+              <div className="bg-neutral-900 border border-neutral-700 w-full max-w-4xl rounded-3xl p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+                  
+                  <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                          <Sparkles className="text-purple-500"/> 10连抽结果
+                      </h2>
+                      {!isProcessing && (
+                        <button onClick={() => setIsTenSpinModalOpen(false)} className="bg-neutral-800 p-2 rounded-full hover:bg-neutral-700 text-white">
+                            <X size={20}/>
+                        </button>
+                      )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 p-1">
+                       {tenSpinPhase === 'SPINNING' ? (
+                           // Loading Placeholders
+                           Array.from({length: 10}).map((_, i) => (
+                               <div key={i} className="aspect-square bg-neutral-800 rounded-lg flex items-center justify-center animate-pulse border border-neutral-700">
+                                   <span className="text-4xl blur-sm">🍒🍋🍇</span>
+                               </div>
+                           ))
+                       ) : (
+                           // Results
+                           tenSpinResults.map((res, i) => (
+                               <MiniSlot key={i} result={res} />
+                           ))
+                       )}
+                  </div>
+
+                  <div className="mt-auto bg-neutral-800 rounded-xl p-4 flex justify-between items-center border border-neutral-700">
+                      <div className="text-gray-400 font-bold text-sm">总计赢得</div>
+                      <div className="text-3xl font-mono font-black text-yellow-400 flex items-center gap-2">
+                          {tenSpinPhase === 'SPINNING' ? <Loader2 className="animate-spin"/> : tenSpinTotalWin}
+                          <span className="text-sm text-gray-500">🍯</span>
+                      </div>
+                  </div>
+
+                  {!isProcessing && (
+                      <Button onClick={() => setIsTenSpinModalOpen(false)} className="mt-4 w-full py-3 text-lg">
+                          收下奖励
+                      </Button>
+                  )}
+              </div>
+          </div>
+      )}
 
     </div>
   );

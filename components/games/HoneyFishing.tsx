@@ -23,10 +23,11 @@ const CHAR_SPRITE_URL = "https://firebasestorage.googleapis.com/v0/b/beedogpage.
 // 鱼竿配置
 // Durability: # of catches before breaking
 // Luck: Reduces wait time & Increases rare fish chance
+// Updated: Increased barSize for easier gameplay
 const RODS = [
-    { id: 0, name: "竹竿 (Bamboo)", barSize: 45, price: 50, color: "#d4a373", durability: 50, luck: 0 }, 
-    { id: 1, name: "玻纤竿 (Fiberglass)", barSize: 60, price: 500, color: "#60a5fa", durability: 50, luck: 5 }, 
-    { id: 2, name: "铱金竿 (Iridium)", barSize: 80, price: 2000, color: "#a855f7", durability: 100, luck: 15 } 
+    { id: 0, name: "竹竿 (Bamboo)", barSize: 90, price: 50, color: "#d4a373", durability: 50, luck: 0 }, 
+    { id: 1, name: "玻纤竿 (Fiberglass)", barSize: 130, price: 500, color: "#60a5fa", durability: 50, luck: 5 }, 
+    { id: 2, name: "铱金竿 (Iridium)", barSize: 180, price: 2000, color: "#a855f7", durability: 100, luck: 15 } 
 ];
 
 // 经验值公式: Level N -> N+1 需要的XP
@@ -263,7 +264,7 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
               barVelocity: 0,
               progress: 30, 
               currentFishId: selectedFish.id,
-              barSize: rodType.barSize / 3, // Normalized bar size 
+              barSize: rodType.barSize / 3, // Normalized bar size. rodType.barSize is essentially px height on 300px canvas (30%=90px). 
               difficulty: 0.5 + priceFactor, // Base + Price Scaling
               moveType: selectedFish.moveType as any,
               isRunning: true,
@@ -518,8 +519,8 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
           game.fishMoveTimer--;
       }
       
-      // Speed scales with difficulty
-      let speed = 0.5 + game.difficulty * 0.2;
+      // Speed scales with difficulty (Reduced)
+      let speed = 0.4 + game.difficulty * 0.15;
       if (game.moveType === 'dart') speed *= 1.5;
       
       if (game.fishPos < game.fishTarget) game.fishPos += speed;
@@ -1204,7 +1205,7 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                             </div>
                             
                             <div className="w-full h-2 bg-slate-100 rounded-full mb-2 overflow-hidden">
-                                <div className="h-full bg-blue-400" style={{width: `${(rod.barSize / 100) * 100}%`}}></div>
+                                <div className="h-full bg-blue-400" style={{width: `${Math.min(100, (rod.barSize / 200) * 100)}%`}}></div>
                             </div>
                             
                             <div className="flex flex-col gap-1 mb-3">
