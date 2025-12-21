@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getProducts, purchaseProduct, Product, getOrders, Order } from '../services/shopService';
 import { ShoppingBag, X, Loader2, Package, Tag, AlertCircle, CheckCircle, Info, History } from 'lucide-react';
 import { Button } from './Button';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ShopHubProps {
   onLoginRequest: () => void;
@@ -11,6 +12,7 @@ interface ShopHubProps {
 
 export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { t } = useLanguage();
   
   const [view, setView] = useState<'STORE' | 'MY_ORDERS'>('STORE');
   const [products, setProducts] = useState<Product[]>([]);
@@ -45,11 +47,11 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
       } catch(e: any) {
           console.error(e);
           if (e.code === 'failed-precondition') {
-              setErrorMsg("数据库查询需要索引。请管理员在 Firebase 控制台创建索引。");
+              setErrorMsg("Database index required. Please contact admin.");
           } else if (e.code === 'permission-denied') {
-              setErrorMsg("无法访问商店数据。请检查权限或登录。");
+              setErrorMsg("Access denied. Please login.");
           } else {
-              setErrorMsg("加载失败，请稍后重试");
+              setErrorMsg("Failed to load products.");
           }
       } finally {
           setLoading(false);
@@ -89,7 +91,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
       // Validate Required Fields
       for (const field of selectedProduct.formSchema) {
           if (field.required && !formData[field.key]?.trim()) {
-              setResultMsg({ success: false, msg: `请填写 ${field.label}` });
+              setResultMsg({ success: false, msg: `Missing field: ${field.label}` });
               return;
           }
       }
@@ -115,7 +117,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
           }
           setResultMsg({ success: result.success, msg: result.message });
       } catch (e) {
-          setResultMsg({ success: false, msg: "系统错误" });
+          setResultMsg({ success: false, msg: "System Error" });
       } finally {
           setBuying(false);
       }
@@ -129,9 +131,9 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
             <div className="text-center md:text-left">
                 <h1 className="text-4xl font-black dark:text-white flex items-center gap-2 justify-center md:justify-start">
-                    <ShoppingBag className="text-brand-yellow" /> 蜂蜜商店
+                    <ShoppingBag className="text-brand-yellow" /> {t('shop.title')}
                 </h1>
-                <p className="text-neutral-500 mt-2">消耗蜂蜜兑换精选周边与虚拟奖励</p>
+                <p className="text-neutral-500 mt-2">{t('shop.subtitle')}</p>
             </div>
             
             <div className="flex gap-4 items-center">
@@ -146,7 +148,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                         onClick={() => setView('STORE')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${view === 'STORE' ? 'bg-white dark:bg-[#444] shadow text-black dark:text-white' : 'text-neutral-500'}`}
                     >
-                        商店
+                        {t('shop.tab.store')}
                     </button>
                     <button 
                         onClick={() => {
@@ -155,7 +157,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                         }}
                         className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${view === 'MY_ORDERS' ? 'bg-white dark:bg-[#444] shadow text-black dark:text-white' : 'text-neutral-500'}`}
                     >
-                        我的订单
+                        {t('shop.tab.orders')}
                     </button>
                 </div>
             </div>
@@ -170,12 +172,12 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                     <div className="text-center py-20 text-red-500 flex flex-col items-center gap-4">
                         <AlertCircle size={48} />
                         <p>{errorMsg}</p>
-                        <Button size="sm" onClick={loadProducts}>重试</Button>
+                        <Button size="sm" onClick={loadProducts}>Retry</Button>
                     </div>
                 ) : products.length === 0 ? (
                     <div className="text-center py-20 text-neutral-400 flex flex-col items-center gap-4">
                         <Package size={64} strokeWidth={1} />
-                        <p>商店暂时还没上架商品，敬请期待！</p>
+                        <p>{t('shop.empty')}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -191,12 +193,12 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                         <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                         {isSoldOut && (
                                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                                                <span className="text-white font-black text-2xl uppercase border-4 border-white px-4 py-2 transform -rotate-12">SOLD OUT</span>
+                                                <span className="text-white font-black text-2xl uppercase border-4 border-white px-4 py-2 transform -rotate-12">{t('shop.sold_out')}</span>
                                             </div>
                                         )}
                                         {isLimitReached && !isSoldOut && (
                                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                                                <span className="text-white font-black text-xl border-2 border-white px-3 py-1">已达限购</span>
+                                                <span className="text-white font-black text-xl border-2 border-white px-3 py-1">{t('shop.limit_reached')}</span>
                                             </div>
                                         )}
                                     </div>
@@ -207,10 +209,10 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                             <h3 className="text-xl font-bold dark:text-white line-clamp-1" title={product.name}>{product.name}</h3>
                                             <div className="flex flex-col items-end">
                                                 <div className="bg-yellow-50 dark:bg-yellow-900/20 text-brand-yellow px-2 py-1 rounded-lg text-xs font-bold whitespace-nowrap">
-                                                    库存: {product.stock}
+                                                    {t('shop.stock')}: {product.stock}
                                                 </div>
                                                 {product.limitPerUser && product.limitPerUser > 0 && (
-                                                    <span className="text-[10px] text-red-500 mt-1 font-bold">每人限 {product.limitPerUser} 件</span>
+                                                    <span className="text-[10px] text-red-500 mt-1 font-bold">{t('shop.limit', {n: product.limitPerUser})}</span>
                                                 )}
                                             </div>
                                         </div>
@@ -228,7 +230,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                                 disabled={!!disabled}
                                                 className={disabled ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' : ''}
                                             >
-                                                {isSoldOut ? '已售罄' : isLimitReached ? '已限购' : '立即兑换'}
+                                                {isSoldOut ? t('shop.sold_out') : isLimitReached ? t('shop.limit_reached') : t('shop.redeem')}
                                             </Button>
                                         </div>
                                     </div>
@@ -246,7 +248,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                 {loading ? (
                     <div className="flex justify-center py-20"><Loader2 className="animate-spin text-brand-yellow" size={32}/></div>
                 ) : myOrders.length === 0 ? (
-                    <div className="text-center py-20 text-neutral-400">暂无订单记录</div>
+                    <div className="text-center py-20 text-neutral-400">{t('shop.empty_orders')}</div>
                 ) : (
                     <div className="space-y-4">
                         {myOrders.map(order => (
@@ -266,7 +268,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                 
                                 <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
                                     <div className="text-right">
-                                        <div className="text-xs text-neutral-400 font-bold uppercase">实付</div>
+                                        <div className="text-xs text-neutral-400 font-bold uppercase">{t('shop.order.paid')}</div>
                                         <div className="font-mono font-black text-brand-yellow">{order.priceSnapshot} 🍯</div>
                                     </div>
                                     
@@ -278,11 +280,9 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                         {order.status === 'completed' && <CheckCircle size={12}/>}
                                         {order.status === 'rejected' && <AlertCircle size={12}/>}
                                         {order.status === 'pending' && <Loader2 size={12} className="animate-spin"/>}
-                                        {order.status === 'completed' ? '已发货' : order.status === 'rejected' ? '已拒绝' : '处理中'}
+                                        {t(`shop.order.status.${order.status}`)}
                                     </div>
                                 </div>
-                                
-                                {/* Collapsible Details could go here */}
                             </div>
                         ))}
                     </div>
@@ -300,8 +300,8 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                   {/* Modal Header */}
                   <div className="p-6 border-b border-neutral-100 dark:border-[#333] flex justify-between items-start">
                       <div>
-                          <h2 className="text-2xl font-black dark:text-white">确认兑换</h2>
-                          <p className="text-sm text-neutral-500 mt-1">请填写必要信息以便我们要为您发放奖励。</p>
+                          <h2 className="text-2xl font-black dark:text-white">{t('shop.confirm.title')}</h2>
+                          <p className="text-sm text-neutral-500 mt-1">{t('shop.confirm.desc')}</p>
                       </div>
                       <button onClick={() => setSelectedProduct(null)} className="p-2 hover:bg-neutral-100 dark:hover:bg-[#333] rounded-full text-neutral-500"><X size={20}/></button>
                   </div>
@@ -320,7 +320,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                   {/* Dynamic Form */}
                   <div className="p-6 overflow-y-auto flex-1">
                       {selectedProduct.formSchema.length === 0 ? (
-                          <p className="text-center text-neutral-500 italic">无需填写额外信息，直接兑换。</p>
+                          <p className="text-center text-neutral-500 italic">No extra info needed.</p>
                       ) : (
                           <div className="space-y-4">
                               {selectedProduct.formSchema.map((field) => (
@@ -336,7 +336,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                               onChange={(e) => handleInputChange(field.key, e.target.value)}
                                               className="w-full p-3 rounded-xl bg-neutral-100 dark:bg-[#333] border-transparent focus:bg-white focus:ring-2 focus:ring-brand-yellow outline-none transition-all dark:text-white"
                                           >
-                                              <option value="">请选择...</option>
+                                              <option value="">Select...</option>
                                               {field.options?.map(opt => (
                                                   <option key={opt} value={opt}>{opt}</option>
                                               ))}
@@ -346,7 +346,7 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
                                               type={field.type}
                                               value={formData[field.key] || ''}
                                               onChange={(e) => handleInputChange(field.key, e.target.value)}
-                                              placeholder={field.placeholder || `请输入${field.label}`}
+                                              placeholder={field.placeholder || `${field.label}`}
                                               className="w-full p-3 rounded-xl bg-neutral-100 dark:bg-[#333] border-transparent focus:bg-white focus:ring-2 focus:ring-brand-yellow outline-none transition-all dark:text-white"
                                           />
                                       )}
@@ -366,14 +366,14 @@ export const ShopHub: React.FC<ShopHubProps> = ({ onLoginRequest }) => {
 
                   {/* Footer Actions */}
                   <div className="p-6 border-t border-neutral-100 dark:border-[#333] flex gap-3">
-                      <Button variant="ghost" onClick={() => setSelectedProduct(null)} className="flex-1">取消</Button>
+                      <Button variant="ghost" onClick={() => setSelectedProduct(null)} className="flex-1">Cancel</Button>
                       <Button 
                         onClick={handleSubmitOrder} 
                         disabled={buying || (userProfile?.credits || 0) < selectedProduct.price}
                         className="flex-[2] flex items-center justify-center gap-2"
                       >
                           {buying ? <Loader2 className="animate-spin"/> : <Tag size={18}/>}
-                          {buying ? "处理中..." : "确认兑换"}
+                          {buying ? t('shop.confirm.processing') : t('shop.confirm.btn')}
                       </Button>
                   </div>
 

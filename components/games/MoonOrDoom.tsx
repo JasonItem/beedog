@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { saveScore, getUserHighScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
-import { TrendingUp, TrendingDown, Activity, Wallet, Lock, Skull, AlertCircle, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Wallet, Lock, Skull, AlertCircle, Wifi, WifiOff, Loader2, Globe, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface MoonOrDoomProps {
@@ -31,6 +31,15 @@ interface Position {
   timestamp: number;
 }
 
+const SOURCES = [
+    { name: 'Binance', url: 'wss://stream.binance.com:9443/ws/bnbusdt@kline_1m', type: 'kline' },
+    { name: 'OKX', url: 'wss://ws.okx.com:8443/public', type: 'kline' },
+    { name: 'Gate.io', url: 'wss://api.gateio.ws/ws/v4/', type: 'kline' }
+];
+
+// Binance REST API for initial history
+const HISTORY_URL = 'https://api.binance.com/api/v3/klines?symbol=BNBUSDT&interval=1m&limit=100';
+
 export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver }) => {
   const { refreshProfile } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -42,11 +51,14 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const [activePositions, setActivePositions] = useState<Position[]>([]);
   const [cumulativePnL, setCumulativePnL] = useState(0); 
   const [currentPrice, setCurrentPrice] = useState(0);
+  const [sourceName, setSourceName] = useState(SOURCES[0].name);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
+  const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
   
   // Interaction Locks
-  const [isTransactionPending, setIsTransactionPending] = useState(false); // For Open Position
-  const [closingIds, setClosingIds] = useState<Set<number>>(new Set()); // For Close Position (per ID)
+  const [isTransactionPending, setIsTransactionPending] = useState(false);
+  const [closingIds, setClosingIds] = useState<Set<number>>(new Set());
   
   // Notification State
   const [notification, setNotification] = useState<{msg: string, type: 'win' | 'loss' | 'info' | 'liq'} | null>(null);
@@ -58,8 +70,6 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const CANDLE_WIDTH = 5;
   const CANDLE_SPACING = 3;
   const MAX_CANDLES = Math.floor(CANVAS_WIDTH / (CANDLE_WIDTH + CANDLE_SPACING));
-  // REMOVED SPREAD FEE
-  const SYMBOL = 'BNBUSDT';
   
   // --- Game Loop Refs ---
   const gameRef = useRef({
@@ -67,13 +77,17 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
     currentCandle: null as Candle | null,
     
     price: 0,
+    lastValidPrice: 0, // Filter for outliers
+    lastMessageTime: 0, // Connection watchdog
     
     // Timers
     animationId: 0,
     
     positions: [] as Position[], 
     currentCumulativePnL: 0,
-    ws: null as WebSocket | null
+    ws: null as WebSocket | null,
+    activeSourceIndex: 0,
+    unmounted: false
   });
 
   useEffect(() => {
@@ -89,104 +103,258 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
     }
   }, [userProfile?.uid]);
 
-  // Init Real Data
+  // Init Data
   useEffect(() => {
-    initRealMarket();
-    startLoop();
+    gameRef.current.unmounted = false;
+    
+    const init = async () => {
+        // 1. Fetch History first to fill the screen
+        await fetchHistory();
+        // 2. Start WebSocket for live updates
+        connectToSource(0);
+        // 3. Start Render Loop
+        startLoop();
+    };
+
+    init();
 
     return () => {
+      gameRef.current.unmounted = true;
       if (gameRef.current.animationId) cancelAnimationFrame(gameRef.current.animationId);
-      if (gameRef.current.ws) gameRef.current.ws.close();
+      if (gameRef.current.ws) {
+          gameRef.current.ws.onclose = null; // Prevent cleanup triggers
+          gameRef.current.ws.close();
+          gameRef.current.ws = null;
+      }
     };
   }, []);
 
-  const initRealMarket = async () => {
+  const fetchHistory = async () => {
       try {
-          // 1. Fetch History via REST (to fill the chart immediately)
-          const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${SYMBOL}&interval=1s&limit=${MAX_CANDLES}`);
-          const data = await response.json();
-          
-          const history: Candle[] = data.map((k: any) => ({
-              time: k[0],
-              open: parseFloat(k[1]),
-              high: parseFloat(k[2]),
-              low: parseFloat(k[3]),
-              close: parseFloat(k[4])
-          }));
-
-          // Take the last one as current active candle
-          const lastCandle = history.pop();
-          
-          gameRef.current.candles = history;
-          if (lastCandle) {
-            gameRef.current.currentCandle = lastCandle;
-            gameRef.current.price = lastCandle.close;
-            setCurrentPrice(lastCandle.close);
+          const res = await fetch(HISTORY_URL);
+          const data = await res.json();
+          // Binance format: [open_time, open, high, low, close, volume, close_time, ...]
+          if (Array.isArray(data)) {
+            const historyCandles: Candle[] = data.map((d: any) => ({
+                time: d[0],
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4])
+            }));
+            
+            if (historyCandles.length > 0) {
+                // Use the last candle as currentCandle (active) and rest as historical
+                const last = historyCandles.pop()!;
+                gameRef.current.candles = historyCandles;
+                gameRef.current.currentCandle = last;
+                
+                // Update pricing refs
+                gameRef.current.lastValidPrice = last.close;
+                gameRef.current.price = last.close;
+                setCurrentPrice(last.close);
+            }
           }
-
-          // 2. Connect WebSocket for Live Updates
-          connectWebSocket();
-
       } catch (e) {
-          console.error("Failed to fetch market data", e);
-          showNotif("无法连接真实市场数据", 'loss');
+          console.error("Failed to fetch K-line history", e);
       }
   };
 
-  const connectWebSocket = () => {
-      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${SYMBOL.toLowerCase()}@kline_1s`);
+  const connectToSource = (index: number) => {
+      if (gameRef.current.unmounted) return;
       
-      ws.onopen = () => {
-          setIsConnected(true);
-      };
+      // Cleanup previous connection completely to avoid fallback loops
+      if (gameRef.current.ws) {
+          gameRef.current.ws.onclose = null; // Disable old listener
+          gameRef.current.ws.close();
+          gameRef.current.ws = null;
+      }
 
-      ws.onmessage = (event) => {
-          const msg = JSON.parse(event.data);
-          const k = msg.k; // Kline object
-          
-          const candle: Candle = {
-              time: k.t,
-              open: parseFloat(k.o),
-              high: parseFloat(k.h),
-              low: parseFloat(k.l),
-              close: parseFloat(k.c)
+      // NOTE: Do NOT clear candles here if we just fetched history.
+      // Only clear if explicitly switching sources manually later, but for now we keep history to avoid flicker.
+      // gameRef.current.candles = []; 
+
+      // Cycle index if out of bounds (Round Robin)
+      const safeIndex = index % SOURCES.length;
+      gameRef.current.activeSourceIndex = safeIndex;
+      const source = SOURCES[safeIndex];
+      
+      setSourceName(source.name);
+      setIsConnected(false);
+      setConnectionError(false);
+
+      console.log(`Attempting connection to ${source.name}...`);
+
+      try {
+          const ws = new WebSocket(source.url);
+          gameRef.current.ws = ws;
+
+          ws.onopen = () => {
+              if (gameRef.current.unmounted) return;
+              console.log(`Connected to ${source.name}`);
+              setIsConnected(true);
+              setConnectionError(false);
+              gameRef.current.lastMessageTime = Date.now();
+
+              // Subscriptions for 1m Candles
+              if (source.name === 'OKX') {
+                  const msg = JSON.stringify({
+                      "op": "subscribe",
+                      "args": [{"channel": "candle1m", "instId": "BNB-USDT"}]
+                  });
+                  ws.send(msg);
+              } else if (source.name === 'Gate.io') {
+                  const msg = JSON.stringify({
+                      "time": Math.floor(Date.now() / 1000),
+                      "channel": "spot.candlesticks",
+                      "event": "subscribe",
+                      "payload": ["1m", "BNB_USDT"]
+                  });
+                  ws.send(msg);
+              }
           };
 
-          gameRef.current.price = candle.close;
-          setCurrentPrice(candle.close);
-          gameRef.current.currentCandle = candle;
+          ws.onmessage = (event) => {
+              if (gameRef.current.unmounted) return;
+              // Reset watchdog timer
+              gameRef.current.lastMessageTime = Date.now();
+              handleMessage(event, source.name);
+          };
 
-          // If candle closed, push to history
-          if (k.x) {
-              gameRef.current.candles.push(candle);
-              if (gameRef.current.candles.length > MAX_CANDLES) {
-                  gameRef.current.candles.shift();
+          ws.onerror = (err) => {
+              console.warn(`${source.name} WebSocket Error:`, err);
+          };
+
+          ws.onclose = () => {
+              if (gameRef.current.unmounted) return;
+              console.log(`${source.name} closed.`);
+              setIsConnected(false);
+              
+              // Try next source automatically
+              setTimeout(() => {
+                  if (!gameRef.current.unmounted) {
+                      connectToSource(safeIndex + 1);
+                  }
+              }, 1000);
+          };
+
+      } catch (e) {
+          console.error("Connection setup failed", e);
+          setTimeout(() => connectToSource(safeIndex + 1), 1000);
+      }
+  };
+
+  const handleMessage = (event: MessageEvent, source: string) => {
+      try {
+          const data = JSON.parse(event.data);
+          let newCandle: Candle | null = null;
+          let isClosed = false;
+
+          // --- PARSERS ---
+          if (source === 'Binance') {
+              if (data.e === 'kline') {
+                  const k = data.k;
+                  newCandle = {
+                      time: k.t,
+                      open: parseFloat(k.o),
+                      high: parseFloat(k.h),
+                      low: parseFloat(k.l),
+                      close: parseFloat(k.c)
+                  };
+                  isClosed = k.x;
+              }
+          } else if (source === 'OKX') {
+              // OKX data: [ts, o, h, l, c, vol, ...]
+              if (data.data && data.data[0]) {
+                  const k = data.data[0];
+                  newCandle = {
+                      time: parseInt(k[0]),
+                      open: parseFloat(k[1]),
+                      high: parseFloat(k[2]),
+                      low: parseFloat(k[3]),
+                      close: parseFloat(k[4])
+                  };
+              }
+          } else if (source === 'Gate.io') {
+              // Gate data: { t, o, c, h, l }
+              if (data.event === 'update' && data.result) {
+                  const k = data.result;
+                  newCandle = {
+                      time: parseInt(k.t) * 1000,
+                      open: parseFloat(k.o),
+                      high: parseFloat(k.h),
+                      low: parseFloat(k.l),
+                      close: parseFloat(k.c)
+                  };
               }
           }
 
-          // Check Liquidations immediately on price update
-          checkLiquidations(candle.close);
-      };
+          if (newCandle) {
+              // Outlier Check on Price
+              if (gameRef.current.lastValidPrice > 0) {
+                  const deviation = Math.abs(newCandle.close - gameRef.current.lastValidPrice) / gameRef.current.lastValidPrice;
+                  if (deviation > 0.3) return; // Ignore insane spikes (>30%)
+              }
+              gameRef.current.lastValidPrice = newCandle.close;
+              
+              updatePrice(newCandle.close);
+              updateCandle(newCandle, isClosed);
+          }
+      } catch (e) {
+          // Ignore parsing errors
+      }
+  };
 
-      ws.onclose = () => {
-          setIsConnected(false);
-          // Simple reconnect logic could go here
-      };
+  const updateCandle = (candle: Candle, forceClose: boolean) => {
+      const { currentCandle, candles } = gameRef.current;
 
-      gameRef.current.ws = ws;
+      if (!currentCandle) {
+          gameRef.current.currentCandle = candle;
+          return;
+      }
+
+      // Check if this is a new time bucket (new minute)
+      // Usually time stamps are ms. 1m candle difference should be >= 60000ms
+      if (candle.time > currentCandle.time) {
+          // Close previous
+          pushCandle(currentCandle);
+          gameRef.current.currentCandle = candle;
+      } else {
+          // Update existing
+          gameRef.current.currentCandle = candle;
+          if (forceClose) {
+              pushCandle(candle);
+              // Prepare next? No, wait for next update
+              gameRef.current.currentCandle = null;
+          }
+      }
+  };
+
+  const pushCandle = (candle: Candle) => {
+      // Avoid dupes
+      const last = gameRef.current.candles[gameRef.current.candles.length - 1];
+      if (last && last.time === candle.time) {
+          gameRef.current.candles[gameRef.current.candles.length - 1] = candle;
+      } else {
+          gameRef.current.candles.push(candle);
+          if (gameRef.current.candles.length > MAX_CANDLES) {
+              gameRef.current.candles.shift();
+          }
+      }
+  };
+
+  const updatePrice = (price: number) => {
+      gameRef.current.price = price;
+      setCurrentPrice(price);
+      checkLiquidations(price);
   };
 
   const checkLiquidations = (newPrice: number) => {
-      // Only liquidate active positions
       for (let i = gameRef.current.positions.length - 1; i >= 0; i--) {
           const pos = gameRef.current.positions[i];
-          
-          // Liquidation Logic
-          // Long: Price drops below Liq
           if (pos.type === 'LONG' && newPrice <= pos.liquidationPrice) {
               liquidatePosition(pos, i);
           } 
-          // Short: Price rises above Liq
           else if (pos.type === 'SHORT' && newPrice >= pos.liquidationPrice) {
               liquidatePosition(pos, i);
           }
@@ -215,8 +383,10 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const openPosition = async (type: 'LONG' | 'SHORT') => {
       if (!userProfile) return;
       if (isTransactionPending) return; // Lock check
-      if (!isConnected) {
-          showNotif("正在连接交易所...", 'info');
+      
+      // Allow opening even if WS connecting if we have price from history
+      if (gameRef.current.price === 0) {
+          showNotif("等待价格数据...", 'info');
           return;
       }
       
@@ -250,9 +420,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
         const size = margin * leverage;
         
-        // Calculate Liquidation Price (Simulated Isolation Margin)
-        // Liquidation happens when margin is exhausted (~80% loss usually in real crypto, let's say 90% here)
-        // Long Liq: Entry * (1 - 1/Lev)
+        // Calculate Liquidation Price
         let liquidationPrice = 0;
         if (type === 'LONG') {
             liquidationPrice = entryPrice * (1 - (1/leverage) * 0.9);
@@ -275,7 +443,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
         setActivePositions([...gameRef.current.positions]);
         
         audio.playShoot();
-        showNotif(`${leverage}x 开仓! (价格 ${entryPrice.toFixed(2)})`, 'info');
+        showNotif(`${leverage}x 开仓!`, 'info');
         
       } catch (e) {
           console.error(e);
@@ -390,11 +558,15 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       const allData = [...candles];
       if (currentCandle) allData.push(currentCandle);
 
-      if (allData.length < 2) return;
+      if (allData.length < 2) {
+          ctx.fillStyle = '#555';
+          ctx.font = '12px sans-serif';
+          ctx.fillText("正在获取行情数据...", CANVAS_WIDTH/2 - 60, CANVAS_HEIGHT/2);
+          return;
+      }
 
       // Calculate Scale (Viewport Window)
       let min = Infinity, max = -Infinity;
-      // Look only at recent candles to auto-scale
       const visibleData = allData.slice(-MAX_CANDLES);
       visibleData.forEach(c => {
           if (c.low < min) min = c.low;
@@ -499,7 +671,16 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
   const loop = () => {
     gameRef.current.animationId = requestAnimationFrame(loop);
-    // Draw every frame, data updates via WebSocket async
+    
+    // Watchdog: If no message for > 5 seconds, attempt soft reconnect
+    const now = Date.now();
+    if (isConnected && gameRef.current.lastMessageTime > 0 && now - gameRef.current.lastMessageTime > 5000) {
+        console.warn("Watchdog: Connection stalled, reconnecting...");
+        if (gameRef.current.ws) gameRef.current.ws.close(); // Triggers onclose handler logic
+        gameRef.current.lastMessageTime = 0; // Prevent loop until reconnected
+    }
+
+    // Draw every frame
     const canvas = canvasRef.current;
     if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -547,10 +728,38 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       {/* 2. Chart Canvas */}
       <div className="relative w-full bg-black rounded-2xl overflow-hidden shadow-2xl border-4 border-neutral-800">
         
-        {/* Status Indicator */}
-        <div className={`absolute top-2 left-2 flex items-center gap-1 text-[10px] font-bold ${isConnected ? 'text-green-500' : 'text-red-500'} z-10 bg-black/50 px-2 py-1 rounded-full`}>
-            {isConnected ? <Wifi size={10}/> : <WifiOff size={10}/>}
-            {isConnected ? 'LIVE: BNB/USDT' : '连接中...'}
+        {/* Status Indicator & Manual Selector */}
+        <div className="absolute top-2 left-2 z-10 flex gap-2">
+            <div className="relative">
+                <button 
+                    onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)}
+                    className={`flex items-center gap-1.5 text-[10px] font-bold bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 hover:bg-black/80 transition-all ${isConnected ? 'text-green-400' : 'text-orange-400'}`}
+                >
+                    {isConnected ? <Wifi size={12}/> : <Globe size={12} className="animate-spin"/>}
+                    <span>{sourceName} (1m)</span>
+                    <ChevronDown size={12} className={`transition-transform ${isSourceMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* Dropdown Menu */}
+                {isSourceMenuOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden shadow-xl w-32 flex flex-col z-20 animate-in fade-in zoom-in duration-200">
+                        <div className="text-[9px] text-neutral-500 font-bold uppercase px-3 py-2 bg-black/20">Select Source</div>
+                        {SOURCES.map((src, idx) => (
+                            <button
+                                key={src.name}
+                                onClick={() => {
+                                    connectToSource(idx);
+                                    setIsSourceMenuOpen(false);
+                                }}
+                                className={`px-3 py-2.5 text-left text-[10px] font-bold hover:bg-white/10 flex justify-between items-center border-b border-white/5 last:border-0 ${sourceName === src.name ? 'text-brand-yellow bg-white/5' : 'text-neutral-400'}`}
+                            >
+                                {src.name}
+                                {sourceName === src.name && <div className="w-1.5 h-1.5 rounded-full bg-brand-yellow shadow-[0_0_5px_#fbbf24]"></div>}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
 
         <canvas 
@@ -589,10 +798,10 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
         )}
       </div>
       
-      {/* Risk Warning (Updated: Removed fee warning) */}
+      {/* Risk Warning */}
       <div className="w-full bg-red-900/30 border border-red-500/30 rounded-lg p-2 flex items-start gap-2 text-[10px] text-red-300">
          <AlertCircle size={12} className="mt-0.5 shrink-0"/>
-         <span>真实行情模式 (BNB/USDT) | 免手续费 | 高风险提示：请谨慎控制杠杆。</span>
+         <span>真实行情模式 | 免手续费 | 高风险提示：请谨慎控制杠杆。</span>
       </div>
 
       {/* 3. Trading Controls */}

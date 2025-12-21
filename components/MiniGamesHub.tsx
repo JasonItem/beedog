@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout, Footprints } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout, Footprints, MousePointer2, Shuffle, ArrowUpCircle } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -23,273 +23,74 @@ import { HoneySlots } from './games/HoneySlots';
 import { BeeKnight } from './games/BeeKnight';
 import { HoneyFishing } from './games/HoneyFishing';
 import { HoneyFarm } from './games/HoneyFarm';
-import { HoneyJump } from './games/HoneyJump'; // Import
+import { HoneyJump } from './games/HoneyJump';
+import { HoneyDozer } from './games/HoneyDozer'; // Imported missing game
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
 import { audio } from '../services/audioService';
 import { Button } from './Button';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MiniGamesHubProps {
   onLoginRequest: () => void;
 }
 
-// Enhanced Game Interface
-interface GameData {
+// Data Structure (Text moved to context dictionary)
+export interface GameConfig {
   id: string;
-  name: string;
-  description: string;
-  howToPlay: string;
+  nameKey: string;
+  descKey: string;
+  howToPlay: string; // Keep this simple or move to dict too
   color: string;
   icon: React.ElementType;
   tags: string[];
-  isHoneyGame: boolean; // Involves earning/spending honey directly
-  cost?: number;
+  isHoneyGame: boolean;
 }
 
-export const GAMES: GameData[] = [
-  {
-    id: 'honey_jump',
-    name: '蜜蜂狗跳一跳',
-    description: '像冒险猫一样刺激！蓄力跳跃，小心尖刺陷阱会把你弹飞！',
-    howToPlay: '按住屏幕蓄力，松开跳跃。落在尖刺上会被向后弹飞，连续失误弹飞更远！',
-    color: 'from-sky-500 to-blue-600',
-    icon: Footprints,
-    tags: ['动作', '挑战', '热门'],
-    isHoneyGame: false
-  },
-  {
-    id: 'honey_farm',
-    name: '蜜蜂农场',
-    description: '佛系挂机种菜！购买种子，坐等丰收。离线也能生长！',
-    howToPlay: '购买种子种在空地上。等待作物成熟后收获蜂蜜和经验。升级解锁更高级作物。',
-    color: 'from-green-600 to-emerald-800',
-    icon: Sprout,
-    tags: ['养成', '挂机', '经营'],
-    isHoneyGame: true
-  },
-  {
-    id: 'honey_fishing',
-    name: '蜜蜂垂钓',
-    description: '悠闲的午后，来河边甩两杆？经典星露谷玩法，收集稀有鱼类！',
-    howToPlay: '按住控制绿条包住鱼。满进度钓起。可在商店升级鱼竿，鱼获可卖出换蜂蜜。',
-    color: 'from-cyan-500 to-blue-700',
-    icon: AnchorIcon,
-    tags: ['模拟', '收集', '休闲'],
-    isHoneyGame: true
-  },
-  {
-    id: 'bee_knight',
-    name: '蜜蜂骑士',
-    description: '行情不好去送外卖？驾驶小电驴，极速送达蜂蜜汉堡！',
-    howToPlay: '点击左右变道。捡起路上的食物包，撞向顾客完成送餐。避开障碍物！',
-    color: 'from-yellow-500 to-amber-700',
-    icon: Bike,
-    tags: ['跑酷', '反应'],
-    isHoneyGame: true
-  },
-  {
-    id: 'honey_slots',
-    name: '蜜蜂大乐透',
-    description: '经典的赌场老虎机玩法！投入蜂蜜，搏一搏单车变摩托！',
-    howToPlay: '选择下注金额，点击旋转。当三个相同的图案连成一线时即可获得高额倍数奖励。',
-    color: 'from-yellow-600 to-amber-900',
-    icon: DollarSign,
-    tags: ['运气', '博彩'],
-    isHoneyGame: true
-  },
-  {
-    id: 'honey_burger',
-    name: '蜜蜂狗汉堡店',
-    description: 'Crypto 亏钱了？来麦当劳打工吧！按照订单制作汉堡，赚取辛苦钱。',
-    howToPlay: '根据顾客头顶的气泡，按顺序点击配料。注意时间限制，配错会扣除生命值。',
-    color: 'from-amber-500 to-red-600',
-    icon: Utensils,
-    tags: ['模拟', '手速'],
-    isHoneyGame: true
-  },
-  {
-    id: 'honey_scratch',
-    name: '蜜蜂刮刮乐',
-    description: '运气也是实力的一部分！三种价位，最高赢取 10,000 蜂蜜！',
-    howToPlay: '选择刮刮卡价位，支付蜂蜜后刮开涂层。集齐三个相同图案即可获得对应奖励。',
-    color: 'from-purple-500 to-indigo-600',
-    icon: Ticket,
-    tags: ['运气', '休闲'],
-    isHoneyGame: true
-  },
-  {
-    id: 'moon_doom',
-    name: '传奇交易员',
-    description: 'Crypto 模拟盘！预测 10 秒后的价格走势 (Moon or Doom)。',
-    howToPlay: '观察K线走势，下注看涨(Moon)或看跌(Doom)。10秒后结算，猜对翻倍，猜错归零。',
-    color: 'from-green-500 to-red-600',
-    icon: BarChart2,
-    tags: ['策略', '模拟'],
-    isHoneyGame: true
-  },
-  {
-    id: 'bee_swarm',
-    name: '蜜蜂大军',
-    description: '爽快射击跑酷！打破箱子集结蜜蜂僚机，组建无敌舰队！',
-    howToPlay: '左右滑动控制移动。射击箱子增加蜜蜂数量，射击敌人获得分数。小心躲避红色子弹。',
-    color: 'from-orange-400 to-red-500',
-    icon: Users,
-    tags: ['射击', '跑酷'],
-    isHoneyGame: false
-  },
-  {
-    id: 'honey_swing',
-    name: '蜜蜂摆荡',
-    description: '像蜘蛛侠一样飞荡！点击射出蜂蜜绳，利用惯性飞越牛熊市！',
-    howToPlay: '按住屏幕射出绳索钩住支点，松开手指借力飞出。不要掉落到下方红线区域。',
-    color: 'from-amber-500 to-orange-700',
-    icon: Anchor,
-    tags: ['物理', '技巧'],
-    isHoneyGame: false
-  },
-  {
-    id: 'honey_climber',
-    name: '蜂蜜攀登者',
-    description: '手速与反应的极限挑战！左右点击躲避红色阴线，快速攀登绿色阳线！',
-    howToPlay: '点击屏幕左侧或右侧进行攀爬。避开红色的树枝，收集能量防止FOMO耗尽。',
-    color: 'from-green-500 to-emerald-700',
-    icon: TrendingUp,
-    tags: ['反应', '街机'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_match',
-    name: '蜜蜂消消乐',
-    description: '羊了个羊同款玩法！在堆叠的牌中找出三张相同的消除，挑战高难度！',
-    howToPlay: '点击卡牌放入下方卡槽，三个相同图案自动消除。卡槽满7张则游戏失败。',
-    color: 'from-emerald-400 to-green-600',
-    icon: Grid3X3,
-    tags: ['益智', '消除'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_evolution',
-    name: '蜜蜂狗进化论',
-    description: '合成大西瓜玩法！从蜜蜂卵开始，一步步合成出巨大的蜜蜂狗！',
-    howToPlay: '点击屏幕投放物体，相同等级的物体碰撞会进化成更高级的形态。不要让物体堆满屏幕。',
-    color: 'from-amber-300 to-orange-500',
-    icon: CircleDashed,
-    tags: ['合成', '休闲'],
-    isHoneyGame: false
-  },
-  {
-    id: 'fud_buster',
-    name: 'FUD 粉碎者',
-    description: '切碎空头和 FUD 新闻，保卫牛市！千万别切绿色蜡烛！',
-    howToPlay: '滑动屏幕切碎红色的空头、熊和新闻。切到绿色蜡烛会扣除生命值。',
-    color: 'from-red-500 to-rose-700',
-    icon: Scissors,
-    tags: ['动作', '解压'],
-    isHoneyGame: false
-  },
-  {
-    id: 'flappy_bee',
-    name: '笨鸟先飞',
-    description: '控制蜜蜂狗穿越障碍，飞得越远越好！',
-    howToPlay: '点击屏幕控制蜜蜂狗向上飞行，穿过绿色管子。撞到管子或地面游戏结束。',
-    color: 'from-sky-400 to-blue-600',
-    icon: Rocket,
-    tags: ['经典', '街机'],
-    isHoneyGame: false
-  },
-  {
-    id: 'honey_stack',
-    name: '蜂蜜叠叠乐',
-    description: '解压神作！看准时机堆叠蛋糕，挑战最高塔！',
-    howToPlay: '当移动的方块与下方重合时点击屏幕。未重合的部分会被切掉，方块越来越小。',
-    color: 'from-amber-400 to-yellow-600',
-    icon: Layers,
-    tags: ['节奏', '专注'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_run',
-    name: '重力暴走',
-    description: '点击反转重力！在天花板和地板之间极速奔跑，躲避尖刺！',
-    howToPlay: '点击屏幕切换重力方向（上下）。躲避障碍物，尽可能跑得更远。',
-    color: 'from-blue-500 to-indigo-700',
-    icon: ChevronsUp,
-    tags: ['跑酷', '反应'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_jump',
-    name: '飞向月球',
-    description: '踩着绿色蜡烛图冲向月球！千万别踩空！',
-    howToPlay: '左右倾斜手机或点击屏幕左右控制方向。踩在绿色平台上跳跃，掉落则游戏结束。',
-    color: 'from-green-400 to-emerald-600',
-    icon: Rocket,
-    tags: ['技巧', '跳跃'],
-    isHoneyGame: false
-  },
-  {
-    id: 'honey_miner',
-    name: '蜜蜂矿工',
-    description: '60秒限时挑战！抓取蜂蜜和钻石，避开垃圾资产。',
-    howToPlay: '点击屏幕发射钩爪。抓取高价值物品（BTC, ETH, 蜂蜜），避开石头。',
-    color: 'from-yellow-600 to-amber-800',
-    icon: Pickaxe,
-    tags: ['经典', '休闲'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_defense',
-    name: '保卫狗头',
-    description: '点击拍死来袭的蜜蜂！别让 BeeDog 的脸再肿了！',
-    howToPlay: '蜜蜂会从四面八方飞来，点击它们将其消灭。保护中间的狗头不被叮咬。',
-    color: 'from-red-400 to-red-600',
-    icon: Shield,
-    tags: ['塔防', '点击'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_racing',
-    name: '极速狂飙',
-    description: '老司机带带我！左右闪避障碍，收集油桶冲刺！',
-    howToPlay: '左右滑动控制赛车变道。收集蜂蜜加速，撞到障碍物或敌车会减速或游戏结束。',
-    color: 'from-indigo-500 to-purple-700',
-    icon: CarFront,
-    tags: ['赛车', '竞速'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_snake',
-    name: '贪吃蛇',
-    description: '经典回归！吃蜂蜜变长，小心别咬到尾巴！',
-    howToPlay: '滑动屏幕或使用方向键控制移动。吃掉蜂蜜变长，撞墙或撞到自己游戏结束。',
-    color: 'from-yellow-500 to-orange-600',
-    icon: Activity,
-    tags: ['经典', '益智'],
-    isHoneyGame: false
-  },
-  {
-    id: 'bee_volley',
-    name: '沙滩排球',
-    description: '阳光、沙滩、排球！你能同时顶起几个球？',
-    howToPlay: '拖动角色左右移动。用头顶起排球，不要让球落地。球的数量会逐渐增加。',
-    color: 'from-cyan-400 to-blue-500',
-    icon: Volleyball,
-    tags: ['体育', '技巧'],
-    isHoneyGame: false
-  }
+// FULL LIST OF 23 GAMES
+export const GAMES: GameConfig[] = [
+  // FEATURED / HIGH QUALITY
+  { id: 'honey_jump', nameKey: 'game.honey_jump.name', descKey: 'game.honey_jump.desc', howToPlay: 'Tap/Hold to charge jump.', color: 'from-sky-500 to-blue-600', icon: Footprints, tags: ['Action', 'Skill'], isHoneyGame: false },
+  { id: 'honey_farm', nameKey: 'game.honey_farm.name', descKey: 'game.honey_farm.desc', howToPlay: 'Plant seeds, wait, harvest.', color: 'from-green-600 to-emerald-800', icon: Sprout, tags: ['Idle', 'Farm'], isHoneyGame: true },
+  { id: 'honey_fishing', nameKey: 'game.honey_fishing.name', descKey: 'game.honey_fishing.desc', howToPlay: 'Cast line, keep fish in bar.', color: 'from-cyan-500 to-blue-700', icon: AnchorIcon, tags: ['Sim', 'Relax'], isHoneyGame: true },
+  { id: 'bee_knight', nameKey: 'game.bee_knight.name', descKey: 'game.bee_knight.desc', howToPlay: 'Dodge obstacles, deliver food.', color: 'from-yellow-500 to-amber-700', icon: Bike, tags: ['Runner', 'Action'], isHoneyGame: true },
+  
+  // CASUAL / ARCADE
+  { id: 'flappy_bee', nameKey: 'game.flappy_bee.name', descKey: 'game.flappy_bee.desc', howToPlay: 'Tap to fly.', color: 'from-sky-400 to-indigo-500', icon: Rocket, tags: ['Classic', 'Skill'], isHoneyGame: false },
+  { id: 'honey_miner', nameKey: 'game.honey_miner.name', descKey: 'game.honey_miner.desc', howToPlay: 'Aim hook, grab gold.', color: 'from-yellow-600 to-amber-800', icon: Pickaxe, tags: ['Arcade', 'Timing'], isHoneyGame: false },
+  { id: 'bee_defense', nameKey: 'game.bee_defense.name', descKey: 'game.bee_defense.desc', howToPlay: 'Tap enemies to defend.', color: 'from-red-500 to-orange-600', icon: Shield, tags: ['Action', 'Defense'], isHoneyGame: false },
+  { id: 'bee_racing', nameKey: 'game.bee_racing.name', descKey: 'game.bee_racing.desc', howToPlay: 'Swipe to dodge traffic.', color: 'from-gray-700 to-black', icon: CarFront, tags: ['Racing', 'Reflex'], isHoneyGame: false },
+  { id: 'bee_snake', nameKey: 'game.bee_snake.name', descKey: 'game.bee_snake.desc', howToPlay: 'Eat honey, don\'t crash.', color: 'from-green-500 to-emerald-700', icon: Activity, tags: ['Classic', 'Snake'], isHoneyGame: false },
+  { id: 'bee_volley', nameKey: 'game.bee_volley.name', descKey: 'game.bee_volley.desc', howToPlay: 'Move to bounce ball.', color: 'from-blue-400 to-indigo-600', icon: Volleyball, tags: ['Sports', 'Physics'], isHoneyGame: false },
+  { id: 'bee_run', nameKey: 'game.bee_run.name', descKey: 'game.bee_run.desc', howToPlay: 'Tap to flip gravity.', color: 'from-indigo-600 to-purple-800', icon: ChevronsUp, tags: ['Runner', 'Gravity'], isHoneyGame: false },
+  { id: 'honey_stack', nameKey: 'game.honey_stack.name', descKey: 'game.honey_stack.desc', howToPlay: 'Tap to stack blocks.', color: 'from-amber-400 to-orange-600', icon: Layers, tags: ['Timing', 'Casual'], isHoneyGame: false },
+  { id: 'fud_buster', nameKey: 'game.fud_buster.name', descKey: 'game.fud_buster.desc', howToPlay: 'Swipe to slice FUD.', color: 'from-red-600 to-rose-800', icon: Scissors, tags: ['Action', 'Ninja'], isHoneyGame: false },
+  { id: 'bee_evolution', nameKey: 'game.bee_evolution.name', descKey: 'game.bee_evolution.desc', howToPlay: 'Drop & merge matching balls.', color: 'from-purple-500 to-pink-600', icon: CircleDashed, tags: ['Puzzle', 'Merge'], isHoneyGame: false },
+  { id: 'bee_tile_match', nameKey: 'game.bee_tile_match.name', descKey: 'game.bee_tile_match.desc', howToPlay: 'Match 3 tiles to clear.', color: 'from-green-500 to-teal-700', icon: Grid3X3, tags: ['Puzzle', 'Match-3'], isHoneyGame: false },
+  { id: 'honey_climber', nameKey: 'game.honey_climber.name', descKey: 'game.honey_climber.desc', howToPlay: 'Tap sides to climb tree.', color: 'from-green-700 to-emerald-900', icon: ArrowUpCircle, tags: ['Arcade', 'Climbing'], isHoneyGame: false },
+  { id: 'honey_swing', nameKey: 'game.honey_swing.name', descKey: 'game.honey_swing.desc', howToPlay: 'Hold to swing, release to fly.', color: 'from-orange-500 to-red-600', icon: Anchor, tags: ['Physics', 'Skill'], isHoneyGame: false },
+  
+  // GAMBLING / LUCK
+  { id: 'honey_slots', nameKey: 'game.honey_slots.name', descKey: 'game.honey_slots.desc', howToPlay: 'Bet honey, spin to win.', color: 'from-yellow-600 to-amber-900', icon: DollarSign, tags: ['Luck', 'Casino'], isHoneyGame: true },
+  { id: 'honey_burger', nameKey: 'game.honey_burger.name', descKey: 'game.honey_burger.desc', howToPlay: 'Assemble ingredients correctly.', color: 'from-amber-500 to-red-600', icon: Utensils, tags: ['Sim', 'Speed'], isHoneyGame: true },
+  { id: 'honey_scratch', nameKey: 'game.honey_scratch.name', descKey: 'game.honey_scratch.desc', howToPlay: 'Scratch to match 3 symbols.', color: 'from-purple-500 to-indigo-600', icon: Ticket, tags: ['Luck', 'Casual'], isHoneyGame: true },
+  { id: 'moon_doom', nameKey: 'game.moon_doom.name', descKey: 'game.moon_doom.desc', howToPlay: 'Predict price movement.', color: 'from-green-500 to-red-600', icon: BarChart2, tags: ['Sim', 'Crypto'], isHoneyGame: true },
+  { id: 'bee_swarm', nameKey: 'game.bee_swarm.name', descKey: 'game.bee_swarm.desc', howToPlay: 'Shoot enemies, gather swarm.', color: 'from-orange-400 to-red-500', icon: Users, tags: ['Shooter', 'Action'], isHoneyGame: false },
+  { id: 'honey_dozer', nameKey: 'game.honey_dozer.name', descKey: 'game.honey_dozer.desc', howToPlay: 'Drop coins, push prizes.', color: 'from-yellow-500 to-amber-600', icon: Coins, tags: ['Arcade', 'Luck'], isHoneyGame: true },
 ];
 
 export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { t } = useLanguage();
   const fullscreenRef = useRef<HTMLDivElement>(null);
   
   // Layout State
-  const [selectedGame, setSelectedGame] = useState<GameData>(GAMES[0]);
+  const [selectedGameConfig, setSelectedGameConfig] = useState<GameConfig>(GAMES[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'REVIEWS'>('LEADERBOARD');
-  const [isGameSelectorOpen, setIsGameSelectorOpen] = useState(false); // Mobile Dropdown
+  const [isGameSelectorOpen, setIsGameSelectorOpen] = useState(false);
   
   // Data State
   const [leaderboard, setLeaderboard] = useState<GameScore[]>([]);
@@ -300,21 +101,17 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const [userBestScore, setUserBestScore] = useState<number>(0);
   const [avgRating, setAvgRating] = useState<number>(0);
 
-  // Review Form State
   const [userRating, setUserRating] = useState(5);
   const [userComment, setUserComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  // Date String for Reward Check
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-  // Helper to check if reward claimed
   const isRewardClaimed = (gameId: string) => {
       return userProfile?.dailyGameRewards?.[gameId] === todayStr;
   };
 
-  // Fetch player counts on mount
   useEffect(() => {
     let isMounted = true;
     const fetchCounts = async () => {
@@ -330,25 +127,22 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
     return () => { isMounted = false; };
   }, []);
 
-  // Fetch Game Details (Leaderboard + Reviews) when selection changes
   useEffect(() => {
-    if (selectedGame) {
+    if (selectedGameConfig) {
       setLoadingData(true);
-      // Reset inputs
       setUserRating(5);
       setUserComment('');
-      setIsGameSelectorOpen(false); // Close mobile menu on select
+      setIsGameSelectorOpen(false);
       
       Promise.all([
-          getLeaderboard(selectedGame.id, 20), // Fetch more to show list
-          getGameReviews(selectedGame.id, 50),
-          userProfile ? getUserHighScore(selectedGame.id, userProfile.uid) : Promise.resolve(0)
+          getLeaderboard(selectedGameConfig.id, 20),
+          getGameReviews(selectedGameConfig.id, 50),
+          userProfile ? getUserHighScore(selectedGameConfig.id, userProfile.uid) : Promise.resolve(0)
       ]).then(([scores, reviewList, myScore]) => {
           setLeaderboard(scores);
           setReviews(reviewList);
           setUserBestScore(myScore);
           
-          // Calculate Average Rating
           if (reviewList.length > 0) {
               const total = reviewList.reduce((sum, r) => sum + r.rating, 0);
               setAvgRating(total / reviewList.length);
@@ -359,7 +153,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
           setLoadingData(false);
       });
     }
-  }, [selectedGame, userProfile]);
+  }, [selectedGameConfig, userProfile]);
 
   const showNotif = (msg: string, type: 'success' | 'error') => {
       setNotification({ msg, type });
@@ -374,23 +168,17 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   const handleGameStart = () => {
       audio.init();
       setIsPlaying(true);
-      
-      // Attempt True Fullscreen
       if (fullscreenRef.current) {
           fullscreenRef.current.requestFullscreen().catch(err => {
               console.log("Fullscreen request denied or not supported:", err);
-              // Fallback is handled by CSS (fixed inset-0)
           });
       }
   };
 
-  // Monitor Fullscreen Changes
   useEffect(() => {
       const handleFsChange = () => {
           if (!document.fullscreenElement) {
-              // Optional: You could auto-exit playing mode here, but keeping it active 
-              // in "windowed fullscreen" is also valid if user pressed Esc.
-              // For now, we rely on the X button to close.
+              // handle exit
           }
       };
       document.addEventListener('fullscreenchange', handleFsChange);
@@ -398,22 +186,19 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   }, []);
 
   const handleGameOver = async () => {
-    if (selectedGame) {
-      // Refresh Data (Leaderboard only mainly needed for score update)
+    if (selectedGameConfig) {
       const [scores, newCount] = await Promise.all([
-          getLeaderboard(selectedGame.id, 20),
-          getPlayerCount(selectedGame.id)
+          getLeaderboard(selectedGameConfig.id, 20),
+          getPlayerCount(selectedGameConfig.id)
       ]);
       setLeaderboard(scores);
-      setPlayerCounts(prev => ({...prev, [selectedGame.id]: newCount}));
+      setPlayerCounts(prev => ({...prev, [selectedGameConfig.id]: newCount}));
       
-      // Update User Best (Optimistic)
       if(userProfile) {
-          const myBest = await getUserHighScore(selectedGame.id, userProfile.uid);
+          const myBest = await getUserHighScore(selectedGameConfig.id, userProfile.uid);
           setUserBestScore(myBest);
       }
 
-      // Mission Logic
       if (user) {
           try {
               let earnedTotal = 0;
@@ -421,16 +206,15 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
               const globalRes = await completeDailyGameMission(user.uid);
               if (globalRes.success) {
                   earnedTotal += globalRes.earned;
-                  msgs.push("每日首玩");
+                  msgs.push("Daily Play");
               }
-              const gameRes = await claimPerGameDailyReward(user.uid, selectedGame.id);
+              const gameRes = await claimPerGameDailyReward(user.uid, selectedGameConfig.id);
               if (gameRes.success) {
                   earnedTotal += gameRes.earned;
-                  msgs.push("本游戏奖励");
+                  msgs.push("Game Reward");
               }
               if (earnedTotal > 0) {
-                  const title = msgs.join(" & ");
-                  showNotif(`🎉 ${title}完成！+${earnedTotal} 蜂蜜`, 'success');
+                  showNotif(`🎉 +${earnedTotal} Honey`, 'success');
                   await refreshProfile();
               }
           } catch (e) {
@@ -441,120 +225,88 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   };
 
   const handleSubmitReview = async () => {
-      if (!userProfile || !selectedGame || !userComment.trim()) return;
-      
+      if (!userProfile || !selectedGameConfig || !userComment.trim()) return;
       setSubmittingReview(true);
       try {
-          const newReview = await addGameReview(userProfile, selectedGame.id, userRating, userComment);
-          
-          // Update local list (optimistic add/replace)
+          const newReview = await addGameReview(userProfile, selectedGameConfig.id, userRating, userComment);
           const updatedReviews = [newReview, ...reviews.filter(r => r.userId !== userProfile.uid)];
           setReviews(updatedReviews);
-          
-          // Recalc Avg
           const total = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
           setAvgRating(total / updatedReviews.length);
-          
           setUserComment('');
-          showNotif("评价发布成功！", 'success');
+          showNotif("Review Posted!", 'success');
       } catch (e: any) {
-          console.error("Failed to post review", e);
-          if (e.code === 'permission-denied') {
-              showNotif("发布失败：权限不足 (可能是后台限制)", 'error');
-          } else {
-              showNotif("发布失败，请稍后再试", 'error');
-          }
+          showNotif("Failed to post review", 'error');
       } finally {
           setSubmittingReview(false);
       }
   };
 
-  // --- RENDER GAME COMPONENT ---
   const renderGame = () => {
-    switch (selectedGame.id) {
+    switch (selectedGameConfig.id) {
       case 'honey_jump': return <HoneyJump userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_farm': return <HoneyFarm userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
       case 'honey_fishing': return <HoneyFishing userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
       case 'bee_knight': return <BeeKnight userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_burger': return <HoneyBurger userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_scratch': return <HoneyScratch userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'moon_doom': return <MoonOrDoom userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_swing': return <HoneySwing userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_climber': return <HoneyClimber userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'bee_match': return <BeeTileMatch userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'bee_evolution': return <BeeEvolution userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'fud_buster': return <FudBuster userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'flappy_bee': return <FlappyBee userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_stack': return <HoneyStack userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'bee_run': return <BeeRun userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'bee_jump': return <BeeJump userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_miner': return <HoneyMiner userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_defense': return <BeeDefense userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_racing': return <BeeRacing userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_snake': return <BeeSnake userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_volley': return <BeeVolley userProfile={userProfile} onGameOver={handleGameOver} />;
-      default: return null;
+      case 'bee_run': return <BeeRun userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_stack': return <HoneyStack userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'fud_buster': return <FudBuster userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_evolution': return <BeeEvolution userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_tile_match': return <BeeTileMatch userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_climber': return <HoneyClimber userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_swing': return <HoneySwing userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_slots': return <HoneySlots userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_burger': return <HoneyBurger userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_scratch': return <HoneyScratch userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'moon_doom': return <MoonOrDoom userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'honey_dozer': return <HoneyDozer userProfile={userProfile} onGameOver={handleGameOver} />;
+      default: return <div className="text-white">Game Not Found</div>;
     }
   };
 
-  // --- FULLSCREEN PLAY MODE ---
   if (isPlaying) {
       return (
         <div 
             ref={fullscreenRef}
             className="fixed inset-0 z-[200] bg-[#050505] flex flex-col animate-in fade-in zoom-in duration-300"
         >
-             {/* 1. Navbar (Fixed at top) */}
              <div className="w-full bg-[#121212] border-b border-white/10 px-4 py-3 shrink-0 flex items-center justify-between shadow-xl z-[210]">
-                 {/* Left: Game Info */}
                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedGame.color} flex items-center justify-center text-white shadow-lg`}>
-                        <selectedGame.icon size={18} />
+                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedGameConfig.color} flex items-center justify-center text-white shadow-lg`}>
+                        <selectedGameConfig.icon size={18} />
                     </div>
                     <div>
-                        <div className="font-black text-white text-sm leading-none">{selectedGame.name}</div>
-                        <div className="text-[10px] text-neutral-400 mt-0.5 font-bold">正在游玩</div>
+                        <div className="font-black text-white text-sm leading-none">{t(selectedGameConfig.nameKey)}</div>
+                        <div className="text-[10px] text-neutral-400 mt-0.5 font-bold">Playing</div>
                     </div>
                  </div>
 
-                 {/* Right: Controls */}
                  <div className="flex gap-2">
-                     <button 
-                        onClick={toggleMute}
-                        className="w-9 h-9 rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition-all border border-white/10 flex items-center justify-center"
-                     >
+                     <button onClick={toggleMute} className="w-9 h-9 rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-white/10 flex items-center justify-center">
                         {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                      </button>
-                     <button 
-                        onClick={() => { 
-                            setIsPlaying(false); 
-                            audio.init(); 
-                            handleGameOver(); // Trigger data refresh on exit
-                        }}
-                        className="w-9 h-9 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 flex items-center justify-center"
-                     >
+                     <button onClick={() => { setIsPlaying(false); audio.init(); handleGameOver(); }} className="w-9 h-9 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 flex items-center justify-center">
                         <Minimize2 size={18} />
                      </button>
                  </div>
              </div>
              
-             {/* Notification Container */}
              {notification && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[220] w-max max-w-[90%] pointer-events-none flex justify-center">
-                    <div className={`px-5 py-2.5 rounded-full shadow-2xl border flex items-center gap-2 font-bold animate-in slide-in-from-top-4 ${
-                        notification.type === 'error' 
-                        ? 'bg-red-600 border-red-400 text-white' 
-                        : 'bg-green-600 border-green-400 text-white'
-                    }`}>
+                    <div className={`px-5 py-2.5 rounded-full shadow-2xl border flex items-center gap-2 font-bold animate-in slide-in-from-top-4 ${notification.type === 'error' ? 'bg-red-600 border-red-400 text-white' : 'bg-green-600 border-green-400 text-white'}`}>
                         {notification.type === 'error' ? <AlertCircle size={16}/> : <Star size={16} className="fill-current"/>}
                         {notification.msg}
                     </div>
                 </div>
              )}
 
-             {/* Game Scroll Area */}
              <div className="flex-1 w-full overflow-y-auto custom-scrollbar relative bg-[#050505]">
                  <div className="min-h-full flex flex-col items-center justify-center p-4 pb-20">
                     {renderGame()}
@@ -564,24 +316,22 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
       );
   }
 
-  // --- LOBBY MODE (Split Layout) ---
   return (
     <div className="min-h-screen pt-24 pb-12 bg-neutral-50 dark:bg-[#050505]">
       <div className="container mx-auto px-4 max-w-7xl">
         
-        {/* Header */}
         <div className="flex justify-between items-center mb-6">
              <h1 className="text-3xl font-black dark:text-white flex items-center gap-3">
-                <Gamepad2 className="text-brand-yellow" size={32}/> 游戏大厅
+                <Gamepad2 className="text-brand-yellow" size={32}/> {t('games.lobby')}
              </h1>
              <div className="flex gap-2">
                  <button onClick={onLoginRequest} className="md:hidden text-xs bg-neutral-200 dark:bg-[#333] px-3 py-2 rounded-full font-bold dark:text-white">
-                    {user ? '已登录' : '登录存档'}
+                    {user ? t('games.logged_in') : t('games.login_save')}
                  </button>
              </div>
         </div>
 
-        {/* MOBILE GAME SELECTOR (Only Visible on Mobile) */}
+        {/* Mobile Dropdown */}
         <div className="lg:hidden mb-6 relative z-30">
             <button 
                 onClick={() => setIsGameSelectorOpen(!isGameSelectorOpen)}
@@ -589,25 +339,24 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
             >
                 <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-brand-yellow text-black`}>
-                        <selectedGame.icon size={20} />
+                        <selectedGameConfig.icon size={20} />
                     </div>
                     <div className="text-left">
-                        <div className="text-xs text-neutral-500 font-bold uppercase tracking-wider">当前选择</div>
-                        <div className="font-bold dark:text-white">{selectedGame.name}</div>
+                        <div className="text-xs text-neutral-500 font-bold uppercase tracking-wider">{t('games.select')}</div>
+                        <div className="font-bold dark:text-white">{t(selectedGameConfig.nameKey)}</div>
                     </div>
                 </div>
                 <ChevronDown size={20} className={`transition-transform ${isGameSelectorOpen ? 'rotate-180' : ''} text-neutral-400`}/>
             </button>
 
-            {/* Dropdown Menu */}
             {isGameSelectorOpen && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#161616] rounded-2xl shadow-2xl border border-neutral-200 dark:border-[#333] overflow-hidden max-h-[60vh] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
                     {GAMES.map(game => (
                         <button
                             key={game.id}
-                            onClick={() => setSelectedGame(game)}
+                            onClick={() => setSelectedGameConfig(game)}
                             className={`w-full p-3 flex items-center gap-3 border-b border-neutral-100 dark:border-[#222] last:border-0 active:bg-neutral-100 dark:active:bg-[#222] transition-colors
-                                ${selectedGame.id === game.id ? 'bg-brand-yellow/10 dark:bg-brand-yellow/20' : ''}
+                                ${selectedGameConfig.id === game.id ? 'bg-brand-yellow/10 dark:bg-brand-yellow/20' : ''}
                             `}
                         >
                             <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-[#333] flex items-center justify-center text-neutral-500">
@@ -615,62 +364,53 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                             </div>
                             <div className="flex-1 text-left flex justify-between items-center">
                                 <div>
-                                    <div className={`font-bold text-sm ${selectedGame.id === game.id ? 'text-brand-yellow' : 'dark:text-white'}`}>{game.name}</div>
-                                    {game.isHoneyGame && <div className="text-[10px] text-orange-500 font-bold flex items-center gap-1"><Zap size={8} className="fill-current"/> 赚蜂蜜</div>}
+                                    <div className={`font-bold text-sm ${selectedGameConfig.id === game.id ? 'text-brand-yellow' : 'dark:text-white'}`}>{t(game.nameKey)}</div>
+                                    {game.isHoneyGame && <div className="text-[10px] text-orange-500 font-bold flex items-center gap-1"><Zap size={8} className="fill-current"/> {t('games.earn_honey')}</div>}
                                 </div>
                                 {isRewardClaimed(game.id) && <CheckCircle2 size={16} className="text-green-500 fill-green-500/20"/>}
                             </div>
-                            {selectedGame.id === game.id && <div className="w-2 h-2 rounded-full bg-brand-yellow"></div>}
+                            {selectedGameConfig.id === game.id && <div className="w-2 h-2 rounded-full bg-brand-yellow"></div>}
                         </button>
                     ))}
                 </div>
             )}
         </div>
 
-        {/* Main Grid: items-start prevents height stretching, allowing left side to grow naturally */}
         <div className="grid lg:grid-cols-12 gap-6 items-start relative">
-            
-            {/* Notification Toast (Lobby) */}
             {notification && (
                 <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                    <div className={`px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-bold animate-in slide-in-from-top-2 border ${
-                        notification.type === 'success' ? 'bg-green-600 text-white border-green-400' : 'bg-red-600 text-white border-red-400'
-                    }`}>
+                    <div className={`px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-bold animate-in slide-in-from-top-2 border ${notification.type === 'success' ? 'bg-green-600 text-white border-green-400' : 'bg-red-600 text-white border-red-400'}`}>
                         {notification.type === 'success' ? <CheckCircle size={18}/> : <AlertCircle size={18}/>}
                         {notification.msg}
                     </div>
                 </div>
             )}
 
-            {/* LEFT SIDE: Game Details Dashboard (col-span-8) - No fixed height */}
             <div className="lg:col-span-8 flex flex-col gap-6">
                 
-                {/* 1. Hero Card */}
-                <div className={`relative rounded-[2.5rem] overflow-hidden p-8 md:p-12 text-white shadow-2xl transition-all duration-500 bg-gradient-to-br ${selectedGame.color}`}>
+                {/* Hero Card */}
+                <div className={`relative rounded-[2.5rem] overflow-hidden p-8 md:p-12 text-white shadow-2xl transition-all duration-500 bg-gradient-to-br ${selectedGameConfig.color}`}>
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-                    {/* Honey Badge */}
-                    {selectedGame.isHoneyGame && (
+                    {selectedGameConfig.isHoneyGame && (
                         <div className="absolute top-6 right-6 bg-yellow-400 text-black px-4 py-1.5 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg animate-pulse">
-                            <Zap size={14} className="fill-black"/> 赚取蜂蜜
+                            <Zap size={14} className="fill-black"/> {t('games.earn_honey')}
                         </div>
                     )}
                     
                     <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center md:items-start">
-                        {/* Icon */}
                         <div className="w-24 h-24 md:w-32 md:h-32 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center shadow-inner border border-white/30 shrink-0">
-                            <selectedGame.icon size={64} className="text-white drop-shadow-md" />
+                            <selectedGameConfig.icon size={64} className="text-white drop-shadow-md" />
                         </div>
                         
                         <div className="flex-1 text-center md:text-left space-y-4">
                             <div>
-                                <h2 className="text-4xl md:text-5xl font-black mb-2 tracking-tight">{selectedGame.name}</h2>
+                                <h2 className="text-4xl md:text-5xl font-black mb-2 tracking-tight">{t(selectedGameConfig.nameKey)}</h2>
                                 <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                                    {selectedGame.tags.map(tag => (
+                                    {selectedGameConfig.tags.map(tag => (
                                         <span key={tag} className="bg-black/20 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur-sm border border-white/10">
                                             #{tag}
                                         </span>
                                     ))}
-                                    {/* Star Rating Badge */}
                                     {avgRating > 0 && (
                                         <span className="bg-yellow-400 text-black px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1 backdrop-blur-sm border border-white/20">
                                             <Star size={12} className="fill-black"/> {avgRating.toFixed(1)}
@@ -679,7 +419,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                 </div>
                             </div>
                             <p className="text-white/90 text-lg leading-relaxed font-medium max-w-xl">
-                                {selectedGame.description}
+                                {t(selectedGameConfig.descKey)}
                             </p>
                             
                             <div className="flex gap-4 justify-center md:justify-start mt-2">
@@ -687,33 +427,28 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                     onClick={handleGameStart}
                                     className="bg-white text-black hover:bg-neutral-100 border-none px-10 py-4 text-xl font-black shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
                                 >
-                                    <Play className="mr-2 fill-black" /> 立即开始
+                                    <Play className="mr-2 fill-black" /> {t('games.play_now')}
                                 </Button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 2. Info Grid */}
                 <div className="grid md:grid-cols-2 gap-6">
-                    {/* Gameplay Guide */}
                     <div className="bg-white dark:bg-[#161616] rounded-3xl p-6 border border-neutral-200 dark:border-[#333] shadow-sm relative overflow-hidden group">
-                        {/* Background Decor */}
                         <div className="absolute -bottom-6 -right-6 opacity-5 dark:opacity-10 transition-transform group-hover:scale-110">
-                            <selectedGame.icon size={120} className="text-black dark:text-white"/>
+                            <selectedGameConfig.icon size={120} className="text-black dark:text-white"/>
                         </div>
                         
                         <h3 className="font-bold text-lg dark:text-white mb-4 flex items-center gap-2">
-                            <Info size={20} className="text-blue-500"/> 玩法说明
+                            <Info size={20} className="text-blue-500"/> {t('games.how_to_play')}
                         </h3>
                         <p className="text-neutral-600 dark:text-neutral-400 text-base leading-relaxed relative z-10 font-medium">
-                            {selectedGame.howToPlay}
+                            {selectedGameConfig.howToPlay}
                         </p>
                     </div>
 
-                    {/* Leaderboard & Reviews Tabs */}
                     <div className="bg-white dark:bg-[#161616] rounded-3xl p-6 border border-neutral-200 dark:border-[#333] shadow-sm flex flex-col flex-1 min-h-0">
-                        {/* Tab Switcher */}
                         <div className="flex bg-neutral-100 dark:bg-[#222] p-1 rounded-xl mb-4 shrink-0">
                             <button 
                                 onClick={() => setActiveTab('LEADERBOARD')}
@@ -721,7 +456,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                     activeTab === 'LEADERBOARD' ? 'bg-white dark:bg-[#333] shadow-sm text-black dark:text-white' : 'text-neutral-500'
                                 }`}
                             >
-                                <Activity size={16}/> 排行榜
+                                <Activity size={16}/> {t('games.leaderboard')}
                             </button>
                             <button 
                                 onClick={() => setActiveTab('REVIEWS')}
@@ -729,41 +464,25 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                     activeTab === 'REVIEWS' ? 'bg-white dark:bg-[#333] shadow-sm text-black dark:text-white' : 'text-neutral-500'
                                 }`}
                             >
-                                <MessageSquare size={16}/> 玩家评价
+                                <MessageSquare size={16}/> {t('games.reviews')}
                             </button>
                         </div>
                         
                         {activeTab === 'LEADERBOARD' ? (
                             <>
-                                {/* Active Avatars */}
-                                <div className="flex items-center -space-x-3 mb-4 overflow-hidden pl-2 py-2 shrink-0">
-                                    {leaderboard.slice(0, 5).map((s, i) => (
-                                        <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-[#161616] relative bg-neutral-200 dark:bg-[#333] overflow-hidden" title={s.nickname}>
-                                            {s.avatarUrl ? <img src={s.avatarUrl} className="w-full h-full object-cover"/> : <span className="flex items-center justify-center h-full w-full text-xs">🐶</span>}
-                                        </div>
-                                    ))}
-                                    <div className="w-8 h-8 rounded-full border-2 border-white dark:border-[#161616] bg-neutral-100 dark:bg-[#222] flex items-center justify-center text-[10px] font-bold text-neutral-500 z-10">
-                                        +{Math.max(0, (playerCounts[selectedGame.id] || 0) - 5)}
-                                    </div>
-                                </div>
-
-                                {/* List */}
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 mb-2 pr-1 h-[250px]">
                                     {loadingData ? (
-                                        <div className="text-center text-neutral-400 py-8 text-sm">加载中...</div>
+                                        <div className="text-center text-neutral-400 py-8 text-sm">Loading...</div>
                                     ) : leaderboard.length === 0 ? (
-                                        <div className="text-center text-neutral-400 py-8 text-sm">暂无记录</div>
+                                        <div className="text-center text-neutral-400 py-8 text-sm">No Records</div>
                                     ) : (
                                         leaderboard.map((s, idx) => (
                                             <div key={idx} className="flex items-center justify-between text-sm p-3 hover:bg-neutral-50 dark:hover:bg-[#222] rounded-xl transition-colors">
                                                 <div className="flex items-center gap-3">
                                                     <span className={`w-6 text-center font-black ${idx < 3 ? 'text-yellow-500 text-lg' : 'text-neutral-400'}`}>{idx+1}</span>
-                                                    
-                                                    {/* Avatar in List */}
                                                     <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] overflow-hidden border border-neutral-100 dark:border-[#444] shrink-0">
                                                         {s.avatarUrl ? <img src={s.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs">🐶</div>}
                                                     </div>
-
                                                     <div className="flex flex-col">
                                                         <span className="font-bold dark:text-gray-200 truncate max-w-[100px]">{s.nickname}</span>
                                                     </div>
@@ -773,14 +492,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                         ))
                                     )}
                                 </div>
-
-                                {/* My Best Score Sticky Footer */}
                                 {userProfile && (
                                     <div className="pt-3 border-t border-neutral-100 dark:border-[#333] shrink-0">
                                         <div className="bg-brand-yellow/10 border border-brand-yellow/30 p-3 rounded-xl flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <Crown size={16} className="text-brand-yellow fill-brand-yellow" />
-                                                <span className="text-xs font-bold text-brand-yellow uppercase tracking-wider">我的最佳</span>
+                                                <span className="text-xs font-bold text-brand-yellow uppercase tracking-wider">{t('games.my_best')}</span>
                                             </div>
                                             <span className="font-black font-mono text-xl text-brand-yellow">{userBestScore}</span>
                                         </div>
@@ -788,14 +505,12 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                 )}
                             </>
                         ) : (
-                            /* REVIEWS TAB */
                             <div className="flex flex-col flex-1 min-h-0">
-                                {/* Review List */}
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 mb-4 pr-1 h-[250px]">
                                     {reviews.length === 0 ? (
                                         <div className="text-center text-neutral-400 py-8 text-sm flex flex-col items-center gap-2">
                                             <MessageSquare className="opacity-20" size={32}/>
-                                            暂无评价，快来抢沙发！
+                                            No reviews yet. Be the first!
                                         </div>
                                     ) : (
                                         reviews.map((rev) => (
@@ -820,8 +535,6 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                         ))
                                     )}
                                 </div>
-
-                                {/* Review Input */}
                                 {user ? (
                                     <div className="pt-3 border-t border-neutral-100 dark:border-[#333] shrink-0">
                                         <div className="flex gap-1 mb-2 justify-center">
@@ -836,7 +549,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                                 type="text" 
                                                 value={userComment}
                                                 onChange={(e) => setUserComment(e.target.value.slice(0, 140))}
-                                                placeholder="写下你的评价..." 
+                                                placeholder="Your review..." 
                                                 className="flex-1 bg-neutral-100 dark:bg-[#222] border-none rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 dark:text-white outline-none"
                                                 onKeyDown={(e) => e.key === 'Enter' && handleSubmitReview()}
                                             />
@@ -851,7 +564,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                     </div>
                                 ) : (
                                     <div className="pt-4 border-t border-neutral-100 dark:border-[#333] text-center shrink-0">
-                                        <button onClick={onLoginRequest} className="text-xs text-blue-500 hover:underline">登录后发表评价</button>
+                                        <button onClick={onLoginRequest} className="text-xs text-blue-500 hover:underline">Login to review</button>
                                     </div>
                                 )}
                             </div>
@@ -860,44 +573,42 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                 </div>
             </div>
 
-            {/* RIGHT SIDE: Game List (Desktop Only) - Hidden on Mobile */}
             <div className="hidden lg:flex lg:col-span-4 bg-white dark:bg-[#161616] rounded-[2.5rem] border border-neutral-200 dark:border-[#333] overflow-hidden flex-col shadow-xl lg:sticky lg:top-24 lg:h-[calc(100vh-120px)]">
                 <div className="p-6 border-b border-neutral-100 dark:border-[#222] bg-neutral-50/50 dark:bg-[#1a1a1a]">
-                    <h3 className="font-black text-lg dark:text-white">所有游戏</h3>
-                    <p className="text-xs text-neutral-500 mt-1">选择一款游戏开始挑战</p>
+                    <h3 className="font-black text-lg dark:text-white">{t('games.all_games')}</h3>
+                    <p className="text-xs text-neutral-500 mt-1">{t('games.select_hint')}</p>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                     {GAMES.map(game => (
                         <button
                             key={game.id}
-                            onClick={() => setSelectedGame(game)}
+                            onClick={() => setSelectedGameConfig(game)}
                             className={`w-full p-3 rounded-2xl flex items-center gap-4 transition-all duration-300 group text-left border ${
-                                selectedGame.id === game.id 
+                                selectedGameConfig.id === game.id 
                                 ? 'bg-brand-yellow text-black border-brand-yellow shadow-lg scale-[1.02]' 
                                 : 'bg-white dark:bg-[#1e1e1e] border-transparent hover:bg-neutral-100 dark:hover:bg-[#252525] dark:text-gray-300'
                             }`}
                         >
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                                selectedGame.id === game.id ? 'bg-black/10' : 'bg-neutral-100 dark:bg-[#333]'
+                                selectedGameConfig.id === game.id ? 'bg-black/10' : 'bg-neutral-100 dark:bg-[#333]'
                             }`}>
-                                <game.icon size={24} className={selectedGame.id === game.id ? 'text-black' : 'text-neutral-500 dark:text-gray-400'} />
+                                <game.icon size={24} className={selectedGameConfig.id === game.id ? 'text-black' : 'text-neutral-500 dark:text-gray-400'} />
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                                <div className="font-bold truncate">{game.name}</div>
+                                <div className="font-bold truncate">{t(game.nameKey)}</div>
                                 <div className="flex items-center gap-2 text-xs opacity-70">
                                     <span className="flex items-center gap-1"><Users size={10}/> {playerCounts[game.id] || 0}</span>
-                                    {game.isHoneyGame && <span className="flex items-center gap-1 text-orange-600 dark:text-yellow-400 font-bold"><Zap size={10} className="fill-current"/> 赚蜂蜜</span>}
+                                    {game.isHoneyGame && <span className="flex items-center gap-1 text-orange-600 dark:text-yellow-400 font-bold"><Zap size={10} className="fill-current"/> {t('games.earn_honey')}</span>}
                                 </div>
                             </div>
                             
-                            {/* Reward Indicator */}
                             {isRewardClaimed(game.id) ? (
-                                <div className="text-green-500" title="今日奖励已领">
+                                <div className="text-green-500" title="Reward Claimed">
                                     <CheckCircle2 size={20} className="fill-green-500/20"/>
                                 </div>
-                            ) : selectedGame.id === game.id && (
+                            ) : selectedGameConfig.id === game.id && (
                                 <div className="w-2 h-2 rounded-full bg-black animate-pulse"></div>
                             )}
                         </button>

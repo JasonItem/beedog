@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { generateGroupSelfie } from '../services/geminiService';
 import { deductCredit } from '../services/userService';
 import { Upload, Camera, Download, RefreshCw, Trash2, Plus, Image as ImageIcon, Sparkles, Zap, Users } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface GroupSelfieGeneratorProps {
   onLoginRequest: () => void;
@@ -34,6 +35,7 @@ interface CharacterSlot {
 
 export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { t } = useLanguage();
   
   // State for characters (Max 5)
   const [characters, setCharacters] = useState<CharacterSlot[]>([
@@ -97,7 +99,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
 
     const filledSlots = characters.filter(c => c.image !== null);
     if (filledSlots.length === 0) {
-      setError("请至少上传一张角色图片");
+      setError("Please upload at least one character");
       return;
     }
 
@@ -111,7 +113,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
     try {
       const allowed = await deductCredit(user.uid, COST);
       if (!allowed) {
-        setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
+        setError(`Insufficient Honey. Need ${COST} Honey.`);
         setLoading(false);
         return;
       }
@@ -136,9 +138,9 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
       if (user) {
           await deductCredit(user.uid, -COST);
           await refreshProfile();
-          setError("生成失败 (网络错误)，蜂蜜已退还。请重试。");
+          setError("Generation failed (Network Error), Honey refunded.");
       } else {
-          setError("生成失败，请检查网络。");
+          setError("Generation failed.");
       }
     } finally {
       setLoading(false);
@@ -163,15 +165,13 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 text-xs font-bold uppercase tracking-wider mb-4 border border-pink-100 dark:border-pink-800">
-            <Users size={14} /> 多人联动神器
+            <Users size={14} /> BeeDog AI Lab
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 dark:text-white">
-             BeeDog <span className="text-pink-500">一键合影</span>
+             BeeDog <span className="text-pink-500">{t('tools.selfie.title')}</span>
           </h2>
           <p className="text-lg text-neutral-500 max-w-2xl mx-auto">
-            上传多个 Meme 或角色 (最多5个)，AI 自动生成高角度自拍合影。
-            <br className="hidden md:block" />
-            支持统一画风或混搭，让不同次元的角色同框！
+            {t('tools.selfie.desc')}
           </p>
         </div>
 
@@ -185,7 +185,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
               <div className="mb-8">
                  <div className="flex items-center justify-between mb-4">
                     <label className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
-                      1. 上传角色 ({characters.filter(c => c.image).length}/{characters.length})
+                      1. {t('selfie.upload_label')} ({characters.filter(c => c.image).length}/{characters.length})
                     </label>
                     <input 
                       ref={fileInputRef} 
@@ -212,7 +212,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                            ) : (
                              <>
                                <Plus className="text-neutral-400 mb-1" />
-                               <span className="text-[10px] text-neutral-400 font-bold">角色 {idx + 1}</span>
+                               <span className="text-[10px] text-neutral-400 font-bold">#{idx + 1}</span>
                              </>
                            )}
                          </div>
@@ -236,7 +236,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                         className="aspect-square rounded-xl border-2 border-dashed border-neutral-200 dark:border-[#333] bg-transparent hover:border-pink-400 hover:text-pink-500 text-neutral-400 flex flex-col items-center justify-center transition-all"
                       >
                          <Plus size={24} />
-                         <span className="text-[10px] font-bold mt-1">增加位</span>
+                         <span className="text-[10px] font-bold mt-1">{t('selfie.add_slot')}</span>
                       </button>
                     )}
                  </div>
@@ -245,7 +245,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
               {/* 2. Style */}
               <div className="mb-8">
                 <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3">
-                  2. 整体画风
+                  2. {t('selfie.style')}
                 </label>
                 <div className="space-y-2 mb-3">
                   {STYLE_PRESETS.map(s => (
@@ -266,7 +266,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                   type="text" 
                   value={customStyle}
                   onChange={(e) => setCustomStyle(e.target.value)}
-                  placeholder="自定义画风 (例如: 梵高油画风格)"
+                  placeholder="Custom Style..."
                   className={`w-full bg-neutral-50 dark:bg-[#222] border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 dark:text-white ${customStyle ? 'border-pink-500 ring-1 ring-pink-500' : 'border-neutral-200 dark:border-[#333]'}`}
                 />
               </div>
@@ -274,7 +274,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
               {/* 3. Background */}
               <div className="mb-8">
                 <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3">
-                  3. 拍照场景
+                  3. {t('selfie.scene')}
                 </label>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                    {BACKGROUND_PRESETS.map(bg => (
@@ -295,7 +295,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                   type="text" 
                   value={customBackground}
                   onChange={(e) => setCustomBackground(e.target.value)}
-                  placeholder="自定义场景 (例如: 宇宙飞船驾驶舱)"
+                  placeholder="Custom Scene..."
                   className={`w-full bg-neutral-50 dark:bg-[#222] border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 dark:text-white ${customBackground ? 'border-pink-500 ring-1 ring-pink-500' : 'border-neutral-200 dark:border-[#333]'}`}
                 />
               </div>
@@ -311,7 +311,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                 {/* Status Bar */}
                 <div className="absolute top-6 left-6 z-20 flex gap-2">
                    <div className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-md ${loading ? 'bg-pink-500/80 text-white' : generatedImage ? 'bg-green-500/80 text-white' : 'bg-black/10 dark:bg-white/10 text-neutral-500 dark:text-neutral-300'}`}>
-                      {loading ? 'AI 合成中...' : generatedImage ? '合影完成' : '等待生成'}
+                      {loading ? t('ai.generating') : generatedImage ? t('ai.finished') : t('ai.waiting')}
                    </div>
                 </div>
                 
@@ -331,7 +331,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                               <Sparkles className="text-pink-500 animate-pulse" />
                            </div>
                         </div>
-                        <p className="text-neutral-500 dark:text-neutral-400 font-bold animate-pulse text-sm">正在调整最佳自拍角度...</p>
+                        <p className="text-neutral-500 dark:text-neutral-400 font-bold animate-pulse text-sm">AI Magic...</p>
                       </div>
                     ) : generatedImage ? (
                       <img src={generatedImage} alt="Generated Selfie" className="max-w-full max-h-full object-contain shadow-2xl z-10 transition-transform duration-500 hover:scale-[1.02]" />
@@ -339,7 +339,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                       <div className="text-neutral-300 dark:text-neutral-700 font-bold text-2xl z-10 flex flex-col items-center">
                         <Camera size={64} className="mb-4 opacity-50"/>
                         <p>PREVIEW</p>
-                        <p className="text-sm font-normal opacity-50 mt-2">请上传角色并点击生成</p>
+                        <p className="text-sm font-normal opacity-50 mt-2">{t('ai.click_upload')}</p>
                       </div>
                     )}
                 </div>
@@ -348,7 +348,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                 <div className="absolute bottom-6 right-6 z-20">
                    <div className="bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg border border-white/20 dark:text-white flex items-center gap-2">
                       🍯
-                      剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                      {t('ai.honey_left')}: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
             </div>
@@ -369,7 +369,7 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                   className="flex-1 bg-pink-500 hover:bg-pink-400 text-white font-black text-lg py-4 rounded-2xl shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-1 active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                  >
                    {loading ? <RefreshCw className="animate-spin" /> : <Camera />}
-                   生成合影 <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 蜂蜜)</span>
+                   {t('selfie.btn')} <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 🍯)</span>
                  </button>
                ) : (
                  <>
@@ -377,13 +377,13 @@ export const GroupSelfieGenerator: React.FC<GroupSelfieGeneratorProps> = ({ onLo
                     onClick={downloadImage}
                     className="flex-1 bg-white dark:bg-[#222] hover:bg-neutral-50 dark:hover:bg-[#333] text-black dark:text-white font-bold text-lg py-4 rounded-2xl border border-neutral-200 dark:border-[#333] shadow-sm hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                    >
-                     <Download size={20} /> 下载图片
+                     <Download size={20} /> {t('ai.download')}
                    </button>
                    <button 
                     onClick={() => setGeneratedImage(null)}
                     className="flex-1 bg-black text-white dark:bg-white dark:text-black font-bold text-lg py-4 rounded-2xl shadow-lg hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                    >
-                     <RefreshCw size={20} /> 重置
+                     <RefreshCw size={20} /> {t('ai.reset')}
                    </button>
                  </>
                )}

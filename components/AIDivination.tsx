@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { deductCredit, saveDivinationResult, getDivinationHistory, DivinationRecord } from '../services/userService';
 import { getAIDivination, DivinationResult } from '../services/geminiService';
 import { Sparkles, Zap, RotateCcw, Calendar, Compass, TrendingUp, Heart, Activity, User, Hash, MapPin, Palette, Loader2, Lock, Clock, Map } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AIDivinationProps {
   onLoginRequest: () => void;
@@ -11,6 +12,7 @@ interface AIDivinationProps {
 
 export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { t } = useLanguage();
   
   // Form State
   const [name, setName] = useState("");
@@ -51,19 +53,19 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
   
   const timeOptions = [
-      { val: "", label: "时辰不清楚 (Unknown)" },
-      { val: "23:00-01:00", label: "子时 (23:00-01:00)" },
-      { val: "01:00-03:00", label: "丑时 (01:00-03:00)" },
-      { val: "03:00-05:00", label: "寅时 (03:00-05:00)" },
-      { val: "05:00-07:00", label: "卯时 (05:00-07:00)" },
-      { val: "07:00-09:00", label: "辰时 (07:00-09:00)" },
-      { val: "09:00-11:00", label: "巳时 (09:00-11:00)" },
-      { val: "11:00-13:00", label: "午时 (11:00-13:00)" },
-      { val: "13:00-15:00", label: "未时 (13:00-15:00)" },
-      { val: "15:00-17:00", label: "申时 (15:00-17:00)" },
-      { val: "17:00-19:00", label: "酉时 (17:00-19:00)" },
-      { val: "19:00-21:00", label: "戌时 (19:00-21:00)" },
-      { val: "21:00-23:00", label: "亥时 (21:00-23:00)" },
+      { val: "", label: "Unknown" },
+      { val: "23:00-01:00", label: "23:00-01:00" },
+      { val: "01:00-03:00", label: "01:00-03:00" },
+      { val: "03:00-05:00", label: "03:00-05:00" },
+      { val: "05:00-07:00", label: "05:00-07:00" },
+      { val: "07:00-09:00", label: "07:00-09:00" },
+      { val: "09:00-11:00", label: "09:00-11:00" },
+      { val: "11:00-13:00", label: "11:00-13:00" },
+      { val: "13:00-15:00", label: "13:00-15:00" },
+      { val: "15:00-17:00", label: "15:00-17:00" },
+      { val: "17:00-19:00", label: "17:00-19:00" },
+      { val: "19:00-21:00", label: "19:00-21:00" },
+      { val: "21:00-23:00", label: "21:00-23:00" },
   ];
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
     }
 
     if (userProfile.credits < COST) {
-      setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
+      setError(`Insufficient Honey. Need ${COST} Honey.`);
       return;
     }
 
@@ -124,7 +126,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
               time: birthTime,
               location: birthLocation
           }, 
-          name || userProfile.nickname || "有缘人"
+          name || userProfile.nickname || "User"
       );
       
       const [_, data] = await Promise.all([minWait, apiCall]);
@@ -143,9 +145,9 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
       if (user) {
           await deductCredit(user.uid, -COST);
           await refreshProfile();
-          setError("天机不可泄露... (请求失败，蜂蜜已退还，请重试)");
+          setError("Prediction Failed (Network Error), Honey Refunded.");
       } else {
-          setError("请求失败，请检查网络。");
+          setError("Prediction Failed.");
       }
     } finally {
       setLoading(false);
@@ -168,7 +170,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
 
       return (
           <div className="grid grid-cols-7 gap-2 text-center text-sm">
-              {['日','一','二','三','四','五','六'].map(d => (
+              {['S','M','T','W','T','F','S'].map(d => (
                   <div key={d} className="text-neutral-400 text-xs font-bold py-2">{d}</div>
               ))}
               {daysArray.map((day, idx) => {
@@ -211,13 +213,13 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-100 dark:border-purple-800">
-            <Compass size={14} /> AI 玄学实验室
+            <Compass size={14} /> BeeDog AI Lab
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 dark:text-white">
-           蜜蜂狗 <span className="text-purple-500">大师</span>
+           BeeDog <span className="text-purple-500">{t('tools.fortune.title')}</span>
           </h2>
           <p className="text-lg text-neutral-500 max-w-2xl mx-auto">
-            结合传统命理八字与流年运势。精准推演今日吉凶。
+            {t('tools.fortune.desc')}
           </p>
         </div>
 
@@ -231,13 +233,13 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                     {/* Name Input */}
                     <div>
                         <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-2 flex items-center gap-2">
-                           <User size={16} className="text-purple-500"/> 你的称呼 (可选)
+                           <User size={16} className="text-purple-500"/> {t('divine.name')}
                         </label>
                         <input 
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="例如: 钻石手杰克"
+                            placeholder="e.g. Jack"
                             className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all dark:text-white"
                         />
                     </div>
@@ -246,7 +248,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                     <div>
                         <div className="flex justify-between items-center mb-3">
                             <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-2">
-                               <Calendar size={16} className="text-purple-500"/> 出生日期 (必填)
+                               <Calendar size={16} className="text-purple-500"/> {t('divine.date')}
                             </label>
                             
                             {/* Calendar Type Toggle */}
@@ -255,13 +257,13 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     onClick={() => setCalendarType('solar')}
                                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calendarType === 'solar' ? 'bg-white dark:bg-[#333] shadow text-purple-600 dark:text-purple-400' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
                                 >
-                                    阳历
+                                    {t('divine.solar')}
                                 </button>
                                 <button 
                                     onClick={() => setCalendarType('lunar')}
                                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calendarType === 'lunar' ? 'bg-white dark:bg-[#333] shadow text-purple-600 dark:text-purple-400' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
                                 >
-                                    阴历
+                                    {t('divine.lunar')}
                                 </button>
                             </div>
                         </div>
@@ -274,7 +276,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     onChange={(e) => setBirthYear(parseInt(e.target.value))}
                                     className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-3 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white font-mono"
                                 >
-                                    {years.map(y => <option key={y} value={y}>{y}年</option>)}
+                                    {years.map(y => <option key={y} value={y}>{y}</option>)}
                                 </select>
                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400 text-xs">▼</div>
                             </div>
@@ -284,7 +286,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     onChange={(e) => setBirthMonth(parseInt(e.target.value))}
                                     className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-3 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white font-mono"
                                 >
-                                    {months.map(m => <option key={m} value={m}>{m}月</option>)}
+                                    {months.map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400 text-xs">▼</div>
                             </div>
@@ -294,7 +296,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     onChange={(e) => setBirthDay(parseInt(e.target.value))}
                                     className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-3 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white font-mono"
                                 >
-                                    {days.map(d => <option key={d} value={d}>{d}日</option>)}
+                                    {days.map(d => <option key={d} value={d}>{d}</option>)}
                                 </select>
                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400 text-xs">▼</div>
                             </div>
@@ -305,7 +307,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                               <Clock size={12}/> 出生时辰
+                               <Clock size={12}/> {t('divine.time')}
                             </label>
                             <div className="relative">
                                 <select 
@@ -320,13 +322,13 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                               <Map size={12}/> 出生地点
+                               <Map size={12}/> {t('divine.location')}
                             </label>
                             <input 
                                 type="text"
                                 value={birthLocation}
                                 onChange={(e) => setBirthLocation(e.target.value)}
-                                placeholder="例如: 杭州"
+                                placeholder="e.g. New York"
                                 className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all dark:text-white"
                             />
                         </div>
@@ -353,11 +355,11 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                             `}
                         >
                             {loading ? <Loader2 className="animate-spin" /> : hasCalculatedToday ? <Lock size={18}/> : <Compass />}
-                            {loading ? "大师排盘中..." : hasCalculatedToday ? "今日已算 (查看右侧)" : "开始测算"}
-                            {!loading && !hasCalculatedToday && <span className="text-xs font-normal bg-black/20 px-2 py-0.5 rounded-md ml-1 opacity-80">-{COST} 蜂蜜</span>}
+                            {loading ? t('ai.generating') : hasCalculatedToday ? t('divine.today_done') : t('divine.btn')}
+                            {!loading && !hasCalculatedToday && <span className="text-xs font-normal bg-black/20 px-2 py-0.5 rounded-md ml-1 opacity-80">-{COST} 🍯</span>}
                         </button>
                         {hasCalculatedToday && (
-                            <p className="text-center text-xs text-neutral-400 mt-2">天机不可泄露，一日只算一卦。</p>
+                            <p className="text-center text-xs text-neutral-400 mt-2">One fortune per day.</p>
                         )}
                     </div>
                 </div>
@@ -366,7 +368,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
              {/* History Calendar */}
              <div className="bg-white dark:bg-[#111] rounded-3xl p-6 shadow-sm border border-neutral-100 dark:border-[#222]">
                  <h3 className="font-bold dark:text-white mb-4 flex items-center gap-2">
-                     <Calendar size={18} className="text-brand-yellow"/> 运势记录
+                     <Calendar size={18} className="text-brand-yellow"/> {t('divine.history')}
                  </h3>
                  {historyLoading ? (
                      <div className="flex justify-center py-8"><Loader2 className="animate-spin text-neutral-400"/></div>
@@ -377,7 +379,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
 
              {!user && (
                 <p className="text-center text-xs text-neutral-400">
-                  <span className="cursor-pointer hover:text-purple-500 underline" onClick={onLoginRequest}>登录</span> 后即可使用测算功能
+                  <span className="cursor-pointer hover:text-purple-500 underline" onClick={onLoginRequest}>{t('ai.login_hint')}</span>
                 </p>
              )}
           </div>
@@ -391,7 +393,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                  {/* Status Bar */}
                  <div className="absolute top-6 left-6 z-20 flex gap-2">
                     <div className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-md ${loading ? 'bg-purple-500/80 text-white' : result ? 'bg-green-500/80 text-white' : 'bg-black/10 dark:bg-white/10 text-neutral-500 dark:text-neutral-300'}`}>
-                       {loading ? '测算中...' : result ? '测算完成' : '等待测算'}
+                       {loading ? t('ai.generating') : result ? t('ai.finished') : t('ai.waiting')}
                     </div>
                  </div>
 
@@ -399,7 +401,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                  <div className="absolute bottom-6 right-6 z-20">
                     <div className="bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg border border-white/20 dark:text-white flex items-center gap-2">
                        🍯
-                       剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                       {t('ai.honey_left')}: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                     </div>
                  </div>
 
@@ -414,7 +416,6 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                          <div className="text-neutral-300 dark:text-neutral-700 font-bold text-2xl z-10 flex flex-col items-center">
                             <Compass size={64} className="mb-4 opacity-50"/>
                             <p>PREVIEW</p>
-                            <p className="text-sm font-normal opacity-50 mt-2">请在左侧输入信息并开始</p>
                          </div>
                      )}
 
@@ -427,7 +428,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                   <Sparkles className="text-purple-500 animate-pulse" />
                                </div>
                             </div>
-                            <p className="text-neutral-500 dark:text-neutral-400 font-bold animate-pulse text-sm">蜜蜂狗大师正在排盘...</p>
+                            <p className="text-neutral-500 dark:text-neutral-400 font-bold animate-pulse text-sm">AI Magic...</p>
                         </div>
                      )}
 
@@ -449,7 +450,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     
                                     {/* 1. Header: Fortune Level */}
                                     <div className="text-center mb-8 mt-4">
-                                        <div className="text-purple-300 font-bold text-xs tracking-[0.3em] uppercase mb-2 opacity-80">今日运势</div>
+                                        <div className="text-purple-300 font-bold text-xs tracking-[0.3em] uppercase mb-2 opacity-80">{t('divine.result.level')}</div>
                                         
                                         <h2 
                                           className="text-5xl font-black text-[#FCD34D] font-serif py-1" 
@@ -464,9 +465,9 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     {/* 2. Key Stats Grid */}
                                     <div className="grid grid-cols-3 gap-3 mb-8">
                                         {[
-                                            { icon: Palette, label: "幸运色", val: result.luckyColor },
-                                            { icon: Hash, label: "幸运数", val: result.luckyNumber },
-                                            { icon: MapPin, label: "财神位", val: result.luckyDirection }
+                                            { icon: Palette, label: t('divine.result.color'), val: result.luckyColor },
+                                            { icon: Hash, label: t('divine.result.num'), val: result.luckyNumber },
+                                            { icon: MapPin, label: t('divine.result.dir'), val: result.luckyDirection }
                                         ].map((item, idx) => (
                                             <div key={idx} className="bg-white/5 rounded-2xl p-3 flex flex-col items-center justify-center border border-white/5">
                                                 <item.icon size={16} className="text-purple-300 mb-2 opacity-80"/>
@@ -481,9 +482,9 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     {/* 3. Scores Bars */}
                                     <div className="space-y-4 mb-8 px-1">
                                          {[
-                                             { icon: TrendingUp, label: "财运指数", val: result.scores.wealth, color: "#facc15" }, // Yellow
-                                             { icon: Heart, label: "桃花指数", val: result.scores.love, color: "#f472b6" }, // Pink
-                                             { icon: Activity, label: "健康指数", val: result.scores.health, color: "#4ade80" } // Green
+                                             { icon: TrendingUp, label: "Wealth", val: result.scores.wealth, color: "#facc15" }, // Yellow
+                                             { icon: Heart, label: "Love", val: result.scores.love, color: "#f472b6" }, // Pink
+                                             { icon: Activity, label: "Health", val: result.scores.health, color: "#4ade80" } // Green
                                          ].map((stat, idx) => (
                                              <div key={idx}>
                                                  <div className="flex justify-between text-xs text-gray-300 mb-1.5 font-medium">
@@ -506,7 +507,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
                                     {/* 4. Analysis */}
                                     <div className="relative mb-auto bg-black/20 rounded-2xl p-4 border border-white/5">
                                         <h4 className="text-[#FCD34D] font-bold mb-2 flex items-center gap-2 text-xs uppercase tracking-wider">
-                                            <Sparkles size={12} className="fill-current"/> 大师解读
+                                            <Sparkles size={12} className="fill-current"/> {t('divine.result.analysis')}
                                         </h4>
                                         <p className="text-sm text-gray-300 leading-relaxed text-justify opacity-90 font-sans">
                                             {result.analysis}
@@ -515,7 +516,7 @@ export const AIDivination: React.FC<AIDivinationProps> = ({ onLoginRequest }) =>
 
                                     {/* Footer */}
                                     <div className="pt-6 mt-4 flex justify-end items-center gap-2 text-[10px] text-gray-500 border-t border-white/5">
-                                        <span>蜜蜂狗 AI 生成(beedog.fun)</span>
+                                        <span>BeeDog AI</span>
                                     </div>
 
                                 </div>

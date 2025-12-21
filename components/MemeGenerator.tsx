@@ -5,18 +5,19 @@ import { generateSingleSticker } from '../services/geminiService';
 import { deductCredit } from '../services/userService';
 import { zipStickers } from '../services/stickerUtils';
 import { Upload, Sparkles, Trash2, Package, Plus, X, Palette, Zap, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MemeGeneratorProps {
   onLoginRequest: () => void;
 }
 
 const DEFAULT_LABELS = [
-  "开心 / 点赞", 
-  "暴怒 / 破防", 
-  "大哭 / 亏钱", 
-  "暴富 / 镭射眼", 
-  "震惊 / 懵逼", 
-  "喜爱 / 色色"
+  "开心 / Happy", 
+  "暴怒 / Angry", 
+  "大哭 / Crying", 
+  "暴富 / Rich", 
+  "震惊 / Shocked", 
+  "喜爱 / Love"
 ];
 
 const STYLES = [
@@ -37,6 +38,8 @@ interface StickerResult {
 
 export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { t } = useLanguage();
+
   const [baseImage, setBaseImage] = useState<string | null>(null);
   
   // Results State
@@ -68,7 +71,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
   const handleAddLabel = () => {
     if (!newLabel.trim()) return;
     if (labels.length >= 9) {
-      setError("最多支持 9 个表情标签");
+      setError(t('meme.limit'));
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -92,12 +95,12 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
     }
 
     if (!baseImage) {
-      setError("请先上传底图");
+      setError("Please upload base image");
       return;
     }
 
     if (labels.length === 0) {
-      setError("请至少添加 1 个表情标签");
+      setError("Add at least 1 label");
       return;
     }
 
@@ -121,7 +124,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
       // Deduct credit once for the batch
       const allowed = await deductCredit(user.uid, COST);
       if (!allowed) {
-        setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
+        setError(`Insufficient Honey. Need ${COST} Honey.`);
         setIsGenerating(false);
         setResults([]);
         return;
@@ -154,7 +157,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
           // Update current item to error
           setResults(prev => {
             const next = [...prev];
-            next[i] = { ...next[i], status: 'error', errorMsg: "生成失败" };
+            next[i] = { ...next[i], status: 'error', errorMsg: "Failed" };
             return next;
           });
         }
@@ -165,11 +168,11 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
           // Refund full amount if EVERYTHING failed
           await deductCredit(user.uid, -COST);
           await refreshProfile();
-          setError("生成全部失败 (可能是网络错误)，蜂蜜已全额退还。");
+          setError("Generation failed (Network Error), Honey refunded.");
       }
 
     } catch (err: any) {
-      setError("任务初始化失败，请重试");
+      setError("Task failed");
       console.error(err);
     } finally {
       setIsGenerating(false);
@@ -195,7 +198,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
-      setError("打包下载失败");
+      setError("Zip failed");
     }
   };
 
@@ -209,13 +212,13 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wider mb-4 border border-purple-100 dark:border-purple-800">
-            <Sparkles size={14} /> 表情包神器
+            <Sparkles size={14} /> BeeDog AI Lab
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 dark:text-white">
-             BeeDog <span className="text-purple-500">Meme 制造机</span>
+             BeeDog <span className="text-purple-500">{t('tools.meme.title')}</span>
           </h2>
           <p className="text-lg text-neutral-500 max-w-2xl mx-auto">
-            上传形象，AI 逐个生成全套表情包，一键打包下载，<span className="text-brand-yellow font-bold">无需切割</span>。
+            {t('tools.meme.desc')}
           </p>
         </div>
 
@@ -229,11 +232,11 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
               <div className="flex justify-between items-center mb-4">
                  <div className="flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">1</span>
-                    <span className="font-bold text-sm dark:text-white">上传角色底图</span>
+                    <span className="font-bold text-sm dark:text-white">{t('ai.upload_base')}</span>
                  </div>
                  {baseImage && (
                     <button onClick={() => setBaseImage(null)} className="text-red-500 text-xs flex items-center hover:bg-red-50 px-2 py-1 rounded-lg transition-colors">
-                       <Trash2 size={12} className="mr-1"/>清除
+                       <Trash2 size={12} className="mr-1"/>{t('ai.clear')}
                     </button>
                  )}
               </div>
@@ -248,7 +251,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                 ) : (
                   <div className="text-center text-neutral-400 group-hover:text-purple-500 transition-colors">
                     <Upload className="mx-auto mb-3" size={32} />
-                    <span className="font-bold text-sm">点击上传角色图片</span>
+                    <span className="font-bold text-sm">{t('ai.click_upload')}</span>
                   </div>
                 )}
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -260,7 +263,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
               <div className="mb-6">
                  <div className="flex items-center gap-2 mb-3">
                     <span className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">2</span>
-                    <span className="font-bold text-sm dark:text-white">选择风格</span>
+                    <span className="font-bold text-sm dark:text-white">{t('meme.style')}</span>
                     <Palette size={14} className="text-neutral-400"/>
                  </div>
                  <div className="grid grid-cols-2 gap-2 mb-3">
@@ -282,7 +285,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                     type="text"
                     value={customStyle}
                     onChange={(e) => setCustomStyle(e.target.value)}
-                    placeholder="或输入自定义风格 (如: 赛博朋克)"
+                    placeholder="Custom Style..."
                     className={`w-full bg-neutral-50 dark:bg-[#222] border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white ${customStyle ? 'border-purple-500 ring-1 ring-purple-500' : 'border-neutral-200 dark:border-[#333]'}`}
                  />
               </div>
@@ -294,7 +297,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                  <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">3</span>
-                        <span className="font-bold text-sm dark:text-white">定义表情 ({labels.length})</span>
+                        <span className="font-bold text-sm dark:text-white">{t('meme.define')} ({labels.length})</span>
                     </div>
                  </div>
                  
@@ -310,7 +313,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                     ))}
                     {labels.length === 0 && (
                       <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs italic">
-                        添加表情标签，例如 "大笑"
+                        Empty
                       </div>
                     )}
                  </div>
@@ -322,7 +325,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                       value={newLabel}
                       onChange={(e) => setNewLabel(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder={labels.length >= 9 ? "已达上限" : "添加新表情 (回车)"}
+                      placeholder={labels.length >= 9 ? t('meme.limit') : t('meme.add_input')}
                       disabled={labels.length >= 9}
                       className="flex-1 bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white disabled:opacity-50"
                     />
@@ -335,7 +338,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                     </button>
                  </div>
                  <p className="text-[10px] text-neutral-400 mt-2 ml-1">
-                    提示: 表情将逐一生成，数量越多耗时越长。
+                    {t('meme.hint')}
                  </p>
               </div>
 
@@ -353,8 +356,8 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                   className="w-full bg-purple-500 hover:bg-purple-400 text-white font-black text-lg py-4 rounded-2xl shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:-translate-y-1 active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
                   {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                  {isGenerating ? '正在逐个生成...' : '开始制作'} 
-                  {!isGenerating && <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 蜂蜜)</span>}
+                  {isGenerating ? t('ai.generating') : t('ai.start')} 
+                  {!isGenerating && <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 🍯)</span>}
                 </button>
               </div>
 
@@ -370,13 +373,13 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                 <div className="flex justify-between items-center mb-6">
                    <h3 className="font-black text-xl dark:text-white flex items-center gap-2">
                       <Package className="text-purple-500" /> 
-                      生成结果 
+                      {t('meme.result_title')}
                       {hasResults && <span className="text-sm font-normal text-neutral-500 ml-2">({successCount}/{labels.length})</span>}
                    </h3>
                    {/* Credit Badge */}
                    <div className="bg-white dark:bg-black px-3 py-1.5 rounded-full text-xs font-bold shadow-sm border border-neutral-200 dark:border-[#333] dark:text-white flex items-center gap-2">
                       🍯
-                      剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                      {t('ai.honey_left')}: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
 
@@ -385,8 +388,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                   {!hasResults ? (
                      <div className="h-full flex flex-col items-center justify-center text-neutral-300 dark:text-neutral-700 pointer-events-none">
                         <Sparkles size={64} className="mb-4 opacity-50"/>
-                        <p className="text-xl font-bold">等待开始</p>
-                        <p className="text-sm opacity-70">点击左侧“开始制作”按钮</p>
+                        <p className="text-xl font-bold">{t('ai.waiting')}</p>
                      </div>
                   ) : (
                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -403,17 +405,17 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                                  ) : item.status === 'loading' ? (
                                     <div className="flex flex-col items-center gap-2">
                                        <Loader2 className="animate-spin text-purple-500" size={32} />
-                                       <span className="text-xs text-purple-500 font-bold">绘制中...</span>
+                                       <span className="text-xs text-purple-500 font-bold">{t('ai.generating')}</span>
                                     </div>
                                  ) : item.status === 'error' ? (
                                     <div className="flex flex-col items-center gap-2 text-red-400">
                                        <AlertCircle size={32} />
-                                       <span className="text-xs font-bold">失败</span>
+                                       <span className="text-xs font-bold">Failed</span>
                                     </div>
                                  ) : (
                                     <div className="flex flex-col items-center gap-2 text-neutral-300 dark:text-neutral-700">
                                        <div className="w-8 h-8 rounded-full border-2 border-current border-dashed"></div>
-                                       <span className="text-xs font-bold">等待中</span>
+                                       <span className="text-xs font-bold">{t('ai.waiting')}</span>
                                     </div>
                                  )}
                               </div>
@@ -438,7 +440,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                          className="flex-1 bg-brand-yellow hover:bg-yellow-300 text-black font-bold py-3 rounded-xl shadow-lg hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                          <Package size={20} />
-                         打包下载 (ZIP)
+                         {t('meme.zip')}
                       </button>
                       
                       <button 
@@ -446,7 +448,7 @@ export const MemeGenerator: React.FC<MemeGeneratorProps> = ({ onLoginRequest }) 
                          disabled={isGenerating}
                          className="px-6 bg-white dark:bg-[#222] text-black dark:text-white font-bold py-3 rounded-xl border border-neutral-200 dark:border-[#333] hover:bg-neutral-50 transition-all disabled:opacity-50"
                       >
-                         重置
+                         {t('ai.reset')}
                       </button>
                    </div>
                 )}

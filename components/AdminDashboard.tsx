@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { adminGetAllUsers, adminSearchUsers, adminUpdateUser, adminDeleteUser, adminUpdateScore, adminDeleteScore, adminBatchUpdateCredits, adminClearLeaderboard } from '../services/adminService';
 import { getProducts, saveProduct, deleteProduct, getOrders, updateOrderStatus, adminBatchUpdateOrderStatus, uploadProductImage, Product, Order, FormFieldConfig } from '../services/shopService';
 import { getMessages, deleteMessage, adminBatchDeleteMessages, Message } from '../services/messageService'; // Import Message Service
@@ -31,6 +32,7 @@ const EditModal = ({ isOpen, onClose, title, children, maxWidth = "max-w-md" }: 
 
 export const AdminDashboard: React.FC = () => {
     const { userProfile, refreshProfile } = useAuth();
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<'USERS' | 'GAMES' | 'SHOP_PRODUCTS' | 'SHOP_ORDERS' | 'MESSAGES'>('USERS');
     const [isLoading, setIsLoading] = useState(false);
     const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
@@ -674,7 +676,7 @@ export const AdminDashboard: React.FC = () => {
                              {/* ... (Existing Games Tab UI) ... */}
                              <div className="flex gap-2 mb-4">
                                 <select value={selectedGameId} onChange={e=>setSelectedGameId(e.target.value)} className="border p-2 rounded dark:bg-[#333] dark:text-white">
-                                    {GAMES.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                    {GAMES.map(g => <option key={g.id} value={g.id}>{t(g.nameKey)}</option>)}
                                 </select>
                                 <Button onClick={loadScores} size="sm">刷新</Button>
                                 <Button onClick={() => setIsClearModalOpen(true)} variant="outline" size="sm" className="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">

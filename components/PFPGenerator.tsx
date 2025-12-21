@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { generatePfpVariation } from '../services/geminiService';
 import { deductCredit } from '../services/userService';
 import { Upload, Download, RefreshCw, Wand2, Layers, VenetianMask, Image as ImageIcon, Trash2, Sparkles, Zap } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PFPGeneratorProps {
   onLoginRequest: () => void;
@@ -20,6 +21,8 @@ const PRESETS = {
 
 export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) => {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { t } = useLanguage();
+  
   const [baseImage, setBaseImage] = useState<string | null>(null);
   const [refImage, setRefImage] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -65,7 +68,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
     }
 
     if (!baseImage) {
-      setError("请先上传底图");
+      setError("Please upload a base image");
       return;
     }
 
@@ -80,7 +83,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
     try {
       const allowed = await deductCredit(user.uid, COST);
       if (!allowed) {
-        setError(`蜂蜜不足！需要 ${COST} 罐蜂蜜。请在个人中心每日签到获取更多。`);
+        setError(`Insufficient Honey. Need ${COST} Honey.`);
         setLoading(false);
         return;
       }
@@ -127,9 +130,9 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
       if (user) {
           await deductCredit(user.uid, -COST);
           await refreshProfile();
-          setError("生成失败 (网络错误)，蜂蜜已退还。请重试。");
+          setError("Generation failed (Network Error), Honey refunded.");
       } else {
-          setError("生成失败，请检查网络。");
+          setError("Generation failed.");
       }
     } finally {
       setLoading(false);
@@ -172,13 +175,13 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider mb-4 border border-blue-100 dark:border-blue-800">
-            <Sparkles size={14} /> AI 创意工坊
+            <Sparkles size={14} /> BeeDog AI Lab
           </div>
           <h2 className="text-4xl md:text-5xl font-black mb-4 dark:text-white">
-             蜜蜂狗 <span className="text-brand-yellow">PFP 生成器</span>
+             BeeDog <span className="text-brand-yellow">{t('tools.pfp.title')}</span>
           </h2>
           <p className="text-lg text-neutral-500 max-w-2xl mx-auto">
-            上传你的照片，一键 Cosplay 或自由穿搭。保持原图构图，只换造型。
+            {t('tools.pfp.desc')}
           </p>
         </div>
 
@@ -193,7 +196,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
               }`}
             >
-              <VenetianMask size={18} /> 角色扮演
+              <VenetianMask size={18} /> {t('pfp.mode.role')}
             </button>
             <button 
               onClick={() => setMode('parts')}
@@ -203,7 +206,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
               }`}
             >
-              <Layers size={18} /> 自由搭配
+              <Layers size={18} /> {t('pfp.mode.parts')}
             </button>
           </div>
         </div>
@@ -220,15 +223,14 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   {/* 1. Theme */}
                   <div>
                     <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3 flex justify-between">
-                      <span>1. 选择主题</span>
-                      <span className="text-neutral-400 font-normal text-xs">Theme</span>
+                      <span>1. {t('pfp.theme')}</span>
                     </label>
                     <PresetChips options={PRESETS.theme} current={theme} onSelect={setTheme} />
                     <input 
                       type="text" 
                       value={theme}
                       onChange={(e) => setTheme(e.target.value)}
-                      placeholder="或输入自定义主题..."
+                      placeholder="Custom Theme..."
                       className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow transition-all dark:text-white"
                     />
                   </div>
@@ -236,14 +238,13 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   {/* 2. Role */}
                   <div>
                     <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3 flex justify-between">
-                      <span>2. 扮演角色</span>
-                      <span className="text-neutral-400 font-normal text-xs">Role</span>
+                      <span>2. {t('pfp.role')}</span>
                     </label>
                     <input 
                       type="text" 
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
-                      placeholder="输入角色名字 (如: 钢铁侠)"
+                      placeholder="e.g. Iron Man"
                       className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-yellow transition-all dark:text-white"
                     />
                   </div>
@@ -251,13 +252,12 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   {/* 3. Details */}
                   <div>
                     <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3 flex justify-between">
-                      <span>3. 细节描述</span>
-                      <span className="text-neutral-400 font-normal text-xs">Details</span>
+                      <span>3. {t('pfp.details')}</span>
                     </label>
                     <textarea 
                       value={details}
                       onChange={(e) => setDetails(e.target.value)}
-                      placeholder="红色盔甲，手里拿着香蕉..."
+                      placeholder="e.g. Holding a banana..."
                       rows={3}
                       className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow transition-all resize-none dark:text-white"
                     />
@@ -270,30 +270,30 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   {/* Head */}
                   <div>
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">头部 Head</label>
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">{t('pfp.head')}</label>
                     <PresetChips options={PRESETS.head} current={head} onSelect={setHead} />
-                    <input type="text" value={head} onChange={e => setHead(e.target.value)} placeholder="自定义头部..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
+                    <input type="text" value={head} onChange={e => setHead(e.target.value)} placeholder="Custom Head..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
                   </div>
 
                   {/* Eyes */}
                   <div>
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">眼部 Eyes</label>
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">{t('pfp.eyes')}</label>
                     <PresetChips options={PRESETS.eyes} current={eyes} onSelect={setEyes} />
-                    <input type="text" value={eyes} onChange={e => setEyes(e.target.value)} placeholder="自定义眼部..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
+                    <input type="text" value={eyes} onChange={e => setEyes(e.target.value)} placeholder="Custom Eyes..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
                   </div>
 
                   {/* Outfit */}
                   <div>
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">服饰 Outfit</label>
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">{t('pfp.outfit')}</label>
                     <PresetChips options={PRESETS.outfit} current={outfit} onSelect={setOutfit} />
-                    <input type="text" value={outfit} onChange={e => setOutfit(e.target.value)} placeholder="自定义服饰..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
+                    <input type="text" value={outfit} onChange={e => setOutfit(e.target.value)} placeholder="Custom Outfit..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
                   </div>
 
                   {/* Item */}
                   <div>
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">道具 Item</label>
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">{t('pfp.item')}</label>
                     <PresetChips options={PRESETS.item} current={item} onSelect={setItem} />
-                    <input type="text" value={item} onChange={e => setItem(e.target.value)} placeholder="自定义道具..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
+                    <input type="text" value={item} onChange={e => setItem(e.target.value)} placeholder="Custom Item..." className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow dark:text-white" />
                   </div>
                 </div>
               )}
@@ -303,7 +303,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
               {/* Reference Image */}
               <div>
                 <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3">
-                  参考图 (可选) <span className="text-neutral-400 font-normal">Reference</span>
+                  {t('pfp.ref_img')}
                 </label>
                 <div 
                   onClick={() => refFileInputRef.current?.click()}
@@ -326,7 +326,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   ) : (
                     <div className="text-center text-neutral-400 text-xs">
                       <ImageIcon className="mx-auto mb-1 opacity-50" size={20} />
-                      点击上传服装/风格参考图
+                      {t('ai.click_upload')}
                     </div>
                   )}
                   <input ref={refFileInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, true)} />
@@ -336,14 +336,14 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
               {/* Background */}
               <div className="mt-6">
                 <label className="block text-sm font-bold text-neutral-800 dark:text-neutral-200 mb-3">
-                  背景风格 <span className="text-neutral-400 font-normal">Background</span>
+                  {t('pfp.bg_style')}
                 </label>
                 <PresetChips options={PRESETS.background} current={background} onSelect={setBackground} />
                 <input 
                   type="text" 
                   value={background}
                   onChange={(e) => setBackground(e.target.value)}
-                  placeholder="自定义背景描述..."
+                  placeholder="Custom Background..."
                   className="w-full bg-neutral-50 dark:bg-[#222] border border-neutral-200 dark:border-[#333] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-yellow transition-all dark:text-white"
                 />
               </div>
@@ -359,11 +359,11 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
               <div className="flex justify-between items-center mb-4">
                  <div className="flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-brand-yellow text-black flex items-center justify-center text-xs font-bold">1</span>
-                    <span className="font-bold text-sm dark:text-white">上传底图 (必需)</span>
+                    <span className="font-bold text-sm dark:text-white">{t('ai.upload_base')}</span>
                  </div>
                  {baseImage && (
                     <button onClick={() => setBaseImage(null)} className="text-red-500 text-xs flex items-center hover:bg-red-50 px-2 py-1 rounded-lg transition-colors">
-                       <Trash2 size={12} className="mr-1"/>清除
+                       <Trash2 size={12} className="mr-1"/>{t('ai.clear')}
                     </button>
                  )}
               </div>
@@ -378,7 +378,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                 ) : (
                   <div className="text-center text-neutral-400 group-hover:text-brand-yellow transition-colors">
                     <Upload className="mx-auto mb-3" size={32} />
-                    <span className="font-bold text-sm">点击或拖拽上传图片</span>
+                    <span className="font-bold text-sm">{t('ai.click_upload')}</span>
                   </div>
                 )}
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e)} />
@@ -390,7 +390,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                 {/* Status Bar */}
                 <div className="absolute top-6 left-6 z-20 flex gap-2">
                    <div className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-md ${loading ? 'bg-yellow-500/80 text-white' : generatedImage ? 'bg-green-500/80 text-white' : 'bg-black/10 dark:bg-white/10 text-neutral-500 dark:text-neutral-300'}`}>
-                      {loading ? '生成中...' : generatedImage ? '生成完毕' : '等待指令'}
+                      {loading ? t('ai.generating') : generatedImage ? t('ai.finished') : t('ai.waiting')}
                    </div>
                 </div>
                 
@@ -410,7 +410,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                               <Sparkles className="text-brand-yellow animate-pulse" />
                            </div>
                         </div>
-                        <p className="text-neutral-500 dark:text-neutral-400 font-bold animate-pulse text-sm">AI 正在施展魔法...</p>
+                        <p className="text-neutral-500 dark:text-neutral-400 font-bold animate-pulse text-sm">AI Magic...</p>
                       </div>
                     ) : generatedImage ? (
                       <img src={generatedImage} alt="Generated PFP" className="max-w-full max-h-full object-contain shadow-2xl z-10 transition-transform duration-500 hover:scale-[1.02]" />
@@ -430,7 +430,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                 <div className="absolute bottom-6 right-6 z-20">
                    <div className="bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold shadow-lg border border-white/20 dark:text-white flex items-center gap-2">
                       🍯
-                      剩余蜂蜜: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
+                      {t('ai.honey_left')}: <span className="text-brand-yellow">{userProfile?.credits || 0}</span>
                    </div>
                 </div>
             </div>
@@ -451,7 +451,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                   className="flex-1 bg-brand-yellow hover:bg-yellow-300 text-black font-black text-lg py-4 rounded-2xl shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/40 hover:-translate-y-1 active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                  >
                    {loading ? <RefreshCw className="animate-spin" /> : <Wand2 />}
-                   立即生成 <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 蜂蜜)</span>
+                   {t('ai.start')} <span className="text-xs font-normal opacity-70 ml-1">(-{COST} 🍯)</span>
                  </button>
                ) : (
                  <>
@@ -459,13 +459,13 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
                     onClick={downloadImage}
                     className="flex-1 bg-white dark:bg-[#222] hover:bg-neutral-50 dark:hover:bg-[#333] text-black dark:text-white font-bold text-lg py-4 rounded-2xl border border-neutral-200 dark:border-[#333] shadow-sm hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                    >
-                     <Download size={20} /> 下载图片
+                     <Download size={20} /> {t('ai.download')}
                    </button>
                    <button 
                     onClick={() => setGeneratedImage(null)}
                     className="flex-1 bg-black text-white dark:bg-white dark:text-black font-bold text-lg py-4 rounded-2xl shadow-lg hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                    >
-                     <RefreshCw size={20} /> 重置
+                     <RefreshCw size={20} /> {t('ai.reset')}
                    </button>
                  </>
                )}
@@ -473,7 +473,7 @@ export const PFPGenerator: React.FC<PFPGeneratorProps> = ({ onLoginRequest }) =>
 
             {!user && (
               <p className="text-center mt-4 text-xs text-neutral-400">
-                <span className="cursor-pointer hover:text-brand-yellow underline" onClick={onLoginRequest}>登录</span> 后即可使用生成功能
+                <span className="cursor-pointer hover:text-brand-yellow underline" onClick={onLoginRequest}>{t('ai.login_hint')}</span>
               </p>
             )}
 

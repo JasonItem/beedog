@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { addMessage, getMessages, Message } from '../services/messageService';
 import { Button } from './Button';
 import { MessageCircle, Send, Loader2, User, Zap, AlertTriangle } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MessageBoardProps {
   onLoginRequest: () => void;
@@ -25,6 +26,7 @@ const DANMAKU_COLORS = [
 
 export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) => {
   const { user, userProfile } = useAuth();
+  const { t } = useLanguage();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,7 +59,7 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
     // 1. Sanitize
     const cleanMessage = sanitizeInput(newMessage);
     if (!cleanMessage) {
-        setError("输入内容无效");
+        setError("Invalid Input");
         return;
     }
 
@@ -70,7 +72,7 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
       await loadMessages();
     } catch (e) {
       console.error(e);
-      setError("发送失败，请稍后重试");
+      setError("Failed to post");
     } finally {
       setPosting(false);
     }
@@ -90,10 +92,10 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
         <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-8">
            <div className="text-center md:text-left">
               <h2 className="text-4xl md:text-5xl font-display font-black mb-2 flex items-center gap-3 justify-center md:justify-start">
-                 <MessageCircle className="text-brand-yellow" size={40}/> 社区留言板
+                 <MessageCircle className="text-brand-yellow" size={40}/> {t('board.title')}
               </h2>
               <p className="text-neutral-500">
-                  听听家人们都在聊什么
+                  {t('board.desc')}
               </p>
            </div>
            
@@ -107,7 +109,7 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handlePost()}
-                            placeholder="发送弹幕..."
+                            placeholder={t('board.placeholder')}
                             className="w-full bg-transparent focus:outline-none text-sm dark:text-white placeholder-neutral-400"
                             maxLength={100}
                           />
@@ -123,7 +125,7 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
                   </div>
               ) : (
                   <Button onClick={onLoginRequest} variant="secondary" className="w-full shadow-lg">
-                      登录发送弹幕
+                      {t('board.login_to_post')}
                   </Button>
               )}
               {error && <p className="text-xs text-red-500 mt-2 text-center">{error}</p>}
@@ -154,8 +156,8 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
             {!loading && messages.length === 0 && (
                 <div className="text-center relative z-10 opacity-50 flex flex-col items-center">
                     <MessageCircle size={64} className="text-neutral-600 mb-4"/>
-                    <p className="text-neutral-500 font-bold text-xl">暂无弹幕</p>
-                    <p className="text-neutral-600 text-sm">快来发送第一条吧！</p>
+                    <p className="text-neutral-500 font-bold text-xl">{t('board.empty')}</p>
+                    <p className="text-neutral-600 text-sm">{t('board.be_first')}</p>
                 </div>
             )}
 
@@ -220,7 +222,7 @@ export const MessageBoard: React.FC<MessageBoardProps> = ({ onLoginRequest }) =>
         </div>
         
         <div className="text-center mt-4 text-xs text-neutral-400">
-            <span className="flex items-center justify-center gap-1"><AlertTriangle size={12}/> 注意：所有留言均公开，请文明发言。</span>
+            <span className="flex items-center justify-center gap-1"><AlertTriangle size={12}/> {t('board.warn')}</span>
         </div>
 
       </div>
