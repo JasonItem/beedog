@@ -386,8 +386,9 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       const rodType = RODS[currentRod.typeId];
       const luck = rodType.luck;
 
-      // Base max wait is 60s. Luck reduces max wait by 2s per point. Min 5s.
-      const maxWait = Math.max(5000, 60000 - (luck * 2000)); 
+      // Base max wait is 30s. Luck reduces max wait by 2s per point. Min 2s.
+      // Luck=0 => max 30s. Luck=15 => 30000 - 30000 = 0 (clamped to 5000)
+      const maxWait = Math.max(5000, 30000 - (luck * 2000)); 
       const minWait = 2000;
       
       const waitTime = minWait + Math.random() * (maxWait - minWait);
@@ -421,7 +422,7 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       cancelAnimationFrame(gameRef.current.animationId);
       audio.playScore();
       
-      const fishType = FISH_TYPES[gameRef.current.currentFishId];
+      const fishType = FISH_TYPES.find(f => f.id === gameRef.current.currentFishId) || FISH_TYPES[0];
       const newFish = {
           id: Date.now().toString(),
           typeId: fishType.id,
@@ -598,7 +599,7 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
       
       // Fish
       const fishY = barY + (game.fishPos / 100) * barH;
-      const fishObj = FISH_TYPES[game.currentFishId];
+      const fishObj = FISH_TYPES.find(f => f.id === game.currentFishId) || FISH_TYPES[0];
       const fishImg = fishImagesRef.current[fishObj.id];
 
       if (fishImg && fishImg.complete && fishImg.naturalHeight !== 0) {
@@ -914,14 +915,14 @@ export const HoneyFishing: React.FC<HoneyFishingProps> = ({ userProfile, onGameO
                         {phase === 'CAUGHT' && (
                             <div className="absolute -top-[35px] left-1/2 -translate-x-1/2 animate-in slide-in-from-bottom-2 zoom-in duration-300 flex flex-col items-center z-50">
                                 <div className="bg-white/90 p-1 rounded-full shadow-md backdrop-blur-sm border border-white">
-                                    {FISH_TYPES[gameRef.current.currentFishId]?.imageUrl ? (
-                                        <img src={FISH_TYPES[gameRef.current.currentFishId].imageUrl} className="w-5 h-5 object-contain pixelated" />
+                                    {FISH_TYPES.find(f => f.id === gameRef.current.currentFishId)?.imageUrl ? (
+                                        <img src={FISH_TYPES.find(f => f.id === gameRef.current.currentFishId)!.imageUrl} className="w-5 h-5 object-contain pixelated" />
                                     ) : (
-                                        <span className="text-lg">{FISH_TYPES[gameRef.current.currentFishId].icon}</span>
+                                        <span className="text-lg">{FISH_TYPES.find(f => f.id === gameRef.current.currentFishId)?.icon || '🐟'}</span>
                                     )}
                                 </div>
                                 <div className="text-[4px] font-bold text-white bg-green-600 px-1 rounded mt-0.5 whitespace-nowrap">
-                                    {FISH_TYPES[gameRef.current.currentFishId].name}
+                                    {FISH_TYPES.find(f => f.id === gameRef.current.currentFishId)?.name}
                                 </div>
                             </div>
                         )}
