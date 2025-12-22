@@ -39,6 +39,22 @@ export interface FarmSaveData {
   plots: FarmPlot[];
 }
 
+// NEW: Trading Game Types
+export interface TradingPosition {
+  id: number;
+  type: 'LONG' | 'SHORT';
+  entryPrice: number;
+  margin: number;
+  leverage: number;
+  size: number;
+  liquidationPrice: number;
+  timestamp: number;
+}
+
+export interface TradingSaveData {
+    positions: TradingPosition[];
+}
+
 export interface UserProfile {
   uid: string;
   email: string | null;
@@ -51,6 +67,7 @@ export interface UserProfile {
   dailyGameRewards?: Record<string, string>; // Map of gameId -> YYYY-MM-DD
   fishingData?: FishingSaveData;
   farmData?: FarmSaveData;
+  tradingData?: TradingSaveData; // NEW: Trading Positions
   productUsage?: Record<string, number>; // NEW: Map of productId -> count purchased
 }
 
@@ -103,6 +120,7 @@ export const ensureUserProfile = async (user: User) => {
           activeRodId: 'starter'
       },
       farmData: { level: 1, xp: 0, plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) },
+      tradingData: { positions: [] },
       productUsage: {}
     };
 
@@ -148,6 +166,11 @@ export const ensureUserProfile = async (user: User) => {
             xp: 0, 
             plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) 
         };
+    }
+
+    // Init trading data if missing
+    if (!currentData.tradingData) {
+        updates.tradingData = { positions: [] };
     }
 
     // Init product usage if missing
@@ -269,7 +292,7 @@ export const updateFishingData = async (uid: string, newData: Partial<FishingSav
 };
 
 /**
- * NEW: Update Farm Data
+ * Update Farm Data
  */
 export const updateFarmData = async (uid: string, newData: Partial<FarmSaveData>) => {
     const docRef = doc(db, "users", uid);
@@ -278,6 +301,14 @@ export const updateFarmData = async (uid: string, newData: Partial<FarmSaveData>
     if (newData.xp !== undefined) updates["farmData.xp"] = newData.xp;
     if (newData.plots !== undefined) updates["farmData.plots"] = newData.plots;
     await updateDoc(docRef, updates);
+};
+
+/**
+ * NEW: Update Trading Positions
+ */
+export const updateTradingPositions = async (uid: string, positions: TradingPosition[]) => {
+    const docRef = doc(db, "users", uid);
+    await updateDoc(docRef, { "tradingData.positions": positions });
 };
 
 export const getHoneyLeaderboard = async (limitCount: number = 50): Promise<UserProfile[]> => {

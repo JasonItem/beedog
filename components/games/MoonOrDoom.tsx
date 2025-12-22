@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { UserProfile, deductCredit } from '../../services/userService';
+import { UserProfile, deductCredit, updateTradingPositions, TradingPosition } from '../../services/userService';
 import { saveScore, getUserHighScore } from '../../services/gameService';
 import { audio } from '../../services/audioService';
 import { TrendingUp, TrendingDown, Activity, Wallet, Lock, Skull, AlertCircle, Wifi, Globe, ChevronDown, Loader2, Plus, Minus } from 'lucide-react';
@@ -21,17 +21,6 @@ interface Candle {
   vol: number; // Added Volume
 }
 
-interface Position {
-  id: number;
-  type: 'LONG' | 'SHORT';
-  entryPrice: number;
-  margin: number;
-  leverage: number;
-  size: number; // margin * leverage
-  liquidationPrice: number;
-  timestamp: number;
-}
-
 const SOURCES = [
     { name: 'Binance', url: 'wss://stream.binance.com:9443/ws/bnbusdt@kline_1m', type: 'kline' },
     { name: 'OKX', url: 'wss://ws.okx.com:8443/public', type: 'kline' },
@@ -49,7 +38,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   const [credits, setCredits] = useState(userProfile?.credits || 0);
   const [marginInput, setMarginInput] = useState<string>('10');
   const [leverage, setLeverage] = useState<number>(10);
-  const [activePositions, setActivePositions] = useState<Position[]>([]);
+  const [activePositions, setActivePositions] = useState<TradingPosition[]>([]);
   const [cumulativePnL, setCumulativePnL] = useState(0); 
   const [currentPrice, setCurrentPrice] = useState(0);
   const [sourceName, setSourceName] = useState(SOURCES[0].name);
@@ -88,12 +77,14 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
     // Timers
     animationId: 0,
     
-    positions: [] as Position[], 
+    positions: [] as TradingPosition[], 
     currentCumulativePnL: 0,
     ws: null as WebSocket | null,
     activeSourceIndex: 0,
     unmounted: false
   });
+
+  const hasInitializedPositions = useRef(false);
 
   useEffect(() => {
     setCredits(userProfile?.credits || 0);
@@ -105,8 +96,18 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
         gameRef.current.currentCumulativePnL = score;
         setCumulativePnL(score);
       });
+      
+      // Load Positions if not initialized
+      if (!hasInitializedPositions.current && userProfile.tradingData?.positions) {
+          const savedPositions = userProfile.tradingData.positions;
+          if (savedPositions.length > 0) {
+             setActivePositions(savedPositions);
+             gameRef.current.positions = savedPositions;
+          }
+          hasInitializedPositions.current = true;
+      }
     }
-  }, [userProfile?.uid]);
+  }, [userProfile?.uid]); // Only depend on UID change for initial load
 
   // Init Data
   useEffect(() => {
@@ -366,23 +367,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
       const volY = priceH;
       const candleUnit = scale * 1.2;
 
-      // --- CALCULATE VISIBLE RANGE (FIXED BUG) ---
-      // We render from right-to-left mathematically: x = width + offset - (total - 1 - i) * unit
-      // This means index `i` is at `x`.
-      // We want to find range of `i` such that `-scale < x < width + scale`
-
-      // Lower Bound `i` (Visible on Left Edge):
-      // width + offset - (total - 1 - i) * unit > -scale
-      // (total - 1 - i) * unit < width + offset + scale
-      // total - 1 - i < (width + offset + scale) / unit
-      // i > total - 1 - (width + offset + scale) / unit
-      
-      // Upper Bound `i` (Visible on Right Edge):
-      // width + offset - (total - 1 - i) * unit < width + scale
-      // offset - scale < (total - 1 - i) * unit
-      // (offset - scale) / unit < total - 1 - i
-      // i < total - 1 - (offset - scale) / unit
-
+      // --- CALCULATE VISIBLE RANGE ---
       const total = allData.length;
       let startIndex = Math.floor(total - 1 - (width + offset + scale) / candleUnit);
       let endIndex = Math.ceil(total - 1 - (offset - scale) / candleUnit);
@@ -587,7 +572,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   };
 
   // Helper to calc live PnL for list
-  const getPnL = (pos: Position) => {
+  const getPnL = (pos: TradingPosition) => {
       const price = currentPrice;
       const exitPrice = price; 
 
@@ -629,7 +614,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
         refreshProfile();
 
         const currentMarketPrice = gameRef.current.price;
-        const newPos: Position = {
+        const newPos: TradingPosition = {
             id: Date.now(),
             type,
             entryPrice: currentMarketPrice,
@@ -644,6 +629,9 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
         gameRef.current.positions.unshift(newPos);
         setActivePositions([...gameRef.current.positions]);
+        
+        // Save
+        updateTradingPositions(userProfile.uid, gameRef.current.positions);
         
         audio.playShoot();
         showNotif(`${leverage}x 开仓!`, 'info');
@@ -682,12 +670,16 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
 
           gameRef.current.positions.splice(posIndex, 1);
           setActivePositions([...gameRef.current.positions]);
+          
+          // Save
+          updateTradingPositions(userProfile.uid, gameRef.current.positions);
+
           onGameOver();
       } catch (error) { console.error(error); } 
       finally { setClosingIds(prev => { const next = new Set(prev); next.delete(id); return next; }); }
   };
 
-  const liquidatePosition = async (pos: Position, index: number) => {
+  const liquidatePosition = async (pos: TradingPosition, index: number) => {
       if (index > -1 && gameRef.current.positions[index]?.id === pos.id) {
           gameRef.current.positions.splice(index, 1);
           setActivePositions([...gameRef.current.positions]);
@@ -697,6 +689,10 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
               gameRef.current.currentCumulativePnL -= pos.margin;
               saveScore(userProfile, 'moon_doom', Math.floor(gameRef.current.currentCumulativePnL));
               setCumulativePnL(Math.floor(gameRef.current.currentCumulativePnL));
+              
+              // Save
+              updateTradingPositions(userProfile.uid, gameRef.current.positions);
+              
               onGameOver();
           }
       }
