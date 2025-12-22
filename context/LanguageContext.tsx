@@ -242,7 +242,7 @@ const translations: Record<Language, Translations> = {
     'game.honey_swing.name': '蜘蛛侠',
     'game.honey_swing.desc': '像蜘蛛侠一样飞荡。',
     'game.honey_slots.name': '老虎机',
-    'game.honey_slots.desc': '试试手气，赢取大奖。',
+    'game.honey_slots.desc': 'Spin to win big.',
     'game.honey_burger.name': '做汉堡',
     'game.honey_burger.desc': '记忆配方，制作汉堡。',
     'game.honey_scratch.name': '刮刮乐',
@@ -251,8 +251,6 @@ const translations: Record<Language, Translations> = {
     'game.moon_doom.desc': '真实行情模拟，做多做空赚收益。',
     'game.bee_swarm.name': '蜜蜂突围',
     'game.bee_swarm.desc': '聚集蜂群，冲破障碍。',
-    'game.honey_dozer.name': '推金币',
-    'game.honey_dozer.desc': '经典推币机玩法。',
 
     // Shop
     'shop.title': '蜂蜜商店',
@@ -553,8 +551,6 @@ const translations: Record<Language, Translations> = {
     'game.moon_doom.desc': 'Simulate crypto trading.',
     'game.bee_swarm.name': 'Bee Swarm',
     'game.bee_swarm.desc': 'Gather swarm, break through.',
-    'game.honey_dozer.name': 'Honey Dozer',
-    'game.honey_dozer.desc': 'Coin pusher arcade.',
 
     // Shop
     'shop.title': 'Honey Shop',

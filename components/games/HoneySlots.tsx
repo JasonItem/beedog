@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { UserProfile, deductCredit } from '../../services/userService';
 import { updateCumulativeScore } from '../../services/gameService';
@@ -66,6 +65,28 @@ interface SpinResult {
     lines: number[][];
     isWin: boolean;
 }
+
+const MiniSlot: React.FC<{ result: SpinResult }> = ({ result }) => {
+    return (
+        <div className={`
+          relative bg-white dark:bg-[#222] rounded-lg p-1.5 border-2 flex flex-col items-center justify-center aspect-square shadow-sm
+          ${result.isWin ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'border-neutral-200 dark:border-[#444]'}
+        `}>
+            <div className="grid grid-cols-3 grid-rows-3 gap-0.5 w-full h-full">
+                {result.grid.map((symId, i) => (
+                    <div key={i} className="flex items-center justify-center bg-gray-100 dark:bg-[#333] rounded-sm overflow-hidden">
+                        <span className="text-base sm:text-lg leading-none select-none">{SYMBOLS[symId].char}</span>
+                    </div>
+                ))}
+            </div>
+            {result.win > 0 && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg animate-in zoom-in">
+                    <div className="text-yellow-400 font-black text-lg drop-shadow-md">+{result.win}</div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver }) => {
   const { refreshProfile } = useAuth();
@@ -614,28 +635,6 @@ export const HoneySlots: React.FC<HoneySlotsProps> = ({ userProfile, onGameOver 
           ctx.font = '24px serif';
           ctx.fillText(p.char, p.x, p.y);
       });
-  };
-
-  const MiniSlot = ({ result }: { result: SpinResult }) => {
-      return (
-          <div className={`
-            relative bg-white dark:bg-[#222] rounded-lg p-1.5 border-2 flex flex-col items-center justify-center aspect-square shadow-sm
-            ${result.isWin ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'border-neutral-200 dark:border-[#444]'}
-          `}>
-              <div className="grid grid-cols-3 grid-rows-3 gap-0.5 w-full h-full">
-                  {result.grid.map((symId, i) => (
-                      <div key={i} className="flex items-center justify-center bg-gray-100 dark:bg-[#333] rounded-sm overflow-hidden">
-                          <span className="text-base sm:text-lg leading-none select-none">{SYMBOLS[symId].char}</span>
-                      </div>
-                  ))}
-              </div>
-              {result.win > 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg animate-in zoom-in">
-                      <div className="text-yellow-400 font-black text-lg drop-shadow-md">+{result.win}</div>
-                  </div>
-              )}
-          </div>
-      );
   };
 
   return (

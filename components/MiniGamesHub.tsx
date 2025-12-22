@@ -24,7 +24,6 @@ import { BeeKnight } from './games/BeeKnight';
 import { HoneyFishing } from './games/HoneyFishing';
 import { HoneyFarm } from './games/HoneyFarm';
 import { HoneyJump } from './games/HoneyJump';
-import { HoneyDozer } from './games/HoneyDozer'; // Imported missing game
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
@@ -48,7 +47,7 @@ export interface GameConfig {
   isHoneyGame: boolean;
 }
 
-// FULL LIST OF 23 GAMES
+// FULL LIST OF 22 GAMES
 export const GAMES: GameConfig[] = [
   // FEATURED / HIGH QUALITY
   { id: 'honey_jump', nameKey: 'game.honey_jump.name', descKey: 'game.honey_jump.desc', howToPlay: 'Tap/Hold to charge jump.', color: 'from-sky-500 to-blue-600', icon: Footprints, tags: ['Action', 'Skill'], isHoneyGame: false },
@@ -77,7 +76,6 @@ export const GAMES: GameConfig[] = [
   { id: 'honey_scratch', nameKey: 'game.honey_scratch.name', descKey: 'game.honey_scratch.desc', howToPlay: 'Scratch to match 3 symbols.', color: 'from-purple-500 to-indigo-600', icon: Ticket, tags: ['Luck', 'Casual'], isHoneyGame: true },
   { id: 'moon_doom', nameKey: 'game.moon_doom.name', descKey: 'game.moon_doom.desc', howToPlay: 'Predict price movement.', color: 'from-green-500 to-red-600', icon: BarChart2, tags: ['Sim', 'Crypto'], isHoneyGame: true },
   { id: 'bee_swarm', nameKey: 'game.bee_swarm.name', descKey: 'game.bee_swarm.desc', howToPlay: 'Shoot enemies, gather swarm.', color: 'from-orange-400 to-red-500', icon: Users, tags: ['Shooter', 'Action'], isHoneyGame: false },
-  { id: 'honey_dozer', nameKey: 'game.honey_dozer.name', descKey: 'game.honey_dozer.desc', howToPlay: 'Drop coins, push prizes.', color: 'from-yellow-500 to-amber-600', icon: Coins, tags: ['Arcade', 'Luck'], isHoneyGame: true },
 ];
 
 export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) => {
@@ -266,7 +264,6 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
       case 'honey_scratch': return <HoneyScratch userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'moon_doom': return <MoonOrDoom userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_swarm': return <BeeSwarm userProfile={userProfile} onGameOver={handleGameOver} />;
-      case 'honey_dozer': return <HoneyDozer userProfile={userProfile} onGameOver={handleGameOver} />;
       default: return <div className="text-white">Game Not Found</div>;
     }
   };

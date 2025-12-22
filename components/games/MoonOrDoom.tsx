@@ -66,7 +66,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
   // Constants
   const CANVAS_WIDTH = 340;
   const CANVAS_HEIGHT = 280;
-  const MAX_LEVERAGE = 125;
+  const MAX_LEVERAGE = 1000;
   const CANDLE_WIDTH = 5;
   const CANDLE_SPACING = 3;
   const MAX_CANDLES = Math.floor(CANVAS_WIDTH / (CANDLE_WIDTH + CANDLE_SPACING));
@@ -823,7 +823,7 @@ export const MoonOrDoom: React.FC<MoonOrDoomProps> = ({ userProfile, onGameOver 
                       className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
                   />
                   <div className="flex justify-between text-[9px] text-gray-600 font-mono">
-                      <span>1x</span><span>50x</span><span>100x</span><span className="text-red-500">125x</span>
+                      <span>1x</span><span>100x</span><span>500x</span><span className="text-red-500">1000x</span>
                   </div>
               </div>
 
