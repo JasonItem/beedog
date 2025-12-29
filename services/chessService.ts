@@ -23,6 +23,7 @@ import { saveScore } from "./gameService";
 export type Side = 'red' | 'black';
 
 export interface ChessPiece {
+    id: string; // Unique ID for animation tracking
     type: 'che' | 'ma' | 'xiang' | 'shi' | 'shuai' | 'pao' | 'bing';
     side: Side;
 }
@@ -43,6 +44,7 @@ export interface ChessRoom {
     board: (ChessPiece | null)[]; 
     history: string[];
     lastMoveAt: any;
+    lastAction?: { type: 'move' | 'capture' | 'check'; at: number; by: string }; 
     winner: string | null;
     winReason: 'checkmate' | 'surrender' | 'escape' | null;
     host: string;
@@ -86,21 +88,21 @@ export const idxToPos = (idx: number) => ({ r: Math.floor(idx / 9), c: idx % 9 }
 
 export const getInitialBoard = (): (ChessPiece | null)[] => {
     const board = new Array(90).fill(null);
-    const setPiece = (r: number, c: number, type: ChessPiece['type'], side: Side) => {
-        board[r * 9 + c] = { type, side };
+    const setPiece = (r: number, c: number, type: ChessPiece['type'], side: Side, id: string) => {
+        board[r * 9 + c] = { type, side, id };
     };
 
     // Black pieces (Top)
-    setPiece(0, 0, 'che', 'black'); setPiece(0, 1, 'ma', 'black'); setPiece(0, 2, 'xiang', 'black'); setPiece(0, 3, 'shi', 'black');
-    setPiece(0, 4, 'shuai', 'black'); setPiece(0, 5, 'shi', 'black'); setPiece(0, 6, 'xiang', 'black'); setPiece(0, 7, 'ma', 'black'); setPiece(0, 8, 'che', 'black');
-    setPiece(2, 1, 'pao', 'black'); setPiece(2, 7, 'pao', 'black');
-    setPiece(3, 0, 'bing', 'black'); setPiece(3, 2, 'bing', 'black'); setPiece(3, 4, 'bing', 'black'); setPiece(3, 6, 'bing', 'black'); setPiece(3, 8, 'bing', 'black');
+    setPiece(0, 0, 'che', 'black', 'b_che1'); setPiece(0, 1, 'ma', 'black', 'b_ma1'); setPiece(0, 2, 'xiang', 'black', 'b_xi1'); setPiece(0, 3, 'shi', 'black', 'b_sh1');
+    setPiece(0, 4, 'shuai', 'black', 'b_king'); setPiece(0, 5, 'shi', 'black', 'b_sh2'); setPiece(0, 6, 'xiang', 'black', 'b_xi2'); setPiece(0, 7, 'ma', 'black', 'b_ma2'); setPiece(0, 8, 'che', 'black', 'b_che2');
+    setPiece(2, 1, 'pao', 'black', 'b_pao1'); setPiece(2, 7, 'pao', 'black', 'b_pao2');
+    setPiece(3, 0, 'bing', 'black', 'b_bin1'); setPiece(3, 2, 'bing', 'black', 'b_bin2'); setPiece(3, 4, 'bing', 'black', 'b_bin3'); setPiece(3, 6, 'bing', 'black', 'b_bin4'); setPiece(3, 8, 'bing', 'black', 'b_bin5');
 
     // Red pieces (Bottom)
-    setPiece(9, 0, 'che', 'red'); setPiece(9, 1, 'ma', 'red'); setPiece(9, 2, 'xiang', 'red'); setPiece(9, 3, 'shi', 'red');
-    setPiece(9, 4, 'shuai', 'red'); setPiece(9, 5, 'shi', 'red'); setPiece(9, 6, 'xiang', 'red'); setPiece(9, 7, 'ma', 'red'); setPiece(9, 8, 'che', 'red');
-    setPiece(7, 1, 'pao', 'red'); setPiece(7, 7, 'pao', 'red');
-    setPiece(6, 0, 'bing', 'red'); setPiece(6, 2, 'bing', 'red'); setPiece(6, 4, 'bing', 'red'); setPiece(6, 6, 'bing', 'red'); setPiece(6, 8, 'bing', 'red');
+    setPiece(9, 0, 'che', 'red', 'r_che1'); setPiece(9, 1, 'ma', 'red', 'r_ma1'); setPiece(9, 2, 'xiang', 'red', 'r_xi1'); setPiece(9, 3, 'shi', 'red', 'r_sh1');
+    setPiece(9, 4, 'shuai', 'red', 'r_king'); setPiece(9, 5, 'shi', 'red', 'r_sh2'); setPiece(9, 6, 'xiang', 'red', 'r_xi2'); setPiece(9, 7, 'ma', 'red', 'r_ma2'); setPiece(9, 8, 'che', 'red', 'r_che2');
+    setPiece(7, 1, 'pao', 'red', 'r_pao1'); setPiece(7, 7, 'pao', 'red', 'r_pao2');
+    setPiece(6, 0, 'bing', 'red', 'r_bin1'); setPiece(6, 2, 'bing', 'red', 'r_bin2'); setPiece(6, 4, 'bing', 'red', 'r_bin3'); setPiece(6, 6, 'bing', 'red', 'r_bin4'); setPiece(6, 8, 'bing', 'red', 'r_bin5');
 
     return board;
 };

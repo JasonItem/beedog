@@ -13,7 +13,8 @@ import {
     getUserMatchHistory,
     posToIdx,
     hasAnyLegalMoves,
-    getTierInfo
+    getTierInfo,
+    ChessPiece
 } from '../../services/chessService';
 import { db } from '../../firebaseConfig';
 import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp, getDoc } from 'firebase/firestore';
@@ -66,7 +67,7 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
     const roomRef = useRef<ChessRoom | null>(null);
     const userRef = useRef<UserProfile | null>(userProfile);
     const hasPaidRef = useRef(false);
-    const lastEffectAtRef = useRef<number>(0);
+    const lastActionAtRef = useRef<number>(0);
     const rewardClaimedRef = useRef<boolean>(false);
     const confirmTimerRef = useRef<any>(null);
 
@@ -102,10 +103,26 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                 const roomData = docSnap.data() as ChessRoom;
                 setRoom(roomData);
 
-                if (roomData.lastEffect && roomData.lastEffect.at > lastEffectAtRef.current) {
-                    lastEffectAtRef.current = roomData.lastEffect.at;
+                // --- AUDIO & EFFECT TRIGGER ---
+                if (roomData.lastAction && roomData.lastAction.at > lastActionAtRef.current) {
+                    lastActionAtRef.current = roomData.lastAction.at;
+                    
+                    // Only play audio if the action was made by the opponent (local user plays it in handleTileClick)
+                    if (roomData.lastAction.by !== userProfile.uid) {
+                        if (roomData.lastAction.type === 'capture') audio.playScore();
+                        else if (roomData.lastAction.type === 'move') audio.playStep();
+                    }
+
+                    if (roomData.lastAction.type === 'check') {
+                        setBigEffect('将');
+                        audio.playJump();
+                        setTimeout(() => setBigEffect(null), 800);
+                    }
+                }
+
+                if (roomData.lastEffect && roomData.lastEffect.at > lastActionAtRef.current) {
+                    // Legacy support
                     setBigEffect(roomData.lastEffect.type);
-                    if (roomData.lastEffect.type === '将') { audio.playStep(); }
                     setTimeout(() => setBigEffect(null), 800);
                 }
 
@@ -243,7 +260,16 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
             newBoard[idx] = movingPiece;
             newBoard[selectedIdx] = null;
             const nextTurn = room.turn === 'red' ? 'black' : 'red';
-            const updates: any = { board: newBoard, turn: nextTurn, lastMoveAt: Timestamp.now() };
+            const updates: any = { 
+                board: newBoard, 
+                turn: nextTurn, 
+                lastMoveAt: Timestamp.now(),
+                lastAction: { 
+                    at: Date.now(), 
+                    by: userProfile?.uid,
+                    type: targetPiece ? 'capture' : 'move'
+                }
+            };
 
             const isTargetKing = targetPiece?.type === 'shuai';
             const opponentHasMoves = !hasAnyLegalMoves(nextTurn, newBoard);
@@ -253,9 +279,15 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                 updates.winner = userProfile?.uid;
                 updates.winReason = 'checkmate';
             } else {
-                if (targetPiece) updates.lastEffect = { type: '吃', at: Date.now() };
-                else if (isCheck(nextTurn, newBoard)) updates.lastEffect = { type: '将', at: Date.now() };
-                audio.playJump();
+                if (targetPiece) {
+                    updates.lastEffect = { type: '吃', at: Date.now() };
+                    audio.playScore();
+                } else if (isCheck(nextTurn, newBoard)) {
+                    updates.lastAction.type = 'check';
+                    audio.playJump();
+                } else {
+                    audio.playStep();
+                }
             }
             await updateDoc(doc(db, "chess_rooms", room.id), updates);
             setSelectedIdx(null); setLegalMoves([]);
@@ -278,6 +310,11 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
 
     const renderBoard = (isInteractive: boolean = true) => {
         if (!room) return null;
+        
+        // Find all moveable pieces for local turn
+        const isMyTurn = room.turn === mySide;
+        const moveableIndices = isMyTurn ? room.board.map((p, i) => (p && p.side === mySide && getLegalMoves(i, room.board).length > 0) ? i : -1).filter(i => i !== -1) : [];
+
         return (
             <div className="relative aspect-[9/10] w-full max-w-[400px] mx-auto bg-[#fce9b2] rounded-xl border-4 border-[#854d0e] shadow-2xl overflow-hidden">
                 {bigEffect && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[100px] font-black text-red-600 z-[100] drop-shadow-2xl animate-in zoom-in pointer-events-none" style={{textShadow: '0 0 20px rgba(255,0,0,0.5)'}}>{bigEffect}</div>}
@@ -294,34 +331,57 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                         <span>汉 界</span>
                     </div>
                 </div>
+                
+                {/* 棋子渲染层 - 独立于网格以实现动画 */}
                 <div className="absolute inset-0 p-[5.5%] z-20">
                     <div className="relative w-full h-full">
                         {room.board.map((piece, idx) => {
                             if (!piece) return null;
                             const { r, c } = idxToPos(idx);
+                            
+                            // UI Coordinate calculation
                             const displayRi = mySide === 'red' ? r : 9 - r;
                             const displayCi = mySide === 'red' ? c : 8 - c;
+                            
                             const isSelected = selectedIdx === idx;
-                            const canMoveThis = isInteractive && piece.side === mySide && room.turn === mySide;
+                            const isMoveable = isInteractive && moveableIndices.includes(idx) && !isSelected;
+                            const canClick = isInteractive && piece.side === mySide && room.turn === mySide;
+
                             return (
-                                <div key={idx} onClick={() => isInteractive && handleTileClick(idx)} className={`absolute w-[11.1%] aspect-square rounded-full border-2 flex items-center justify-center font-black text-lg md:text-xl shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all z-20 ${piece.side === 'red' ? 'bg-red-500 text-white border-red-800' : 'bg-neutral-800 text-yellow-500 border-neutral-900'} ${isSelected ? 'scale-110 ring-4 ring-yellow-500 z-40 shadow-2xl' : ''} ${canMoveThis ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'}`} style={{ top: `${(displayRi / 9) * 100}%`, left: `${(displayCi / 8) * 100}%` }}>
+                                <div 
+                                    key={piece.id} // Use piece.id for stable identification during move animations
+                                    onClick={() => isInteractive && handleTileClick(idx)} 
+                                    className={`absolute w-[11.1%] aspect-square rounded-full border-2 flex items-center justify-center font-black text-lg md:text-xl shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out z-20 
+                                        ${piece.side === 'red' ? 'bg-red-500 text-white border-red-800' : 'bg-neutral-800 text-yellow-500 border-neutral-900'} 
+                                        ${isSelected ? 'scale-110 ring-4 ring-yellow-500 z-40 shadow-2xl' : ''} 
+                                        ${isMoveable ? 'ring-2 ring-yellow-400/50 animate-pulse' : ''}
+                                        ${canClick ? 'cursor-pointer hover:brightness-110 active:scale-95' : 'cursor-default'}
+                                    `} 
+                                    style={{ 
+                                        top: `${(displayRi / 9) * 100}%`, 
+                                        left: `${(displayCi / 8) * 100}%` 
+                                    }}
+                                >
                                     {piece.side === 'red' ? RED_LABELS[piece.type] : BLACK_LABELS[piece.type]}
                                 </div>
                             );
                         })}
+                        
+                        {/* 合法落点提示 */}
                         {isInteractive && legalMoves.map(moveIdx => {
                             const { r, c } = idxToPos(moveIdx);
                             const displayRi = mySide === 'red' ? r : 9 - r;
                             const displayCi = mySide === 'red' ? c : 8 - c;
                             const hasTarget = !!room.board[moveIdx];
                             return (
-                                <div key={moveIdx} onClick={() => handleTileClick(moveIdx)} className="absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-30 cursor-pointer w-[11.1%] aspect-square" style={{ top: `${(displayRi / 9) * 100}%`, left: `${(displayCi / 8) * 100}%` }}>
+                                <div key={`move-${moveIdx}`} onClick={() => handleTileClick(moveIdx)} className="absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-30 cursor-pointer w-[11.1%] aspect-square" style={{ top: `${(displayRi / 9) * 100}%`, left: `${(displayCi / 8) * 100}%` }}>
                                     {hasTarget ? <div className="w-10 h-10 border-4 border-green-500 rounded-full animate-ping"></div> : <div className="w-3 h-3 bg-green-500 rounded-full opacity-80 shadow-[0_0_10px_green]"></div>}
                                 </div>
                             );
                         })}
                     </div>
                 </div>
+
                 {!isInteractive && (
                     <div className="absolute inset-0 z-[60] bg-black/10 flex items-center justify-center backdrop-blur-[1px] transition-all">
                         {room.status === 'ready' && room.host === userProfile?.uid && (
@@ -462,7 +522,7 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                             </div>
                             <div className="flex items-center justify-center gap-2">
                                 <span className={`px-3 py-1 rounded-lg font-black text-sm flex items-center gap-1 ${room.winner === userProfile?.uid ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-                                    {room.winner === userProfile?.uid ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}
+                                    <Zap size={14} className={room.winner === userProfile?.uid ? '' : 'rotate-180'}/>
                                     段位积分 {room.winner === userProfile?.uid ? '+10' : '-10'}
                                 </span>
                             </div>
@@ -566,6 +626,3 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
         </div>
     );
 };
-
-const TrendingUp = ({ size, className }: any) => <Zap size={size} className={className} />;
-const TrendingDown = ({ size, className }: any) => <Zap size={size} className={className + " rotate-180"} />;
