@@ -313,41 +313,39 @@ export const startChessGame = async (roomId: string) => {
     await updateDoc(doc(db, "chess_rooms", roomId), { status: 'playing', lastMoveAt: Timestamp.now() });
 };
 
-export const settleChessGame = async (roomId: string, winnerUid: string, loserUid: string, wager: number) => {
-    if (!winnerUid) return;
+/**
+ * NEW: Let each client settle its OWN stats to satisfy Firestore Security Rules (Owner-only write).
+ */
+export const settleOwnChessStats = async (user: UserProfile, isWinner: boolean, wager: number) => {
+    if (!user) return;
+    
+    const userRef = doc(db, "users", user.uid);
+    const updates: any = {};
     
     // 1. Handle Credits (Honey)
-    if (wager > 0) {
-        const winnerRef = doc(db, "users", winnerUid);
-        await updateDoc(winnerRef, { credits: increment(wager * 2) });
+    if (isWinner && wager > 0) {
+        // Winner gets the pot (wager * 2). 
+        // Note: Both players already paid the wager at game start.
+        updates.credits = increment(wager * 2);
     }
 
     // 2. Handle Rank Points (+10 / -10)
-    const winnerRef = doc(db, "users", winnerUid);
-    const loserRef = doc(db, "users", loserUid);
-
-    // Update Winner Points
-    await updateDoc(winnerRef, { chessPoints: increment(10) });
-    
-    // Update Loser Points (cannot go below 0)
-    const loserSnap = await getDoc(loserRef);
-    if (loserSnap.exists()) {
-        const currentPoints = loserSnap.data().chessPoints || 0;
+    if (isWinner) {
+        updates.chessPoints = increment(10);
+    } else {
+        const currentPoints = user.chessPoints || 0;
+        // Points cannot go below 0
         const decrement = currentPoints >= 10 ? -10 : -currentPoints;
-        await updateDoc(loserRef, { chessPoints: increment(decrement) });
+        updates.chessPoints = increment(decrement);
     }
+
+    await updateDoc(userRef, updates);
 
     // 3. SYNC TO GAMES LEADERBOARD
-    // This is crucial for Game Hub leaderboard to show data
-    const updatedWinnerSnap = await getDoc(winnerRef);
-    const updatedLoserSnap = await getDoc(loserRef);
-    
-    if (updatedWinnerSnap.exists()) {
-        const profile = updatedWinnerSnap.data() as UserProfile;
-        await saveScore(profile, 'bee_chess', profile.chessPoints);
-    }
-    if (updatedLoserSnap.exists()) {
-        const profile = updatedLoserSnap.data() as UserProfile;
+    // Fetch fresh data for leaderboard sync
+    const updatedSnap = await getDoc(userRef);
+    if (updatedSnap.exists()) {
+        const profile = updatedSnap.data() as UserProfile;
         await saveScore(profile, 'bee_chess', profile.chessPoints);
     }
 };

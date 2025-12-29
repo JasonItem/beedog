@@ -3,7 +3,7 @@ import { UserProfile } from '../../services/userService';
 import { 
     ChessRoom, 
     Side, 
-    settleChessGame,
+    settleOwnChessStats,
     startChessGame,
     getLegalMoves,
     isCheck,
@@ -140,13 +140,12 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                     }
                 }
 
-                if (roomData.status === 'finished' && roomData.winner === userProfile.uid && !rewardClaimedRef.current) {
+                // --- NEW SETTLEMENT LOGIC ---
+                // Both clients detect 'finished' and settle their OWN stats.
+                if (roomData.status === 'finished' && !rewardClaimedRef.current) {
                     rewardClaimedRef.current = true;
-                    // Find loser
-                    const loserUid = roomData.winner === roomData.players.red ? roomData.players.black : roomData.players.red;
-                    if (loserUid) {
-                        settleChessGame(roomData.id, userProfile.uid, loserUid, roomData.wager);
-                    }
+                    const isIWin = roomData.winner === userProfile.uid;
+                    settleOwnChessStats(userProfile, isIWin, roomData.wager);
                 }
 
                 if (userRef.current) {
@@ -518,7 +517,7 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                         <div className="bg-white/10 p-8 rounded-[2.5rem] border border-white/20 text-center w-full max-w-xs mb-8">
                             <div className="text-xs font-bold text-neutral-300 uppercase mb-2">对战结算</div>
                             <div className={`text-5xl font-black mb-4 ${room.winner === userProfile?.uid ? 'text-green-400' : 'text-red-400'}`}>
-                                {room.winner === userProfile?.uid ? (room.wager > 0 ? `+${room.wager * 2}` : "+0") : (room.wager > 0 ? `-${room.wager}` : "-0")} 🍯
+                                {room.winner === userProfile?.uid ? (room.wager > 0 ? `+${room.wager * 2}` : "+0") : (room.wager > 0 ? `+0` : "+0")} 🍯
                             </div>
                             <div className="flex items-center justify-center gap-2">
                                 <span className={`px-3 py-1 rounded-lg font-black text-sm flex items-center gap-1 ${room.winner === userProfile?.uid ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
