@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Menu,
@@ -31,7 +30,8 @@ import {
   Sparkles,
   Target,
   ShoppingBag,
-  Languages
+  Languages,
+  Calendar
 } from 'lucide-react';
 import { Button } from './components/Button';
 import { StatsChart } from './components/StatsChart';
@@ -312,16 +312,13 @@ const App: React.FC = () => {
         <>
           {/* Hero Section */}
           <section id={SectionId.HERO} className="relative min-h-screen flex items-center justify-center pt-24 overflow-hidden">
-            {/* Improved Aurora Mesh Gradient Background */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-yellow/30 rounded-full blur-[80px] animate-blob mix-blend-multiply dark:mix-blend-screen opacity-70"></div>
                 <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-brand-orange/30 rounded-full blur-[80px] animate-blob animation-delay-2000 mix-blend-multiply dark:mix-blend-screen opacity-70"></div>
                 <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[100px] animate-blob animation-delay-4000 mix-blend-multiply dark:mix-blend-screen opacity-60"></div>
-                <div className="absolute top-[40%] left-[40%] w-[300px] h-[300px] bg-pink-500/20 rounded-full blur-[60px] animate-pulse-glow mix-blend-multiply dark:mix-blend-screen opacity-50"></div>
             </div>
             
             <div className="container mx-auto px-4 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
-              
               <div className="text-center lg:text-left space-y-8">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-white/5 border border-brand-orange/30 backdrop-blur-md animate-fade-in-up">
                   <span className="relative flex h-3 w-3">
@@ -350,12 +347,11 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Hero Visuals */}
               <div className="relative h-[500px] w-full flex items-center justify-center perspective-1000 animate-fade-in-up [animation-delay:800ms]">
                  <div className="relative w-[300px] h-[400px] sm:w-[350px] sm:h-[450px]">
                     <div className="group absolute top-12 -left-20 sm:-left-32 w-[90%] h-[90%] z-10 transition-all duration-500 transform -rotate-12 hover:rotate-0 hover:scale-105 hover:z-30">
                        <div className="w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-2xl p-3 border border-white/20 animate-float-delayed opacity-90">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog2.png?alt=media&token=dc5a47ef-573b-4b0a-bbb9-1876767a2147" className="w-full h-[85%] object-cover rounded-2xl grayscale-[30%] group-hover:grayscale-0 transition-all" />
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog2.png?alt=media&token=dc5a47ef-573b-4b0a-bbb9-1876767a2147" className="w-full h-[85%] object-cover rounded-2xl" />
                           <div className="mt-3 flex items-center gap-2 px-2">
                               <Heart size={16} className="text-red-500 fill-red-500" />
                               <span className="text-xs font-bold text-neutral-400">12.5k Likes</span>
@@ -365,7 +361,7 @@ const App: React.FC = () => {
                     
                     <div className="group absolute top-24 -right-20 sm:-right-32 w-[90%] h-[90%] z-10 transition-all duration-500 transform rotate-12 hover:rotate-0 hover:scale-105 hover:z-30">
                        <div className="w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-2xl p-3 border border-white/20 animate-float opacity-90">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog3.png?alt=media&token=492461bc-6c44-4a69-bd59-d33736e1bce7" className="w-full h-[85%] object-cover rounded-2xl grayscale-[30%] group-hover:grayscale-0 transition-all" />
+                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog3.png?alt=media&token=492461bc-6c44-4a69-bd59-d33736e1bce7" className="w-full h-[85%] object-cover rounded-2xl" />
                           <div className="mt-3 flex items-center gap-2 px-2">
                               <MessageCircle size={16} className="text-blue-500 fill-blue-500" />
                               <span className="text-xs font-bold text-neutral-400">8.2k Comments</span>
@@ -379,9 +375,6 @@ const App: React.FC = () => {
                           <div className="text-lg font-black font-display">BeeDog.meme</div>
                           <div className="text-xs text-neutral-400 font-mono">The stickiest coin on chain.</div>
                        </div>
-                       <div className="absolute -top-4 -right-4 bg-brand-orange text-white px-4 py-2 rounded-full font-bold shadow-lg transform rotate-12 animate-bounce">
-                          #1 Trending
-                       </div>
                     </div>
                  </div>
               </div>
@@ -389,10 +382,8 @@ const App: React.FC = () => {
           </section>
 
           {/* Narrative Section */}
-          <section id="narrative" className="py-32 relative">
-            <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-sm -z-10"></div>
+          <section id="narrative" className="py-32 relative overflow-hidden">
             <div className="container mx-auto px-4">
-              
               <div className="text-center mb-20">
                 <h2 className="text-4xl md:text-6xl font-display font-black mb-6">
                   {t('narrative.title')}<br/>
@@ -403,17 +394,8 @@ const App: React.FC = () => {
               <div className="grid lg:grid-cols-2 gap-16 items-center">
                 <div className="relative">
                    <div className="absolute inset-0 bg-gradient-to-tr from-brand-yellow/20 to-transparent rounded-full blur-[100px]"></div>
-                   <div className="relative z-10 glass-card rounded-[2.5rem] p-2 overflow-hidden transform rotate-2 hover:rotate-0 transition-all duration-500">
+                   <div className="relative z-10 glass-card rounded-[2.5rem] p-2 overflow-hidden transform rotate-2 hover:rotate-0 transition-all duration-500 shadow-2xl">
                       <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fdybg.png?alt=media&token=d6139884-4351-4795-91ae-895a02f8cbfa" className="w-full rounded-[2rem]" />
-                      <div className="absolute bottom-8 left-8 right-8 glass rounded-2xl p-4 flex items-center justify-between">
-                         <div>
-                            <div className="font-bold text-sm">@BeeDog</div>
-                            <div className="text-xs opacity-70">Viral · 12.5M Views</div>
-                         </div>
-                         <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-red-500/30">
-                            <Heart fill="currentColor" size={20} />
-                         </div>
-                      </div>
                    </div>
                 </div>
 
@@ -422,7 +404,7 @@ const App: React.FC = () => {
                       <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-4">
                          <TrendingUp size={28} />
                       </div>
-                      <h3 className="text-3xl font-bold">{t('narrative.card1.title')}</h3>
+                      <h3 className="text-3xl font-bold dark:text-white">{t('narrative.card1.title')}</h3>
                       <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
                         {t('narrative.card1.desc')}
                       </p>
@@ -432,7 +414,7 @@ const App: React.FC = () => {
                       <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-2xl flex items-center justify-center text-green-500 mb-4">
                          <MessageCircle size={28} />
                       </div>
-                      <h3 className="text-3xl font-bold">{t('narrative.card2.title')}</h3>
+                      <h3 className="text-3xl font-bold dark:text-white">{t('narrative.card2.title')}</h3>
                       <p className="text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
                         {t('narrative.card2.desc')}
                       </p>
@@ -446,7 +428,7 @@ const App: React.FC = () => {
           <section id="community" className="py-32 bg-neutral-100 dark:bg-[#080808]">
             <div className="container mx-auto px-4">
               <div className="text-center mb-16">
-                <h2 className="text-4xl md:text-5xl font-display font-black mb-4">{t('comm.title')}</h2>
+                <h2 className="text-4xl md:text-5xl font-display font-black mb-4 dark:text-white">{t('comm.title')}</h2>
                 <p className="text-neutral-500 text-xl">{t('comm.subtitle')}</p>
               </div>
 
@@ -457,8 +439,8 @@ const App: React.FC = () => {
                        <div className="w-14 h-14 bg-brand-yellow rounded-2xl flex items-center justify-center mb-6 text-black shadow-lg shadow-yellow-500/20">
                           <Users size={28} />
                        </div>
-                       <h3 className="text-3xl font-bold mb-4">{t('comm.cto.title')}</h3>
-                       <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-md">
+                       <h3 className="text-3xl font-bold mb-4 dark:text-white">{t('comm.cto.title')}</h3>
+                       <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-xl">
                           {t('comm.cto.desc')}
                        </p>
                     </div>
@@ -466,7 +448,6 @@ const App: React.FC = () => {
 
                  <div className="md:row-span-2 bg-brand-yellow rounded-[2.5rem] p-8 border border-yellow-400 relative overflow-hidden group text-black flex flex-col justify-between">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-
                     <div className="relative z-10">
                        <div className="w-14 h-14 bg-black/10 rounded-2xl flex items-center justify-center mb-6 text-black">
                           <ImageIcon size={28} />
@@ -479,7 +460,6 @@ const App: React.FC = () => {
                           {t('comm.meme.quote')}
                        </p>
                     </div>
-                    
                     <div className="relative z-10 mt-4">
                         <button onClick={navigateToToolbox} className="w-full bg-black text-white py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
                             <Sparkles size={18} /> {t('comm.meme.btn')}
@@ -493,7 +473,7 @@ const App: React.FC = () => {
                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 text-blue-500 rounded-2xl flex items-center justify-center mb-4">
                           <Shield size={24} />
                        </div>
-                       <h3 className="text-xl font-bold mb-2">{t('comm.shield.title')}</h3>
+                       <h3 className="text-xl font-bold mb-2 dark:text-white">{t('comm.shield.title')}</h3>
                        <p className="text-neutral-500 text-sm">
                           {t('comm.shield.desc')}
                        </p>
@@ -506,7 +486,7 @@ const App: React.FC = () => {
                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 text-green-500 rounded-2xl flex items-center justify-center mb-4">
                           <Globe size={24} />
                        </div>
-                       <h3 className="text-xl font-bold mb-2">{t('comm.global.title')}</h3>
+                       <h3 className="text-xl font-bold mb-2 dark:text-white">{t('comm.global.title')}</h3>
                        <p className="text-neutral-500 text-sm">
                           {t('comm.global.desc')}
                        </p>
@@ -524,17 +504,15 @@ const App: React.FC = () => {
             <div className="container mx-auto px-4">
               <div className="grid lg:grid-cols-12 gap-16 items-center">
                 <div className="lg:col-span-5 space-y-8">
-                  <h2 className="text-4xl md:text-6xl font-display font-black">{t('token.title')}</h2>
+                  <h2 className="text-4xl md:text-6xl font-display font-black dark:text-white">{t('token.title')}</h2>
                   <p className="text-xl text-neutral-600 dark:text-neutral-400">
                     {t('token.desc')}
                   </p>
-                  
                   <div className="space-y-4">
                     <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-white/5">
                       <div className="text-sm text-neutral-500 mb-1 font-bold uppercase tracking-wider">{t('token.supply')}</div>
-                      <div className="text-3xl font-mono font-black">1,000,000,000</div>
+                      <div className="text-3xl font-mono font-black dark:text-white">1,000,000,000</div>
                     </div>
-                    
                     <div 
                       className="p-6 rounded-3xl bg-brand-yellow text-black shadow-lg shadow-yellow-500/20 cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 group" 
                       onClick={copyToClipboard}
@@ -549,7 +527,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
                 <div className="lg:col-span-7">
                   <div className="bg-neutral-50 dark:bg-[#111] rounded-[3rem] p-8 border border-neutral-200 dark:border-white/5 shadow-2xl">
                     <StatsChart isDark={darkMode} />
@@ -562,20 +539,17 @@ const App: React.FC = () => {
           {/* Roadmap */}
           <section id={SectionId.ROADMAP} className="py-32 relative bg-[#050505] overflow-hidden">
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-            
             <div className="container mx-auto px-4 relative z-10">
               <div className="text-center mb-20">
                    <span className="text-brand-yellow font-mono text-sm tracking-widest uppercase mb-2 block">The Journey</span>
                    <h2 className="text-4xl md:text-6xl font-display font-black text-white">{t('roadmap.title')}</h2>
               </div>
-
               <div className="relative max-w-5xl mx-auto">
                   <div className="grid md:grid-cols-3 h-full gap-6">
                       {ROADMAP_DATA.map((phase, idx) => (
                           <div key={idx} className="relative group h-full">
                               <div className={`relative bg-neutral-900/80 backdrop-blur-xl border p-8 rounded-3xl transition-all duration-500 hover:-translate-y-2 h-full flex flex-col
                                   ${phase.status === 'current' ? 'border-brand-yellow/50 shadow-lg shadow-brand-yellow/10' : 'border-white/10 hover:border-white/20'}`}>
-                                  
                                   <div className="mb-4">
                                       <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider
                                           ${phase.status === 'completed' ? 'bg-green-500/20 text-green-400' : 
@@ -584,13 +558,11 @@ const App: React.FC = () => {
                                           {phase.phase}
                                       </span>
                                   </div>
-                                  
                                   <h3 className="text-2xl font-bold text-white mb-4">{phase.title}</h3>
-                                  
                                   <ul className="space-y-3 mt-auto">
                                       {phase.items.map((item, i) => (
                                           <li key={i} className="flex items-start gap-3 text-sm text-neutral-400">
-                                              <div className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${phase.status === 'completed' ? 'bg-green-500' : 'bg-neutral-600'}`}></div>
+                                              <div className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${phase.status === 'completed' ? 'bg-green-50' : 'bg-neutral-600'}`}></div>
                                               <span className={phase.status === 'completed' ? 'line-through opacity-50' : ''}>{item}</span>
                                           </li>
                                       ))}
@@ -612,13 +584,12 @@ const App: React.FC = () => {
             <div className="text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
                  <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-8 h-8" />
-                 <span className="font-display font-black text-xl">{t('brand.name')}</span>
+                 <span className="font-display font-black text-xl dark:text-white">{t('brand.name')}</span>
               </div>
               <p className="text-neutral-500 max-w-xs text-sm">
                 {t('footer.desc')}
               </p>
             </div>
-            
             <div className="flex gap-4">
               <a href="https://x.com/beedog_bsc" target="_blank" className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all">
                 <Twitter size={20} />
@@ -628,7 +599,6 @@ const App: React.FC = () => {
               </a>
             </div>
           </div>
-          
           <div className="mt-16 pt-8 border-t border-neutral-100 dark:border-white/5 text-center text-xs text-neutral-400">
             <p className="mb-2">{t('footer.risk')}</p>
             <p>{t('footer.copy')}</p>
@@ -636,13 +606,8 @@ const App: React.FC = () => {
         </div>
       </footer>
       
-      {/* Auth Modal */}
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} mode={authMode} onOpenMissions={() => { setIsAuthModalOpen(false); setIsMissionOpen(true); }}/>
-      
-      {/* Mission Center */}
       <MissionCenter isOpen={isMissionOpen} onClose={() => setIsMissionOpen(false)} onNavigateToGames={navigateToGames} />
-      
-      {/* Floating Chat */}
       <BeeDogChat />
     </div>
   );

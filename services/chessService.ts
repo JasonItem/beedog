@@ -314,12 +314,19 @@ export const startChessGame = async (roomId: string) => {
 };
 
 /**
- * NEW: Let each client settle its OWN stats to satisfy Firestore Security Rules (Owner-only write).
+ * Enhanced Settlement Logic: 
+ * Fetches the freshest user data from the server to calculate rank point deduction correctly.
  */
 export const settleOwnChessStats = async (user: UserProfile, isWinner: boolean, wager: number) => {
     if (!user) return;
     
     const userRef = doc(db, "users", user.uid);
+    
+    // FETCH LATEST DATA to avoid stale logic (especially for rank point decrement)
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) return;
+    const freshUser = snap.data() as UserProfile;
+
     const updates: any = {};
     
     // 1. Handle Credits (Honey)
@@ -333,8 +340,8 @@ export const settleOwnChessStats = async (user: UserProfile, isWinner: boolean, 
     if (isWinner) {
         updates.chessPoints = increment(10);
     } else {
-        const currentPoints = user.chessPoints || 0;
-        // Points cannot go below 0
+        const currentPoints = freshUser.chessPoints || 0;
+        // Points cannot go below 0. Atomic decrement.
         const decrement = currentPoints >= 10 ? -10 : -currentPoints;
         updates.chessPoints = increment(decrement);
     }
@@ -342,12 +349,12 @@ export const settleOwnChessStats = async (user: UserProfile, isWinner: boolean, 
     await updateDoc(userRef, updates);
 
     // 3. SYNC TO GAMES LEADERBOARD
-    // Fetch fresh data for leaderboard sync
-    const updatedSnap = await getDoc(userRef);
-    if (updatedSnap.exists()) {
-        const profile = updatedSnap.data() as UserProfile;
-        await saveScore(profile, 'bee_chess', profile.chessPoints);
-    }
+    // Re-fetch or use calculated logic for the leaderboard sync
+    const finalPoints = isWinner 
+        ? (freshUser.chessPoints || 0) + 10 
+        : Math.max(0, (freshUser.chessPoints || 0) - 10);
+    
+    await saveScore(freshUser, 'bee_chess', finalPoints);
 };
 
 export const subscribeToWaitingRooms = (callback: (rooms: ChessRoom[]) => void) => {
