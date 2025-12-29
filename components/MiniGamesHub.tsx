@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertCircle, CheckCircle, CheckCircle2, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout, Footprints, MousePointer2, Shuffle, ArrowUpCircle } from 'lucide-react';
+import { Gamepad2, Trophy, ArrowLeft, Star, Rocket, Pickaxe, Shield, CarFront, Activity, Volleyball, ChevronsUp, Layers, Scissors, CircleDashed, Grid3X3, Users, TrendingUp, Anchor, Maximize, Minimize2, Volume2, VolumeX, BarChart2, Ticket, Coins, Utensils, Info, Play, Flame, Zap, MessageSquare, Send, ThumbsUp, Crown, AlertTriangle, AlertCircle, CheckCircle2, CheckCircle2 as CheckCircleIcon, ChevronDown, DollarSign, Bike, Anchor as AnchorIcon, Sprout, Footprints, MousePointer2, Shuffle, ArrowUpCircle, Sword } from 'lucide-react';
 import { FlappyBee } from './games/FlappyBee';
 import { BeeJump } from './games/BeeJump';
 import { HoneyMiner } from './games/HoneyMiner';
@@ -24,12 +23,14 @@ import { BeeKnight } from './games/BeeKnight';
 import { HoneyFishing } from './games/HoneyFishing';
 import { HoneyFarm } from './games/HoneyFarm';
 import { HoneyJump } from './games/HoneyJump';
+import { BeeChess } from './games/BeeChess';
 import { useAuth } from '../context/AuthContext';
 import { getLeaderboard, getPlayerCount, getUserHighScore, GameScore, addGameReview, getGameReviews, GameReview } from '../services/gameService';
 import { completeDailyGameMission, claimPerGameDailyReward } from '../services/userService';
 import { audio } from '../services/audioService';
 import { Button } from './Button';
 import { useLanguage } from '../context/LanguageContext';
+import { getTierInfo } from '../services/chessService';
 
 interface MiniGamesHubProps {
   onLoginRequest: () => void;
@@ -40,16 +41,17 @@ export interface GameConfig {
   id: string;
   nameKey: string;
   descKey: string;
-  howToPlay: string; // Keep this simple or move to dict too
+  howToPlay: string; 
   color: string;
   icon: React.ElementType;
   tags: string[];
   isHoneyGame: boolean;
 }
 
-// FULL LIST OF 22 GAMES
+// FULL LIST OF 23 GAMES
 export const GAMES: GameConfig[] = [
   // FEATURED / HIGH QUALITY
+  { id: 'bee_chess', nameKey: 'game.bee_chess.name', descKey: 'game.bee_chess.desc', howToPlay: 'Traditional Chinese Chess rules. Capture enemy King.', color: 'from-amber-600 to-red-800', icon: Sword, tags: ['PvP', 'Strategy'], isHoneyGame: true },
   { id: 'honey_jump', nameKey: 'game.honey_jump.name', descKey: 'game.honey_jump.desc', howToPlay: 'Tap/Hold to charge jump.', color: 'from-sky-500 to-blue-600', icon: Footprints, tags: ['Action', 'Skill'], isHoneyGame: false },
   { id: 'honey_farm', nameKey: 'game.honey_farm.name', descKey: 'game.honey_farm.desc', howToPlay: 'Plant seeds, wait, harvest.', color: 'from-green-600 to-emerald-800', icon: Sprout, tags: ['Idle', 'Farm'], isHoneyGame: true },
   { id: 'honey_fishing', nameKey: 'game.honey_fishing.name', descKey: 'game.honey_fishing.desc', howToPlay: 'Cast line, keep fish in bar.', color: 'from-cyan-500 to-blue-700', icon: AnchorIcon, tags: ['Sim', 'Relax'], isHoneyGame: true },
@@ -242,10 +244,11 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
   const renderGame = () => {
     switch (selectedGameConfig.id) {
+      case 'bee_chess': return <BeeChess userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_jump': return <HoneyJump userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_farm': return <HoneyFarm userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
       case 'honey_fishing': return <HoneyFishing userProfile={userProfile} onGameOver={handleGameOver} onLoginRequest={onLoginRequest} />;
-      case 'bee_knight': return <BeeKnight userProfile={userProfile} onGameOver={handleGameOver} />;
+      case 'bee_knight': return <Bike userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'flappy_bee': return <FlappyBee userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'honey_miner': return <HoneyMiner userProfile={userProfile} onGameOver={handleGameOver} />;
       case 'bee_defense': return <BeeDefense userProfile={userProfile} onGameOver={handleGameOver} />;
@@ -269,6 +272,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
   };
 
   if (isPlaying) {
+      const isChess = selectedGameConfig.id === 'bee_chess';
       return (
         <div 
             ref={fullscreenRef}
@@ -305,13 +309,15 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
              )}
 
              <div className="flex-1 w-full overflow-y-auto custom-scrollbar relative bg-[#050505]">
-                 <div className="min-h-full flex flex-col items-center justify-center p-4 pb-20">
+                 <div className={`min-h-full flex flex-col items-center ${isChess ? 'p-6 pt-20' : 'justify-center p-4'} pb-20`}>
                     {renderGame()}
                  </div>
              </div>
         </div>
       );
   }
+
+  const isChessSelected = selectedGameConfig.id === 'bee_chess';
 
   return (
     <div className="min-h-screen pt-24 pb-12 bg-neutral-50 dark:bg-[#050505]">
@@ -364,7 +370,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                     <div className={`font-bold text-sm ${selectedGameConfig.id === game.id ? 'text-brand-yellow' : 'dark:text-white'}`}>{t(game.nameKey)}</div>
                                     {game.isHoneyGame && <div className="text-[10px] text-orange-500 font-bold flex items-center gap-1"><Zap size={8} className="fill-current"/> {t('games.earn_honey')}</div>}
                                 </div>
-                                {isRewardClaimed(game.id) && <CheckCircle2 size={16} className="text-green-500 fill-green-500/20"/>}
+                                {isRewardClaimed(game.id) && <CheckCircleIcon size={16} className="text-green-500 fill-green-500/20"/>}
                             </div>
                             {selectedGameConfig.id === game.id && <div className="w-2 h-2 rounded-full bg-brand-yellow"></div>}
                         </button>
@@ -375,9 +381,9 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
 
         <div className="grid lg:grid-cols-12 gap-6 items-start relative">
             {notification && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex justify-center">
                     <div className={`px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-bold animate-in slide-in-from-top-2 border ${notification.type === 'success' ? 'bg-green-600 text-white border-green-400' : 'bg-red-600 text-white border-red-400'}`}>
-                        {notification.type === 'success' ? <CheckCircle size={18}/> : <AlertCircle size={18}/>}
+                        {notification.type === 'success' ? <CheckCircleIcon size={18}/> : <AlertTriangle size={18}/>}
                         {notification.msg}
                     </div>
                 </div>
@@ -473,20 +479,37 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                     ) : leaderboard.length === 0 ? (
                                         <div className="text-center text-neutral-400 py-8 text-sm">No Records</div>
                                     ) : (
-                                        leaderboard.map((s, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-sm p-3 hover:bg-neutral-50 dark:hover:bg-[#222] rounded-xl transition-colors">
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`w-6 text-center font-black ${idx < 3 ? 'text-yellow-500 text-lg' : 'text-neutral-400'}`}>{idx+1}</span>
-                                                    <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] overflow-hidden border border-neutral-100 dark:border-[#444] shrink-0">
-                                                        {s.avatarUrl ? <img src={s.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs">🐶</div>}
+                                        leaderboard.map((s, idx) => {
+                                            // Handle special Tier UI for Chess
+                                            const tier = isChessSelected ? getTierInfo(s.score) : null;
+                                            
+                                            return (
+                                                <div key={idx} className="flex items-center justify-between text-sm p-3 hover:bg-neutral-50 dark:hover:bg-[#222] rounded-xl transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`w-6 text-center font-black ${idx < 3 ? 'text-yellow-500 text-lg' : 'text-neutral-400'}`}>{idx+1}</span>
+                                                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] overflow-hidden border border-neutral-100 dark:border-[#444] shrink-0">
+                                                            {s.avatarUrl ? <img src={s.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-xs">🐶</div>}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold dark:text-gray-200 truncate max-w-[100px]">{s.nickname}</span>
+                                                            {tier && (
+                                                                <span className={`text-[9px] font-black px-1 rounded-sm w-fit ${tier.bg} ${tier.color}`}>
+                                                                    {tier.name} {tier.stars}★
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-bold dark:text-gray-200 truncate max-w-[100px]">{s.nickname}</span>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="font-mono font-black dark:text-white bg-neutral-100 dark:bg-[#333] px-2 py-1 rounded text-xs">
+                                                            {s.score}
+                                                        </span>
+                                                        <span className="text-[8px] text-neutral-500 uppercase font-bold mt-1">
+                                                            {isChessSelected ? 'Points' : 'Score'}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <span className="font-mono font-black dark:text-white bg-neutral-100 dark:bg-[#333] px-2 py-1 rounded text-xs">{s.score}</span>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                                 {userProfile && (
@@ -496,7 +519,14 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                                                 <Crown size={16} className="text-brand-yellow fill-brand-yellow" />
                                                 <span className="text-xs font-bold text-brand-yellow uppercase tracking-wider">{t('games.my_best')}</span>
                                             </div>
-                                            <span className="font-black font-mono text-xl text-brand-yellow">{userBestScore}</span>
+                                            <div className="text-right">
+                                                <div className="font-black font-mono text-xl text-brand-yellow">{userBestScore}</div>
+                                                {isChessSelected && (
+                                                    <div className="text-[9px] font-black text-brand-yellow uppercase">
+                                                        {getTierInfo(userBestScore).name} {getTierInfo(userBestScore).stars}★
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -603,7 +633,7 @@ export const MiniGamesHub: React.FC<MiniGamesHubProps> = ({ onLoginRequest }) =>
                             
                             {isRewardClaimed(game.id) ? (
                                 <div className="text-green-500" title="Reward Claimed">
-                                    <CheckCircle2 size={20} className="fill-green-500/20"/>
+                                    <CheckCircleIcon size={20} className="fill-green-500/20"/>
                                 </div>
                             ) : selectedGameConfig.id === game.id && (
                                 <div className="w-2 h-2 rounded-full bg-black animate-pulse"></div>

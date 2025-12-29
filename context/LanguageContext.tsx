@@ -207,6 +207,8 @@ const translations: Record<Language, Translations> = {
     'games.select_hint': '点击选择游戏',
 
     // Game Titles
+    'game.bee_chess.name': '蜜蜂象棋',
+    'game.bee_chess.desc': '联机象棋对战，策略博弈。',
     'game.honey_jump.name': '蜂蜜跳一跳',
     'game.honey_jump.desc': '蓄力跳跃，探索更高处。',
     'game.honey_farm.name': '蜜蜂农场',
@@ -507,6 +509,8 @@ const translations: Record<Language, Translations> = {
     'games.select_hint': 'Click to select',
 
     // Game Titles
+    'game.bee_chess.name': 'Bee Chess',
+    'game.bee_chess.desc': 'Online multiplayer Chinese Chess.',
     'game.honey_jump.name': 'Honey Jump',
     'game.honey_jump.desc': 'Charge and jump to the sky.',
     'game.honey_farm.name': 'Honey Farm',
@@ -641,7 +645,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

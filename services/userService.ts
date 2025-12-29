@@ -1,4 +1,3 @@
-
 import { db, storage } from "../firebaseConfig";
 import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy, limit, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -61,6 +60,7 @@ export interface UserProfile {
   nickname: string;
   avatarUrl?: string; 
   credits: number;
+  chessPoints: number; // Ranked points for BeeChess
   is_admin?: number; // 0 = User, 1 = Admin
   lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
   lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
@@ -88,6 +88,11 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
         await updateDoc(docRef, { credits: 0 });
         data.credits = 0;
     }
+    
+    if (typeof data.chessPoints === 'undefined') {
+        await updateDoc(docRef, { chessPoints: 0 });
+        data.chessPoints = 0;
+    }
 
     return data as UserProfile;
   }
@@ -107,6 +112,7 @@ export const ensureUserProfile = async (user: User) => {
       email: user.email,
       nickname: user.displayName || "新蜜蜂",
       credits: 0, 
+      chessPoints: 0,
       is_admin: 0,
       dailyGameRewards: {},
       fishingData: { 
@@ -144,6 +150,7 @@ export const ensureUserProfile = async (user: User) => {
     }
     
     if (typeof currentData.credits === 'undefined') updates.credits = 0;
+    if (typeof currentData.chessPoints === 'undefined') updates.chessPoints = 0;
     
     // Init fishing data if missing
     if (!currentData.fishingData) {
@@ -194,7 +201,6 @@ export const updateUserNickname = async (uid: string, nickname: string) => {
   }, { merge: true });
 };
 
-// ... (Existing uploadUserAvatar, deductCredit, performDailyCheckIn, completeDailyGameMission, claimPerGameDailyReward, saveDivinationResult, getDivinationHistory) ...
 export const uploadUserAvatar = async (uid: string, file: File): Promise<string> => {
   const storageRef = ref(storage, `avatars/${uid}`);
   await uploadBytes(storageRef, file);

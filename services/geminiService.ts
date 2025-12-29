@@ -1,27 +1,8 @@
+
 import { GoogleGenAI } from "@google/genai";
 
-// --- API KEY HANDLING (Vite vs Cloud) ---
-const getApiKey = (): string => {
-  // 1. Try Vite (Local Dev) - import.meta.env.VITE_API_KEY
-  // @ts-ignore: import.meta is available in Vite/ESM environments
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-    // @ts-ignore
-    return import.meta.env.VITE_API_KEY;
-  }
-
-  // 2. Try Cloud/Node (Standard) - process.env.API_KEY
-  // @ts-ignore: process might be undefined in pure browser environments without polyfills
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    // @ts-ignore
-    return process.env.API_KEY;
-  }
-
-  return '';
-};
-
-// Initialize Gemini with the detected key
-const API_KEY = getApiKey();
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Guidelines: The API key must be obtained exclusively from process.env.API_KEY.
+// Initialization happens within each function to ensure the latest key is used.
 
 const BEEDOG_SYSTEM_INSTRUCTION = `
 你是蜜蜂狗，是加密货币世界最“肿”的吉祥物。
@@ -45,21 +26,28 @@ const BEEDOG_SYSTEM_INSTRUCTION = `
 你：“我是那个在抖音上有几亿播放量的肿脸修勾！快给我点蜂蜜安慰一下，脸疼...嗡...”
 `;
 
+/**
+ * BeeDog Character Chat.
+ * Uses gemini-3-flash-preview for basic text task.
+ */
 export const chatWithBeeDog = async (userMessage: string): Promise<string> => {
   try {
+    // Guidelines: Create a new GoogleGenAI instance right before making an API call.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: userMessage,
       config: {
         systemInstruction: BEEDOG_SYSTEM_INSTRUCTION,
         temperature: 1.2, // Higher creativity for meme persona
         topK: 40,
         maxOutputTokens: 200,
-        // Disable thinking for this character chat to avoid empty response with maxOutputTokens set
+        // Guidelines: Set thinkingBudget to 0 when disabling thinking with maxOutputTokens.
         thinkingConfig: { thinkingBudget: 0 }, 
       },
     });
 
+    // Guidelines: Use .text property to access string output.
     return response.text || "嗡... 汪... (脸肿得说不出话了)";
   } catch (error) {
     console.error("BeeDog is sleeping:", error);
@@ -129,14 +117,8 @@ export const generatePfpVariation = async (
     customApiKey?: string
 ): Promise<string> => {
   try {
-    // Use custom key if provided, otherwise default to helper
-    const currentApiKey = customApiKey || getApiKey();
-
-    if (!currentApiKey) {
-      throw new Error("Missing API Key. Check .env (VITE_API_KEY) or environment variables.");
-    }
-
-    // Initialize the client per request to ensure fresh state/keys
+    // Guidelines: Use process.env.API_KEY. Create instance per request.
+    const currentApiKey = customApiKey || process.env.API_KEY;
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
 
     const baseImg = parseBase64(baseImageBase64);
@@ -231,7 +213,7 @@ export const generatePfpVariation = async (
       }
     });
 
-    // Parse response to find the image part
+    // Guidelines: Iterate through candidates and parts to find the image part.
     if (response.candidates && response.candidates.length > 0) {
       const candidate = response.candidates[0];
       if (candidate.content && candidate.content.parts) {
@@ -261,9 +243,7 @@ export const generateSingleSticker = async (
     customApiKey?: string
 ): Promise<string> => {
   try {
-    const currentApiKey = customApiKey || getApiKey();
-    if (!currentApiKey) throw new Error("Missing API Key");
-
+    const currentApiKey = customApiKey || process.env.API_KEY;
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
     const baseImg = parseBase64(baseImageBase64);
 
@@ -328,9 +308,7 @@ export const generateGroupSelfie = async (
     customApiKey?: string
 ): Promise<string> => {
   try {
-    const currentApiKey = customApiKey || getApiKey();
-    if (!currentApiKey) throw new Error("Missing API Key");
-
+    const currentApiKey = customApiKey || process.env.API_KEY;
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
 
     // Prepare prompt parts
@@ -453,9 +431,7 @@ export const getAIDivination = async (
   customApiKey?: string
 ): Promise<DivinationResult> => {
   try {
-    const currentApiKey = customApiKey || getApiKey();
-    if (!currentApiKey) throw new Error("Missing API Key");
-
+    const currentApiKey = customApiKey || process.env.API_KEY;
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
 
     const prompt = `
@@ -499,7 +475,7 @@ export const getAIDivination = async (
     `;
 
     const response = await aiInstance.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json"
@@ -543,9 +519,7 @@ export const getBeeDogFortune = async (
   customApiKey?: string
 ): Promise<FortuneResult> => {
   try {
-    const currentApiKey = customApiKey || getApiKey();
-    if (!currentApiKey) throw new Error("Missing API Key");
-
+    const currentApiKey = customApiKey || process.env.API_KEY;
     const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
 
     // 1. Generate Fortune Text
@@ -564,7 +538,7 @@ export const getBeeDogFortune = async (
     `;
 
     const textResponse = await aiInstance.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: textPrompt,
       config: {
         responseMimeType: "application/json"

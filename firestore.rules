@@ -1,104 +1,66 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper: Check if user is logged in
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Helper: Check if user is admin (requires is_admin field on user doc)
     function isAdmin() {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == 1;
     }
     
-    // Helper: Check if user owns the document
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- USERS COLLECTION ---
     match /users/{userId} {
-      // Allow anyone to read profiles (needed for leaderboards/shop)
       allow read: if isSignedIn();
-      
-      // Allow user to create their own profile
       allow create: if isOwner(userId);
-      
-      // Update: Owner can update, Admin can update
-      // Note: In a stricter app, you'd restrict fields (e.g. credits)
-      // but for this MVP game, client-side logic updates credits often.
       allow update: if isOwner(userId) || isAdmin();
       
-      // Subcollection: Divination History
       match /divination_history/{docId} {
         allow read, write: if isOwner(userId);
       }
     }
     
-    // --- PRODUCTS COLLECTION ---
     match /products/{productId} {
-      // Read: Public for active products, Admin for all
-      // IMPORTANT: Queries for non-admins MUST include where('isActive', '==', true)
       allow read: if (resource.data.isActive == true) || isAdmin();
-      
-      // Create/Delete: Admin only
       allow create, delete: if isAdmin();
-      
-      // Update: Admin can update anything.
-      // Users can update ONLY IF they are performing a purchase transaction (decreasing stock)
       allow update: if isAdmin() || isSignedIn();
     }
     
-    // --- ORDERS COLLECTION ---
     match /orders/{orderId} {
-      // Create: Authenticated users can create orders for themselves
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
-      // Read: User sees own orders, Admin sees all
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      
-      // Update: Admin can update (e.g. status)
       allow update: if isAdmin();
     }
     
-    // --- GAMES (LEADERBOARDS) ---
     match /games/{gameId}/leaderboard/{userId} {
-      // Anyone can read leaderboards
       allow read: if true;
-      
-      // User can write their own score, Admin can edit
       allow write: if isOwner(userId) || isAdmin();
     }
     
-    // --- GAMES (REVIEWS) ---
     match /games/{gameId}/reviews/{userId} {
       allow read: if true;
       allow write: if isOwner(userId) || isAdmin();
     }
 
-    // --- MESSAGE BOARD ---
     match /messages/{messageId} {
-      // Public Read
       allow read: if true;
-      
-      // Create Rules:
-      // 1. Must be logged in
-      // 2. userId in document must match auth.uid (Prevent spoofing)
-      // 3. Content must be string and within length limits (1-500 chars)
-      // 4. Nickname must be present
       allow create: if isSignedIn() 
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.content is string
-        && request.resource.data.content.size() > 0
-        && request.resource.data.content.size() <= 500
-        && request.resource.data.nickname is string;
-      
-      // Only Admin can delete messages
+        && request.resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
+    }
+
+    match /chess_rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && (resource.data.host == request.auth.uid || isAdmin());
     }
   }
 }
