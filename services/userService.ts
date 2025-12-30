@@ -43,7 +43,7 @@ export interface UserProfile {
   avatarUrl?: string; 
   credits: number;
   chessPoints: number; 
-  gomokuPoints: number; // NEW
+  gomokuPoints: number; 
   is_admin?: number; 
   lastCheckInDate?: string; 
   lastGamePlayedDate?: string; 
@@ -174,17 +174,34 @@ export const uploadUserAvatar = async (uid: string, file: File) => {
   await updateDoc(doc(db, "users", uid), { avatarUrl: url });
   return url;
 };
+
+/**
+ * Update fishing data using nested path updates to prevent field replacement
+ */
 export const updateFishingData = async (uid: string, data: any) => {
-  await updateDoc(doc(db, "users", uid), { fishingData: data });
+  const updates: any = {};
+  Object.keys(data).forEach(key => {
+    updates[`fishingData.${key}`] = data[key];
+  });
+  await updateDoc(doc(db, "users", uid), updates);
 };
+
+/**
+ * Update farm data using nested path updates to prevent field replacement
+ * This fixes the bug where planting (which only updates 'plots') would clear 'xp' and 'level'.
+ */
 export const updateFarmData = async (uid: string, data: any) => {
-  await updateDoc(doc(db, "users", uid), { farmData: data });
+  const updates: any = {};
+  Object.keys(data).forEach(key => {
+    updates[`farmData.${key}`] = data[key];
+  });
+  await updateDoc(doc(db, "users", uid), updates);
 };
+
 export const updateTradingPositions = async (uid: string, data: any) => {
   await updateDoc(doc(db, "users", uid), { "tradingData.positions": data });
 };
 
-// Fix: Added proper return type mapping for divination result saving
 export const saveDivinationResult = async (uid: string, data: DivinationResult): Promise<DivinationRecord> => {
     const today = new Date().toISOString().split('T')[0];
     const timestamp = Date.now();
@@ -193,7 +210,6 @@ export const saveDivinationResult = async (uid: string, data: DivinationResult):
     return record;
 };
 
-// Fix: Explicitly typed the return array for history fetching
 export const getDivinationHistory = async (uid: string): Promise<DivinationRecord[]> => {
     const snap = await getDocs(query(collection(db, "users", uid, "divination_history"), orderBy("timestamp", "desc")));
     const history: DivinationRecord[] = [];
