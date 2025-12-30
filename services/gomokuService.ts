@@ -36,7 +36,12 @@ export interface GomokuRoom {
     turn: GomokuSide;
     board: number[]; // 225 elements for 15x15
     history: number[];
+    undoUsed: {
+        black: boolean;
+        white: boolean;
+    };
     lastMoveAt: any;
+    lastAction?: { type: 'move' | 'undo'; by: string; at: number }; // Added for notifications
     winner: string | null;
     winReason: 'five_in_a_row' | 'surrender' | 'escape' | null;
     host: string;
@@ -99,6 +104,7 @@ export const createGomokuRoom = async (user: UserProfile, wager: number = 0): Pr
             white: null
         },
         turn: 1, board: new Array(225).fill(0), history: [],
+        undoUsed: { black: false, white: false },
         lastMoveAt: Timestamp.now(), winner: null, winReason: null, host: user.uid, wager
     };
     await setDoc(roomRef, initialRoom);
@@ -134,8 +140,6 @@ export const subscribeGomokuRooms = (callback: (rooms: GomokuRoom[]) => void) =>
 };
 
 export const getGomokuMatchHistory = async (uid: string, lastDoc?: QueryDocumentSnapshot, pageSize: number = 10): Promise<{ rooms: GomokuRoom[], lastVisible: QueryDocumentSnapshot | null }> => {
-    // Note: To filter by status and order by time, firestore requires a composite index. 
-    // To keep it simple and index-free, we fetch finished rooms and filter client side.
     const q = query(collection(db, "gomoku_rooms"), where("status", "==", "finished"), limit(50));
     const snap = await getDocs(q);
     const allRooms: GomokuRoom[] = [];
@@ -144,8 +148,5 @@ export const getGomokuMatchHistory = async (uid: string, lastDoc?: QueryDocument
         if (data.players.black === uid || data.players.white === uid) allRooms.push(data);
     });
     const sorted = allRooms.sort((a, b) => (b.lastMoveAt?.seconds || 0) - (a.lastMoveAt?.seconds || 0));
-    
-    // For "infinite scroll" feeling without complex pagination for this simple app, 
-    // we just return the full list up to 50 items. 
     return { rooms: sorted, lastVisible: null };
 };

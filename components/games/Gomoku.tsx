@@ -15,7 +15,7 @@ import { doc, onSnapshot, updateDoc, deleteDoc, Timestamp, getDoc } from 'fireba
 import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { 
-    Loader2, Trophy, User, Home, PlusCircle, Search, History, Share2, Copy, Check, Star, Zap, Lock, AlertCircle, ShieldAlert, Coins
+    Loader2, Trophy, User, Home, PlusCircle, Search, History, Share2, Copy, Check, Star, Zap, Lock, AlertCircle, ShieldAlert, Coins, RotateCcw
 } from 'lucide-react';
 
 interface GomokuProps {
@@ -24,6 +24,7 @@ interface GomokuProps {
 }
 
 export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
+    const myTier = getGomokuTierInfo(userProfile?.gomokuPoints || 0);
     const [activeTab, setActiveTab] = useState<'LOBBY' | 'CREATE' | 'PROFILE'>('LOBBY');
     const [roomId, setRoomId] = useState<string | null>(null);
     const [room, setRoom] = useState<GomokuRoom | null>(null);
@@ -35,11 +36,13 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
     const [matchHistory, setMatchHistory] = useState<GomokuRoom[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [confirmQuitStage, setConfirmQuitStage] = useState(0);
+    const [confirmUndoStage, setConfirmUndoStage] = useState(0);
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const hasPaidRef = useRef(false);
     const rewardClaimedRef = useRef(false);
+    const lastActionAtRef = useRef<number>(0);
 
     useEffect(() => {
         if (!userProfile) return;
@@ -68,13 +71,19 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
                 const side = data.players.black === userProfile.uid ? 1 : (data.players.white === userProfile.uid ? 2 : null);
                 setMySide(side as GomokuSide);
 
-                // Auto-pay wager
+                if (data.lastAction && data.lastAction.at > lastActionAtRef.current) {
+                    lastActionAtRef.current = data.lastAction.at;
+                    if (data.lastAction.type === 'undo') {
+                        showNotif(data.lastAction.by === userProfile.uid ? "已悔棋成功" : "对方已悔棋", 'info');
+                        audio.playJump();
+                    }
+                }
+
                 if (data.status === 'playing' && side === 2 && !hasPaidRef.current && data.wager > 0) {
                     hasPaidRef.current = true;
                     deductCredit(userProfile.uid, data.wager).catch(console.error);
                 }
 
-                // Settle when finished
                 if (data.status === 'finished' && !rewardClaimedRef.current) {
                     rewardClaimedRef.current = true;
                     const isIWin = data.winner === userProfile.uid;
@@ -88,20 +97,20 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
             }
         }, (err) => {
             console.error("Gomoku Room Listener Error:", err);
-            setError("连接中断，请重试");
+            showNotif("连接中断，请重试");
         });
         return unsub;
     }, [roomId, userProfile]);
 
     const handleHost = async () => {
         if (!userProfile) return;
-        if (wagerInput < 500) { setError("最低下注门槛为 500"); return; }
-        if (wagerInput > userProfile.credits) { setError("余额不足"); return; }
+        if (wagerInput < 500) { showNotif("最低下注门槛为 500"); return; }
+        if (wagerInput > userProfile.credits) { showNotif("余额不足"); return; }
         setLoading(true);
         try {
             const code = await createGomokuRoom(userProfile, wagerInput);
             setRoomId(code);
-        } catch (e) { setError("创建失败"); }
+        } catch (e) { showNotif("创建失败"); }
         finally { setLoading(false); }
     };
 
@@ -112,16 +121,16 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
         try {
             const ref = doc(db, "gomoku_rooms", target);
             const snap = await getDoc(ref);
-            if (!snap.exists()) { setError("房间不存在"); return; }
+            if (!snap.exists()) { showNotif("房间不存在"); return; }
             const data = snap.data() as GomokuRoom;
-            if (userProfile.credits < data.wager) { setError("余额不足"); return; }
+            if (userProfile.credits < data.wager) { showNotif("余额不足"); return; }
             await updateDoc(ref, {
                 "players.white": userProfile.uid,
                 "playerData.white": { nickname: userProfile.nickname, avatar: userProfile.avatarUrl || "", points: userProfile.gomokuPoints || 0, credits: userProfile.credits },
                 status: 'ready'
             });
             setRoomId(target);
-        } catch (e) { setError("加入失败"); }
+        } catch (e) { showNotif("加入失败"); }
         finally { setLoading(false); }
     };
 
@@ -131,11 +140,11 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
         try {
             if (room.wager > 0) {
                 const s = await deductCredit(userProfile.uid, room.wager);
-                if (!s) { setError("支付失败"); setLoading(false); return; }
+                if (!s) { showNotif("支付失败"); setLoading(false); return; }
                 hasPaidRef.current = true;
             }
             await updateDoc(doc(db, "gomoku_rooms", room.id), { status: 'playing' });
-        } catch (e) { setError("启动失败"); }
+        } catch (e) { showNotif("启动失败"); }
         finally { setLoading(false); }
     };
 
@@ -150,7 +159,8 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
             board: newBoard,
             history: [...room.history, idx],
             turn: mySide === 1 ? 2 : 1,
-            lastMoveAt: Timestamp.now()
+            lastMoveAt: Timestamp.now(),
+            lastAction: { type: 'move', by: userProfile?.uid, at: Date.now() }
         };
 
         if (win) {
@@ -160,6 +170,44 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
         }
 
         await updateDoc(doc(db, "gomoku_rooms", room.id), updates);
+    };
+
+    const handleUndo = async () => {
+        if (!room || !userProfile || !mySide || room.status !== 'playing' || room.history.length < 2 || room.turn !== mySide) return;
+        
+        const sideKey = mySide === 1 ? 'black' : 'white';
+        if (room.undoUsed[sideKey]) { showNotif("每局只能悔棋一次"); return; }
+        
+        const undoCost = Math.floor(room.wager / 2);
+        if (confirmUndoStage === 0) {
+            setConfirmUndoStage(1);
+            setTimeout(() => setConfirmUndoStage(0), 3000);
+            return;
+        }
+
+        if (userProfile.credits < undoCost) { showNotif("余额不足"); return; }
+
+        setLoading(true);
+        try {
+            const success = await deductCredit(userProfile.uid, undoCost);
+            if (!success) { showNotif("支付失败"); return; }
+
+            const newHistory = [...room.history];
+            const last1 = newHistory.pop(); // Opponent's last move
+            const last2 = newHistory.pop(); // My last move
+            const newBoard = [...room.board];
+            if (last1 !== undefined) newBoard[last1] = 0;
+            if (last2 !== undefined) newBoard[last2] = 0;
+
+            await updateDoc(doc(db, "gomoku_rooms", room.id), {
+                board: newBoard,
+                history: newHistory,
+                [`undoUsed.${sideKey}`]: true,
+                lastMoveAt: Timestamp.now(),
+                lastAction: { type: 'undo', by: userProfile.uid, at: Date.now() }
+            });
+        } catch (e) { showNotif("操作失败"); }
+        finally { setLoading(false); setConfirmUndoStage(0); }
     };
 
     const handleQuit = async () => {
@@ -172,16 +220,12 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
         const isHost = room?.host === userProfile?.uid;
 
         if (room?.status === 'playing') {
-            // 进行中：认输逻辑
             const opp = mySide === 1 ? room.players.white : room.players.black;
             await updateDoc(doc(db, "gomoku_rooms", room.id), { status: 'finished', winner: opp, winReason: 'escape' });
         } else {
-            // 未开始：退出逻辑
             if (isHost) {
-                // 房主解散
                 await deleteDoc(doc(db, "gomoku_rooms", room!.id));
             } else {
-                // 客方退出并清空位子
                 await updateDoc(doc(db, "gomoku_rooms", room!.id), {
                     "players.white": null,
                     "playerData.white": null,
@@ -193,14 +237,22 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
         setConfirmQuitStage(0);
     };
 
+    const showNotif = (msg: string, type: 'error' | 'info' = 'error') => {
+        setError(msg);
+        setTimeout(() => setError(null), 3000);
+    }
+
     if (roomId) {
         const isMyTurn = room?.turn === mySide;
         const isHost = room?.host === userProfile?.uid;
         const blackTier = getGomokuTierInfo(room?.playerData.black?.points || 0);
         const whiteTier = getGomokuTierInfo(room?.playerData.white?.points || 0);
+        const undoCost = room ? Math.floor(room.wager / 2) : 0;
+        const myUndoUsed = room && mySide ? (mySide === 1 ? room.undoUsed.black : room.undoUsed.white) : false;
+        const canUndo = isMyTurn && (room?.history.length || 0) >= 2 && !myUndoUsed;
 
         return (
-            <div className="w-full flex flex-col gap-4 animate-in fade-in max-w-md mx-auto">
+            <div className="w-full flex flex-col gap-4 animate-in fade-in max-w-lg mx-auto">
                 <div className="bg-white dark:bg-[#121212] rounded-3xl p-4 shadow-xl border border-neutral-100 dark:border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center border-2 border-yellow-500 shadow-lg">🐝</div>
@@ -235,17 +287,23 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-4">
-                        <div className={`px-4 py-1 rounded-full font-black text-xs shadow-lg ${isMyTurn ? 'bg-brand-yellow text-black' : 'bg-neutral-800 text-white'}`}>
+                        <div className={`px-5 py-2 rounded-full font-black text-sm shadow-xl border-2 border-white/20 transition-all ${isMyTurn ? 'bg-brand-yellow text-black' : 'bg-neutral-800 text-white'}`}>
                             {room?.status === 'ready' ? '等待开始' : (isMyTurn ? '轮到你了' : '对方正在思考...')}
                         </div>
 
-                        <div className="relative aspect-square w-full max-w-[360px] gomoku-board rounded-lg border-4 border-[#8b4513] shadow-2xl p-1 grid grid-cols-15 grid-rows-15">
-                            {/* Grid Lines */}
+                        {/* Error Notification Bar with High Contrast */}
+                        {error && (
+                            <div className="bg-brand-yellow text-black p-3 rounded-2xl text-sm font-black w-full text-center shadow-[0_0_15px_rgba(251,191,36,0.5)] border-2 border-black/10 animate-pulse">
+                                <Zap size={16} fill="black" className="inline mr-2"/> {error}
+                            </div>
+                        )}
+
+                        <div className="relative aspect-square w-full max-w-[480px] gomoku-board rounded-lg border-4 border-[#8b4513] shadow-2xl p-1 grid grid-cols-15 grid-rows-15">
                             <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: 'calc(100% / 14) calc(100% / 14)', backgroundImage: 'linear-gradient(#8b4513 1px, transparent 1px), linear-gradient(90deg, #8b4513 1px, transparent 1px)', margin: 'calc(100% / 30)' }}></div>
                             {room?.board.map((val, idx) => (
                                 <div key={idx} onClick={() => handleMove(idx)} className="relative flex items-center justify-center cursor-pointer hover:bg-black/5 rounded-full z-10">
                                     {val !== 0 && (
-                                        <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center text-lg shadow-md animate-in zoom-in duration-200 ${val === 1 ? 'bg-neutral-900 border-2 border-yellow-500' : 'bg-white border-2 border-neutral-400'}`}>
+                                        <div className={`w-[90%] h-[90%] rounded-full flex items-center justify-center text-lg md:text-xl shadow-md animate-in zoom-in duration-200 ${val === 1 ? 'bg-neutral-900 border-2 border-yellow-500' : 'bg-white border-2 border-neutral-400'}`}>
                                             {val === 1 ? '🐝' : '🦟'}
                                         </div>
                                     )}
@@ -254,15 +312,28 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
                             ))}
                         </div>
 
+                        <div className="w-full flex gap-2">
+                            {room?.status === 'playing' && (
+                                <Button 
+                                    variant="outline" 
+                                    onClick={handleUndo} 
+                                    disabled={!canUndo || loading}
+                                    className={`flex-1 py-3 border-2 ${confirmUndoStage === 1 ? 'bg-amber-100 border-amber-500 text-amber-900' : 'border-neutral-300 dark:border-white/10 dark:text-white'}`}
+                                >
+                                    <RotateCcw size={16} className="mr-1"/>
+                                    {confirmUndoStage === 1 ? `确定支付 ${undoCost} 🍯?` : (myUndoUsed ? '悔棋已用' : `悔棋 (${undoCost} 🍯)`)}
+                                </Button>
+                            )}
+                            <Button variant="ghost" onClick={handleQuit} className={`flex-1 py-3 ${confirmQuitStage === 1 ? 'bg-red-600 text-white' : 'text-red-500 border-2 border-transparent'}`}>
+                                {confirmQuitStage === 1 
+                                    ? (room?.status === 'playing' ? '确定认输？' : '确定退出？') 
+                                    : (room?.status === 'playing' ? '投子认输' : (isHost ? '解散房间' : '退出房间'))
+                                }
+                            </Button>
+                        </div>
                         {room?.status === 'ready' && isHost && (
                             <Button onClick={handleStart} className="w-full py-4 text-xl">开始对战</Button>
                         )}
-                        <Button variant="ghost" onClick={handleQuit} className={`w-full py-3 ${confirmQuitStage === 1 ? 'bg-red-600 text-white' : 'text-red-500'}`}>
-                            {confirmQuitStage === 1 
-                                ? (room?.status === 'playing' ? '确定认输？' : '确定退出？') 
-                                : (room?.status === 'playing' ? '投子认输' : (isHost ? '解散房间' : '退出房间'))
-                            }
-                        </Button>
                     </div>
                 )}
 
@@ -284,8 +355,6 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
             </div>
         );
     }
-
-    const myTier = getGomokuTierInfo(userProfile?.gomokuPoints || 0);
 
     return (
         <div className="w-full max-w-sm mx-auto flex flex-col gap-4 animate-in fade-in relative pb-24">

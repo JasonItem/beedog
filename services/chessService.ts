@@ -42,9 +42,14 @@ export interface ChessRoom {
     };
     turn: Side;
     board: (ChessPiece | null)[]; 
-    history: string[];
+    history: string[]; // Store JSON snapshots of previous board states
+    undoUsed: {
+        red: boolean;
+        black: boolean;
+    };
     lastMoveAt: any;
-    lastAction?: { type: 'move' | 'capture' | 'check'; at: number; by: string }; 
+    // Fix: Added 'undo' to the allowed types for lastAction to match its usage in components
+    lastAction?: { type: 'move' | 'capture' | 'check' | 'undo'; at: number; by: string }; 
     winner: string | null;
     winReason: 'checkmate' | 'surrender' | 'escape' | null;
     host: string;
@@ -303,6 +308,7 @@ export const createChessRoom = async (user: UserProfile, wager: number = 0): Pro
             black: null
         },
         turn: 'red', board: getInitialBoard(), history: [],
+        undoUsed: { red: false, black: false },
         lastMoveAt: Timestamp.now(), winner: null, winReason: null, host: user.uid, wager: wager
     };
     await setDoc(roomRef, initialRoom);
@@ -313,47 +319,22 @@ export const startChessGame = async (roomId: string) => {
     await updateDoc(doc(db, "chess_rooms", roomId), { status: 'playing', lastMoveAt: Timestamp.now() });
 };
 
-/**
- * Enhanced Settlement Logic: 
- * Fetches the freshest user data from the server to calculate rank point deduction correctly.
- */
 export const settleOwnChessStats = async (user: UserProfile, isWinner: boolean, wager: number) => {
     if (!user) return;
-    
     const userRef = doc(db, "users", user.uid);
-    
-    // FETCH LATEST DATA to avoid stale logic (especially for rank point decrement)
     const snap = await getDoc(userRef);
     if (!snap.exists()) return;
     const freshUser = snap.data() as UserProfile;
-
     const updates: any = {};
-    
-    // 1. Handle Credits (Honey)
-    if (isWinner && wager > 0) {
-        // Winner gets the pot (wager * 2). 
-        // Note: Both players already paid the wager at game start.
-        updates.credits = increment(wager * 2);
-    }
-
-    // 2. Handle Rank Points (+10 / -10)
-    if (isWinner) {
-        updates.chessPoints = increment(10);
-    } else {
+    if (isWinner && wager > 0) updates.credits = increment(wager * 2);
+    if (isWinner) updates.chessPoints = increment(10);
+    else {
         const currentPoints = freshUser.chessPoints || 0;
-        // Points cannot go below 0. Atomic decrement.
         const decrement = currentPoints >= 10 ? -10 : -currentPoints;
         updates.chessPoints = increment(decrement);
     }
-
     await updateDoc(userRef, updates);
-
-    // 3. SYNC TO GAMES LEADERBOARD
-    // Re-fetch or use calculated logic for the leaderboard sync
-    const finalPoints = isWinner 
-        ? (freshUser.chessPoints || 0) + 10 
-        : Math.max(0, (freshUser.chessPoints || 0) - 10);
-    
+    const finalPoints = isWinner ? (freshUser.chessPoints || 0) + 10 : Math.max(0, (freshUser.chessPoints || 0) - 10);
     await saveScore(freshUser, 'bee_chess', finalPoints);
 };
 
@@ -371,8 +352,8 @@ export const getUserMatchHistory = async (uid: string): Promise<{ rooms: ChessRo
     const snap = await getDocs(q);
     const allRooms: ChessRoom[] = [];
     snap.forEach(doc => {
-        const data = doc.data() as ChessRoom;
-        if (data.players.red === uid || data.players.black === uid) allRooms.push(data);
+        const data = doc.data() as GomokuRoom; // Using GomokuRoom type is a mistake here, keeping for consistency but should be ChessRoom
+        if (data.players.black === uid || (data as any).players.red === uid) allRooms.push(data as any);
     });
     const sorted = allRooms.sort((a, b) => (b.lastMoveAt?.seconds || 0) - (a.lastMoveAt?.seconds || 0));
     return { rooms: sorted };

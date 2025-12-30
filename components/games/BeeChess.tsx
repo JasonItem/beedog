@@ -22,7 +22,7 @@ import { deductCredit } from '../../services/userService';
 import { audio } from '../../services/audioService';
 import { Button } from '../Button';
 import { 
-    Copy, Check, Loader2, Trophy, ShieldAlert, User, LogOut, Sword, Coins, Play, Share2, AlertCircle, Zap, Users, Search, History, Home, PlusCircle, Trash2, X as XIcon, Lock, AlertTriangle, Minimize2, Sparkles, Star
+    Copy, Check, Loader2, Trophy, ShieldAlert, User, LogOut, Sword, Coins, Play, Share2, AlertCircle, Zap, Users, Search, History, Home, PlusCircle, Trash2, X as XIcon, Lock, AlertTriangle, Minimize2, Sparkles, Star, RotateCcw
 } from 'lucide-react';
 import { createChessRoom } from '../../services/chessService';
 
@@ -41,6 +41,7 @@ const BLACK_LABELS: Record<string, string> = {
 };
 
 export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) => {
+    const myTier = getTierInfo(userProfile?.chessPoints || 0);
     const [activeTab, setActiveTab] = useState<Tab>('LOBBY');
     const [roomId, setRoomId] = useState<string | null>(null);
     const [room, setRoom] = useState<ChessRoom | null>(null);
@@ -52,14 +53,13 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
     const [legalMoves, setLegalMoves] = useState<number[]>([]);
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [notification, setNotification] = useState<string | null>(null);
     const [bigEffect, setBigEffect] = useState<'吃' | '将' | null>(null);
     const [waitingRooms, setWaitingRooms] = useState<ChessRoom[]>([]);
     const [matchHistory, setMatchHistory] = useState<ChessRoom[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [confirmQuitStage, setConfirmQuitStage] = useState(0); 
+    const [confirmUndoStage, setConfirmUndoStage] = useState(0);
     
-    // Win Animation States
     const [showVictoryAnim, setShowVictoryAnim] = useState(false);
     const [animFinished, setAnimFinished] = useState(false);
 
@@ -103,16 +103,19 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                 const roomData = docSnap.data() as ChessRoom;
                 setRoom(roomData);
 
-                // --- AUDIO & EFFECT TRIGGER ---
                 if (roomData.lastAction && roomData.lastAction.at > lastActionAtRef.current) {
                     lastActionAtRef.current = roomData.lastAction.at;
                     
-                    // Only play audio if the action was made by the opponent (local user plays it in handleTileClick)
-                    if (roomData.lastAction.by !== userProfile.uid) {
+                    if (roomData.lastAction.type === 'undo') {
+                        showNotif(roomData.lastAction.by === userProfile.uid ? "已悔棋成功" : "对方已悔棋", 'info');
+                        audio.playJump();
+                        setSelectedIdx(null);
+                        setLegalMoves([]);
+                    } else if (roomData.lastAction.by !== userProfile.uid) {
                         if (roomData.lastAction.type === 'capture') audio.playScore();
                         else if (roomData.lastAction.type === 'move') audio.playStep();
                     }
-
+                    
                     if (roomData.lastAction.type === 'check') {
                         setBigEffect('将');
                         audio.playJump();
@@ -120,13 +123,6 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                     }
                 }
 
-                if (roomData.lastEffect && roomData.lastEffect.at > lastActionAtRef.current) {
-                    // Legacy support
-                    setBigEffect(roomData.lastEffect.type);
-                    setTimeout(() => setBigEffect(null), 800);
-                }
-
-                // 检测游戏结束并触发特效
                 if (roomData.status === 'finished' && !animFinished && !showVictoryAnim) {
                     if (roomData.winReason === 'checkmate') {
                         setShowVictoryAnim(true);
@@ -140,8 +136,6 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                     }
                 }
 
-                // --- NEW SETTLEMENT LOGIC ---
-                // Both clients detect 'finished' and settle their OWN stats.
                 if (roomData.status === 'finished' && !rewardClaimedRef.current) {
                     rewardClaimedRef.current = true;
                     const isIWin = roomData.winner === userProfile.uid;
@@ -259,9 +253,13 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
             newBoard[idx] = movingPiece;
             newBoard[selectedIdx] = null;
             const nextTurn = room.turn === 'red' ? 'black' : 'red';
+            
+            const historySnapshot = JSON.stringify(room.board);
+
             const updates: any = { 
                 board: newBoard, 
                 turn: nextTurn, 
+                history: [...room.history, historySnapshot],
                 lastMoveAt: Timestamp.now(),
                 lastAction: { 
                     at: Date.now(), 
@@ -293,6 +291,47 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
         } else { setSelectedIdx(null); setLegalMoves([]); }
     };
 
+    const handleUndo = async () => {
+        if (!room || !userProfile || !mySide || room.status !== 'playing' || room.history.length < 2 || room.turn !== mySide) return;
+        
+        if (room.undoUsed[mySide]) { showNotif("每局只能悔棋一次", 'error'); return; }
+        
+        const undoCost = Math.floor(room.wager / 2);
+        if (confirmUndoStage === 0) {
+            setConfirmUndoStage(1);
+            setTimeout(() => setConfirmUndoStage(0), 3000);
+            return;
+        }
+
+        if (userProfile.credits < undoCost) { showNotif("余额不足", 'error'); return; }
+
+        setLoading(true);
+        try {
+            const success = await deductCredit(userProfile.uid, undoCost);
+            if (!success) { showNotif("支付失败", 'error'); return; }
+
+            const newHistory = [...room.history];
+            newHistory.pop(); // Pop opponent's last move state
+            const stateBeforeMe = newHistory.pop(); // Get state before my last move
+            if (!stateBeforeMe) throw new Error("No history");
+            
+            const restoredBoard = JSON.parse(stateBeforeMe);
+
+            await updateDoc(doc(db, "chess_rooms", room.id), {
+                board: restoredBoard,
+                history: newHistory,
+                [`undoUsed.${mySide}`]: true,
+                lastMoveAt: Timestamp.now(),
+                lastAction: {
+                    type: 'undo',
+                    by: userProfile.uid,
+                    at: Date.now()
+                }
+            });
+        } catch (e) { showNotif("操作失败", 'error'); }
+        finally { setLoading(false); setConfirmUndoStage(0); }
+    };
+
     const handleQuitRoom = async () => {
         if (confirmQuitStage === 0) {
             setConfirmQuitStage(1);
@@ -305,17 +344,18 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
         setRoomId(null); setRoom(null); setConfirmQuitStage(0);
     };
 
-    const showNotif = (msg: string) => { setNotification(msg); setTimeout(() => setNotification(null), 3000); };
+    const showNotif = (msg: string, type: 'error' | 'info' = 'error') => { 
+        setError(msg); 
+        setTimeout(() => setError(null), 3000); 
+    };
 
     const renderBoard = (isInteractive: boolean = true) => {
         if (!room) return null;
-        
-        // Find all moveable pieces for local turn
         const isMyTurn = room.turn === mySide;
         const moveableIndices = isMyTurn ? room.board.map((p, i) => (p && p.side === mySide && getLegalMoves(i, room.board).length > 0) ? i : -1).filter(i => i !== -1) : [];
 
         return (
-            <div className="relative aspect-[9/10] w-full max-w-[400px] mx-auto bg-[#fce9b2] rounded-xl border-4 border-[#854d0e] shadow-2xl overflow-hidden">
+            <div className="relative aspect-[9/10] w-full max-w-[500px] mx-auto bg-[#fce9b2] rounded-xl border-4 border-[#854d0e] shadow-2xl overflow-hidden">
                 {bigEffect && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[100px] font-black text-red-600 z-[100] drop-shadow-2xl animate-in zoom-in pointer-events-none" style={{textShadow: '0 0 20px rgba(255,0,0,0.5)'}}>{bigEffect}</div>}
                 <div className="absolute inset-0 p-[5.5%] pointer-events-none">
                     <svg className="w-full h-full overflow-visible" viewBox="0 0 8 9" preserveAspectRatio="none">
@@ -325,48 +365,37 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                         <line x1="3" y1="7" x2="5" y2="9" stroke="#854d0e" strokeWidth="0.04" /><line x1="5" y1="7" x2="3" y2="9" stroke="#854d0e" strokeWidth="0.04" />
                         <line x1="0" y1="4" x2="8" y2="4" stroke="#854d0e" strokeWidth="0.08" /><line x1="0" y1="5" x2="8" y2="5" stroke="#854d0e" strokeWidth="0.08" />
                     </svg>
-                    <div className="absolute top-[44.5%] left-0 w-full h-[11%] flex items-center justify-around font-black text-[#854d0e]/40 text-lg md:text-xl tracking-widest px-4">
+                    <div className="absolute top-[44.5%] left-0 w-full h-[11%] flex items-center justify-around font-black text-[#854d0e]/40 text-xl md:text-2xl tracking-widest px-4">
                         <span>楚 河</span>
                         <span>汉 界</span>
                     </div>
                 </div>
-                
-                {/* 棋子渲染层 - 独立于网格以实现动画 */}
                 <div className="absolute inset-0 p-[5.5%] z-20">
                     <div className="relative w-full h-full">
                         {room.board.map((piece, idx) => {
                             if (!piece) return null;
                             const { r, c } = idxToPos(idx);
-                            
-                            // UI Coordinate calculation
                             const displayRi = mySide === 'red' ? r : 9 - r;
                             const displayCi = mySide === 'red' ? c : 8 - c;
-                            
                             const isSelected = selectedIdx === idx;
                             const isMoveable = isInteractive && moveableIndices.includes(idx) && !isSelected;
                             const canClick = isInteractive && piece.side === mySide && room.turn === mySide;
-
                             return (
                                 <div 
-                                    key={piece.id} // Use piece.id for stable identification during move animations
+                                    key={piece.id}
                                     onClick={() => isInteractive && handleTileClick(idx)} 
-                                    className={`absolute w-[11.1%] aspect-square rounded-full border-2 flex items-center justify-center font-black text-lg md:text-xl shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out z-20 
+                                    className={`absolute w-[11.1%] aspect-square rounded-full border-2 flex items-center justify-center font-black text-xl md:text-2xl shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out z-20 
                                         ${piece.side === 'red' ? 'bg-red-500 text-white border-red-800' : 'bg-neutral-800 text-yellow-500 border-neutral-900'} 
                                         ${isSelected ? 'scale-110 ring-4 ring-yellow-500 z-40 shadow-2xl' : ''} 
                                         ${isMoveable ? 'ring-2 ring-yellow-400/50 animate-pulse' : ''}
                                         ${canClick ? 'cursor-pointer hover:brightness-110 active:scale-95' : 'cursor-default'}
                                     `} 
-                                    style={{ 
-                                        top: `${(displayRi / 9) * 100}%`, 
-                                        left: `${(displayCi / 8) * 100}%` 
-                                    }}
+                                    style={{ top: `${(displayRi / 9) * 100}%`, left: `${(displayCi / 8) * 100}%` }}
                                 >
                                     {piece.side === 'red' ? RED_LABELS[piece.type] : BLACK_LABELS[piece.type]}
                                 </div>
                             );
                         })}
-                        
-                        {/* 合法落点提示 */}
                         {isInteractive && legalMoves.map(moveIdx => {
                             const { r, c } = idxToPos(moveIdx);
                             const displayRi = mySide === 'red' ? r : 9 - r;
@@ -374,13 +403,12 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                             const hasTarget = !!room.board[moveIdx];
                             return (
                                 <div key={`move-${moveIdx}`} onClick={() => handleTileClick(moveIdx)} className="absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-30 cursor-pointer w-[11.1%] aspect-square" style={{ top: `${(displayRi / 9) * 100}%`, left: `${(displayCi / 8) * 100}%` }}>
-                                    {hasTarget ? <div className="w-10 h-10 border-4 border-green-500 rounded-full animate-ping"></div> : <div className="w-3 h-3 bg-green-500 rounded-full opacity-80 shadow-[0_0_10px_green]"></div>}
+                                    {hasTarget ? <div className="w-12 h-12 border-4 border-green-500 rounded-full animate-ping"></div> : <div className="w-4 h-4 bg-green-500 rounded-full opacity-80 shadow-[0_0_10px_green]"></div>}
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-
                 {!isInteractive && (
                     <div className="absolute inset-0 z-[60] bg-black/10 flex items-center justify-center backdrop-blur-[1px] transition-all">
                         {room.status === 'ready' && room.host === userProfile?.uid && (
@@ -389,9 +417,7 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                              </Button>
                         )}
                         {room.status === 'ready' && room.host !== userProfile?.uid && (
-                            <div className="bg-black/80 text-yellow-400 px-8 py-4 rounded-2xl font-black text-xl border-4 border-yellow-500/50 animate-pulse shadow-2xl">
-                                等待房主开球...
-                            </div>
+                            <div className="bg-black/80 text-yellow-400 px-8 py-4 rounded-2xl font-black text-xl border-4 border-yellow-500/50 animate-pulse shadow-2xl">等待房主开球...</div>
                         )}
                     </div>
                 )}
@@ -399,146 +425,80 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
         );
     };
 
-    if (!userProfile) {
-        return (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300 z-50">
-                <div className="bg-white p-4 rounded-full mb-6 shadow-2xl scale-110"><Lock size={40} className="text-amber-500" /></div>
-                <h2 className="text-3xl font-black text-white mb-4 drop-shadow-md">开启象棋博弈</h2>
-                <p className="text-white/90 mb-8 text-lg font-medium leading-relaxed max-w-[260px]">联机对战需要登录账号。立即登录即可创建房间并设置筹码！</p>
-                <div className="w-full max-w-xs space-y-3">
-                    <div className="bg-white/10 border border-white/20 p-4 rounded-2xl text-left">
-                        <h4 className="text-white font-bold text-sm mb-1 flex items-center gap-2"><Zap size={14}/> 游戏规则:</h4>
-                        <ul className="text-xs text-neutral-300 space-y-1">
-                            <li>• 创建房间最低门槛为 500 蜂蜜</li>
-                            <li>• 赢家获得全部奖池 (筹码 x2)</li>
-                            <li>• 竞技对战需要双方持有足够蜂蜜</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     if (roomId) {
         const isHost = room?.host === userProfile?.uid;
         const inCheck = room ? isCheck(room.turn, room.board) : false;
         const isMyTurn = room?.turn === mySide;
-        const isReady = room?.status === 'ready';
         const isPlaying = room?.status === 'playing';
-
-        const redTier = getTierInfo(room?.playerData?.red?.points || 0);
-        const blackTier = getTierInfo(room?.playerData?.black?.points || 0);
+        const undoCost = room ? Math.floor(room.wager / 2) : 0;
+        const myUndoUsed = room && mySide ? room.undoUsed[mySide] : false;
+        const canUndo = isMyTurn && (room?.history.length || 0) >= 2 && !myUndoUsed;
 
         return (
-            <div className="w-full flex flex-col gap-4 animate-in fade-in duration-300 max-w-md mx-auto">
-                {/* Checkmate Full-screen Anim */}
+            <div className="w-full flex flex-col gap-4 animate-in fade-in duration-300 max-w-lg mx-auto">
                 {showVictoryAnim && (
                     <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none overflow-hidden">
                         <div className="relative animate-in zoom-in duration-500 flex flex-col items-center">
                             <Sparkles size={120} className="text-brand-yellow absolute -top-16 animate-pulse opacity-50" />
-                            <h1 className="text-[120px] md:text-[160px] font-black text-white tracking-tighter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]" style={{ WebkitTextStroke: '4px #fbbf24', textShadow: '0 0 50px rgba(251,191,36,0.6)' }}>
-                                绝杀
-                            </h1>
-                            <div className="bg-brand-yellow text-black px-8 py-2 rounded-full font-black text-2xl tracking-[0.5em] -mt-8 shadow-2xl animate-bounce">
-                                CHECKMATE
-                            </div>
+                            <h1 className="text-[120px] md:text-[160px] font-black text-white tracking-tighter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]" style={{ WebkitTextStroke: '4px #fbbf24', textShadow: '0 0 50px rgba(251,191,36,0.6)' }}>绝杀</h1>
+                            <div className="bg-brand-yellow text-black px-8 py-2 rounded-full font-black text-2xl tracking-[0.5em] -mt-8 shadow-2xl animate-bounce">CHECKMATE</div>
                         </div>
                     </div>
                 )}
-
                 <div className="bg-white dark:bg-[#121212] rounded-3xl p-4 shadow-xl border border-neutral-100 dark:border-white/5 flex items-center justify-between w-full z-10">
-                    <div className="flex items-center gap-2 max-w-[40%]">
-                        <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#222] overflow-hidden border-2 border-red-500/50">
-                            {room?.playerData?.red?.avatar ? <img src={room.playerData.red.avatar} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><User size={20}/></div>}
-                        </div>
-                        <div className="min-w-0">
-                            <div className="text-xs font-black text-red-500 truncate">{room?.playerData?.red?.nickname || '红方'}</div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                                <span className={`text-[9px] font-black px-1.5 rounded-sm ${redTier.bg} ${redTier.color}`}>{redTier.name} {redTier.stars}<Star size={8} className="inline ml-0.5 fill-current"/></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <div className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Wager</div>
-                        <div className="text-sm font-black text-yellow-600">{room?.wager || 0} 🍯</div>
-                    </div>
-                    <div className="flex items-center gap-2 text-right max-w-[40%]">
-                        <div className="min-w-0 text-right">
-                            <div className="text-xs font-black text-neutral-400 truncate">{room?.playerData?.black?.nickname || '黑方'}</div>
-                            {room?.playerData?.black && (
-                                <div className="flex items-center justify-end gap-1 mt-0.5">
-                                    <span className={`text-[9px] font-black px-1.5 rounded-sm ${blackTier.bg} ${blackTier.color}`}>{blackTier.name} {blackTier.stars}<Star size={8} className="inline ml-0.5 fill-current"/></span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#222] overflow-hidden border-2 border-neutral-500/50">
-                            {room?.playerData?.black?.avatar ? <img src={room.playerData.black.avatar} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><User size={20}/></div>}
-                        </div>
-                    </div>
+                    <div className="flex items-center gap-2 max-w-[40%]"><div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#222] overflow-hidden border-2 border-red-500/50">{room?.playerData?.red?.avatar ? <img src={room.playerData.red.avatar} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><User size={20}/></div>}</div><div className="min-w-0"><div className="text-xs font-black text-red-500 truncate">{room?.playerData?.red?.nickname || '红方'}</div><div className="flex items-center gap-1 mt-0.5"><span className={`text-[9px] font-black px-1.5 rounded-sm ${getTierInfo(room?.playerData?.red?.points || 0).bg} ${getTierInfo(room?.playerData?.red?.points || 0).color}`}>{getTierInfo(room?.playerData?.red?.points || 0).name} {getTierInfo(room?.playerData?.red?.points || 0).stars}<Star size={8} className="inline ml-0.5 fill-current"/></span></div></div></div>
+                    <div className="flex flex-col items-center"><div className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Wager</div><div className="text-sm font-black text-yellow-600">{room?.wager || 0} 🍯</div></div>
+                    <div className="flex items-center gap-2 text-right max-w-[40%]"><div className="min-w-0 text-right"><div className="text-xs font-black text-neutral-400 truncate">{room?.playerData?.black?.nickname || '黑方'}</div>{room?.playerData?.black && (<div className="flex items-center justify-end gap-1 mt-0.5"><span className={`text-[9px] font-black px-1.5 rounded-sm ${getTierInfo(room?.playerData?.black?.points || 0).bg} ${getTierInfo(room?.playerData?.black?.points || 0).color}`}>{getTierInfo(room?.playerData?.black?.points || 0).name} {getTierInfo(room?.playerData?.black?.points || 0).stars}<Star size={8} className="inline ml-0.5 fill-current"/></span></div>)}</div><div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#222] overflow-hidden border-2 border-neutral-500/50">{room?.playerData?.black?.avatar ? <img src={room.playerData.black.avatar} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><User size={20}/></div>}</div></div>
                 </div>
                 <div className="flex-1 flex flex-col gap-4">
                     {room?.status === 'waiting' ? (
-                         <div className="flex flex-col items-center justify-center text-center gap-6 py-10 z-10 bg-white/5 rounded-3xl border border-dashed border-white/10 p-6">
-                            <div className="w-20 h-20 bg-brand-yellow/10 rounded-full flex items-center justify-center text-brand-yellow animate-pulse"><Share2 size={40} /></div>
-                            <div><h3 className="text-2xl font-black dark:text-white">等待对手加入</h3><p className="text-neutral-500 text-sm mt-1">请将房间号发送给好友加入对局</p></div>
-                            <div className="bg-white dark:bg-white/5 p-6 rounded-3xl border-2 border-brand-yellow shadow-2xl">
-                                <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">房间号</div>
-                                <div className="text-4xl font-black text-brand-yellow tracking-[0.2em] font-mono">{room.code}</div>
-                            </div>
-                            <div className="w-full space-y-2">
-                                <Button onClick={() => { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(()=>setCopied(false), 2000); }} className="w-full py-3">{copied ? <><Check className="mr-2"/> 已复制</> : <><Copy className="mr-2"/> 复制房号</>}</Button>
-                                <Button variant="ghost" onClick={handleQuitRoom} className={`w-full py-3 font-bold transition-all relative z-[100] ${confirmQuitStage === 1 ? 'bg-red-600 text-white shadow-lg scale-105' : 'text-red-500'}`}>{confirmQuitStage === 1 ? '确定解散并退出？' : '解散房间'}</Button>
-                            </div>
-                        </div>
+                         <div className="flex flex-col items-center justify-center text-center gap-6 py-10 z-10 bg-white/5 rounded-3xl border border-dashed border-white/10 p-6"><div className="w-20 h-20 bg-brand-yellow/10 rounded-full flex items-center justify-center text-brand-yellow animate-pulse"><Share2 size={40} /></div><div><h3 className="text-2xl font-black dark:text-white">等待对手加入</h3><p className="text-neutral-500 text-sm mt-1">请将房间号发送给好友加入对局</p></div><div className="bg-white dark:bg-white/5 p-6 rounded-3xl border-2 border-brand-yellow shadow-2xl"><div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">房间号</div><div className="text-4xl font-black text-brand-yellow tracking-[0.2em] font-mono">{room.code}</div></div><div className="w-full space-y-2"><Button onClick={() => { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(()=>setCopied(false), 2000); }} className="w-full py-3">{copied ? <><Check className="mr-2"/> 已复制</> : <><Copy className="mr-2"/> 复制房号</>}</Button><Button variant="ghost" onClick={handleQuitRoom} className={`w-full py-3 font-bold transition-all relative z-[100] ${confirmQuitStage === 1 ? 'bg-red-600 text-white shadow-lg scale-105' : 'text-red-500'}`}>{confirmQuitStage === 1 ? '确定解散并退出？' : '解散房间'}</Button></div></div>
                     ) : (
                         <div className="flex flex-col gap-4 animate-in fade-in duration-300">
                              <div className="flex justify-center gap-4 items-center h-8">
                                 {isPlaying && (
                                     <>
-                                        <div className={`px-4 py-1.5 rounded-full font-black text-xs shadow-lg border-2 transition-all ${room.turn === 'red' ? 'bg-red-500 border-red-400 text-white' : 'bg-neutral-800 border-neutral-700 text-yellow-500'}`}>{isMyTurn ? '轮到你了' : `等待对手...`}</div>
-                                        {inCheck && <div className="bg-red-600 text-white px-3 py-1 rounded-lg text-[10px] font-black shadow-lg animate-bounce border border-red-400">将军！</div>}
+                                        <div className={`px-4 py-1.5 rounded-full font-black text-xs shadow-xl border-2 border-white/20 transition-all ${room.turn === 'red' ? 'bg-red-500 text-white' : 'bg-neutral-800 text-yellow-500'}`}>{isMyTurn ? '轮到你了' : `等待对手...`}</div>
+                                        {inCheck && <div className="bg-brand-yellow text-black px-3 py-1 rounded-lg text-xs font-black shadow-xl animate-bounce border-2 border-black">将军！</div>}
                                     </>
                                 )}
-                                {isReady && <div className="px-4 py-1.5 rounded-full font-black text-xs shadow-lg border-2 bg-neutral-800 border-neutral-700 text-yellow-500">准备就绪</div>}
                              </div>
                              {renderBoard(isPlaying)}
-                             <div className="mt-2">
-                                <Button variant="ghost" onClick={handleQuitRoom} className={`w-full py-4 font-bold transition-all relative z-[100] ${confirmQuitStage === 1 ? 'bg-red-600 text-white shadow-lg scale-105' : 'text-red-500'}`}>
-                                    {confirmQuitStage === 1 ? (isPlaying ? '确定认输并退出？' : '确定退出？') : (isPlaying ? '认输并退出' : (isHost ? '解散房间' : '退出房间'))}
-                                </Button>
+                             
+                             {/* Improved Notification Bar */}
+                             {error && (
+                                 <div className="bg-brand-yellow dark:bg-brand-yellow text-black p-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(251,191,36,0.5)] animate-pulse border-2 border-black/10">
+                                     <Zap size={16} fill="black"/> {error}
+                                 </div>
+                             )}
+
+                             <div className="w-full flex gap-2">
+                                {isPlaying && (
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={handleUndo} 
+                                        disabled={!canUndo || loading}
+                                        className={`flex-1 py-4 border-2 font-bold ${confirmUndoStage === 1 ? 'bg-amber-100 border-amber-500 text-amber-900' : 'border-neutral-300 dark:border-white/10 dark:text-white'}`}
+                                    >
+                                        <RotateCcw size={16} className="mr-1"/>
+                                        {confirmUndoStage === 1 ? `支付 ${undoCost} 🍯?` : (myUndoUsed ? '悔棋已用' : `悔棋 (${undoCost} 🍯)`)}
+                                    </Button>
+                                )}
+                                <Button variant="ghost" onClick={handleQuitRoom} className={`flex-1 py-4 font-bold transition-all relative z-[100] ${confirmQuitStage === 1 ? 'bg-red-600 text-white shadow-lg scale-105' : 'text-red-500'}`}>{confirmQuitStage === 1 ? (isPlaying ? '确定认输？' : '确定退出？') : (isPlaying ? '认输' : (isHost ? '解散房间' : '退出房间'))}</Button>
                              </div>
                         </div>
                     )}
                 </div>
                 {room?.status === 'finished' && animFinished && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-[200]">
-                        <Trophy size={100} className="text-brand-yellow mb-4 animate-bounce" />
-                        <h3 className="text-5xl font-black text-white mb-2">{room.winner === userProfile?.uid ? "获胜!" : "惜败"}</h3>
-                        <div className="bg-white/10 p-8 rounded-[2.5rem] border border-white/20 text-center w-full max-w-xs mb-8">
-                            <div className="text-xs font-bold text-neutral-300 uppercase mb-2">对战结算</div>
-                            <div className={`text-5xl font-black mb-4 ${room.winner === userProfile?.uid ? 'text-green-400' : 'text-red-400'}`}>
-                                {room.winner === userProfile?.uid ? (room.wager > 0 ? `+${room.wager * 2}` : "+0") : (room.wager > 0 ? `+0` : "+0")} 🍯
-                            </div>
-                            <div className="flex items-center justify-center gap-2">
-                                <span className={`px-3 py-1 rounded-lg font-black text-sm flex items-center gap-1 ${room.winner === userProfile?.uid ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-                                    <Zap size={14} className={room.winner === userProfile?.uid ? '' : 'rotate-180'}/>
-                                    段位积分 {room.winner === userProfile?.uid ? '+10' : '-10'}
-                                </span>
-                            </div>
-                        </div>
-                        <Button onClick={() => { setRoomId(null); setRoom(null); onGameOver(); }} className="w-full max-w-xs py-5 text-2xl rounded-3xl">返回大厅</Button>
-                    </div>
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-[200]"><Trophy size={100} className="text-brand-yellow mb-4 animate-bounce" /><h3 className="text-5xl font-black text-white mb-2">{room.winner === userProfile?.uid ? "获胜!" : "惜败"}</h3><div className="bg-white/10 p-8 rounded-[2.5rem] border border-white/20 text-center w-full max-w-xs mb-8"><div className="text-xs font-bold text-neutral-300 uppercase mb-2">对战结算</div><div className={`text-5xl font-black mb-4 ${room.winner === userProfile?.uid ? 'text-green-400' : 'text-red-400'}`}>{room.winner === userProfile?.uid ? (room.wager > 0 ? `+${room.wager * 2}` : "+0") : (room.wager > 0 ? `+0` : "+0")} 🍯</div><div className="flex items-center justify-center gap-2"><span className={`px-3 py-1 rounded-lg font-black text-sm flex items-center gap-1 ${room.winner === userProfile?.uid ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}><Zap size={14} className={room.winner === userProfile?.uid ? '' : 'rotate-180'}/>段位积分 {room.winner === userProfile?.uid ? '+10' : '-10'}</span></div></div><Button onClick={() => { setRoomId(null); setRoom(null); onGameOver(); }} className="w-full max-w-xs py-5 text-2xl rounded-3xl">返回大厅</Button></div>
                 )}
             </div>
         );
     }
 
-    const myTier = getTierInfo(userProfile?.chessPoints || 0);
-
     return (
-        <div className="w-full max-w-sm mx-auto min-h-[600px] flex flex-col gap-4 animate-in fade-in duration-300 relative pb-24 z-10">
+        <div className="w-full max-w-md mx-auto min-h-[600px] flex flex-col gap-4 animate-in fade-in duration-300 relative pb-24 z-10">
             <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #fbbf24; border-radius: 10px; }`}</style>
-            {notification && (<div className="fixed top-24 left-1/2 -translate-x-1/2 z-[110] w-max bg-black/80 text-yellow-400 px-4 py-2 rounded-full font-bold text-sm border border-yellow-500/50 shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4"><AlertCircle size={16}/> {notification}</div>)}
             <div className="flex bg-neutral-200 dark:bg-[#222] p-1 rounded-2xl mb-4">
                 <button onClick={() => setActiveTab('LOBBY')} className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'LOBBY' ? 'bg-white dark:bg-[#444] text-black dark:text-white shadow' : 'text-neutral-500'}`}><Home size={18}/> 大厅</button>
                 <button onClick={() => setActiveTab('CREATE')} className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'CREATE' ? 'bg-white dark:bg-[#444] text-black dark:text-white shadow' : 'text-neutral-500'}`}><PlusCircle size={18}/> 创建</button>
@@ -551,76 +511,22 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                             <input type="number" placeholder="输入房号" value={joinCode} onChange={e => setJoinCode(e.target.value)} className="flex-1 bg-neutral-100 dark:bg-[#222] border-2 border-transparent focus:border-brand-yellow rounded-xl px-4 py-3 outline-none font-bold text-center dark:text-white" />
                             <Button onClick={() => handleJoin()} disabled={loading || !joinCode} className="px-6">{loading ? <Loader2 size={18} className="animate-spin"/> : <Search size={18}/>}</Button>
                         </div>
-                        {error && <div className="text-red-500 text-center text-xs font-bold flex items-center justify-center gap-1 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg"><ShieldAlert size={14}/> {error}</div>}
                     </div>
                     <div className="bg-white dark:bg-[#121212] rounded-[2rem] p-6 shadow-xl border border-neutral-200 dark:border-white/10">
-                        <h3 className="font-black text-sm flex items-center gap-2 dark:text-white mb-4"><Users size={16} className="text-brand-yellow"/> 等待中对局</h3>
+                        <h4 className="font-black text-sm flex items-center gap-2 dark:text-white mb-4"><Users size={16} className="text-brand-yellow"/> 等待中对局</h4>
                         <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                            {waitingRooms.length === 0 ? <div className="text-center py-12 text-neutral-500 text-xs">暂无待加入的房间</div> : waitingRooms.map(r => {
-                                const tier = getTierInfo(r.playerData.red?.points || 0);
-                                return (
-                                    <div key={r.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-[#222] rounded-2xl border border-neutral-100 dark:border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-neutral-200 overflow-hidden">{r.playerData.red?.avatar ? <img src={r.playerData.red.avatar} className="w-full h-full object-cover"/> : <User size={16}/>}</div>
-                                            <div>
-                                                <div className="text-sm font-black dark:text-white">{r.playerData.red?.nickname}</div>
-                                                <span className={`text-[8px] font-black px-1 rounded-sm ${tier.bg} ${tier.color}`}>{tier.name} {tier.stars}★</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right text-sm font-black text-brand-yellow">{(r.wager || 0) * 2} <Coins size={12} className="inline"/></div>
-                                            <button onClick={() => handleJoin(r.code)} className="bg-brand-yellow text-black px-4 py-2 rounded-xl text-xs font-black shadow-lg">加入</button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            {waitingRooms.length === 0 ? <div className="text-center py-12 text-neutral-500 text-xs">暂无待加入的房间</div> : waitingRooms.map(r => (
+                                <div key={r.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-[#222] rounded-2xl border border-neutral-100 dark:border-white/5"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-neutral-200 overflow-hidden">{r.playerData.red?.avatar ? <img src={r.playerData.red.avatar} className="w-full h-full object-cover"/> : <User size={16}/>}</div><div><div className="text-sm font-black dark:text-white">{r.playerData.red?.nickname}</div><span className={`text-[8px] font-black px-1 rounded-sm ${getTierInfo(r.playerData.red?.points || 0).bg} ${getTierInfo(r.playerData.red?.points || 0).color}`}>{getTierInfo(r.playerData.red?.points || 0).name} {getTierInfo(r.playerData.red?.points || 0).stars}★</span></div></div><div className="flex items-center gap-3"><div className="text-right text-sm font-black text-brand-yellow">{(r.wager || 0) * 2} <Coins size={12} className="inline"/></div><button onClick={() => handleJoin(r.code)} className="bg-brand-yellow text-black px-4 py-2 rounded-xl text-xs font-black shadow-lg">加入</button></div></div>
+                            ))}
                         </div>
                     </div>
                 </div>
             )}
             {activeTab === 'CREATE' && (
-                <div className="bg-white dark:bg-[#121212] rounded-[2rem] p-8 shadow-2xl border border-neutral-200 dark:border-white/10 flex flex-col gap-8">
-                    <div className="text-center"><PlusCircle size={60} className="text-brand-yellow mx-auto mb-4" /><h2 className="text-3xl font-black dark:text-white">创建新对局</h2></div>
-                    <div className="bg-neutral-50 dark:bg-[#222] p-6 rounded-[2rem] border border-neutral-100 dark:border-white/5">
-                        <label className="text-xs font-bold text-neutral-400 uppercase mb-4 block flex items-center gap-1"><Coins size={14}/> 设定对战筹码 (WAGER)</label>
-                        <div className="flex gap-2 mb-4">{[500, 1000, 2000].map(amt => (<button key={amt} onClick={() => setWagerInput(amt)} className={`flex-1 py-3 rounded-xl text-sm font-black border transition-all ${wagerInput === amt ? 'bg-brand-yellow border-brand-yellow text-black' : 'bg-white dark:bg-[#333] border-neutral-200 dark:border-[#444]'}`}>{amt}</button>))}</div>
-                        <input type="number" value={wagerInput} onChange={e => setWagerInput(Math.min(userProfile?.credits || 0, Math.max(500, parseInt(e.target.value) || 500)))} className="w-full bg-white dark:bg-[#333] border-2 border-transparent focus:border-brand-yellow rounded-xl px-5 py-4 outline-none font-black text-lg dark:text-white" />
-                        <p className="text-[10px] text-neutral-500 mt-2 text-center">最低下注门槛: 500 🍯</p>
-                    </div>
-                    <Button onClick={handleHost} className="w-full py-5 text-xl rounded-2xl" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : "立即创建房间"}</Button>
-                </div>
+                <div className="bg-white dark:bg-[#121212] rounded-[2rem] p-8 shadow-2xl border border-neutral-200 dark:border-white/10 flex flex-col gap-8"><div className="text-center"><PlusCircle size={60} className="text-brand-yellow mx-auto mb-4" /><h2 className="text-3xl font-black dark:text-white">创建新对局</h2></div><div className="bg-neutral-50 dark:bg-[#222] p-6 rounded-[2rem] border border-neutral-100 dark:border-white/5"><label className="text-xs font-bold text-neutral-400 uppercase mb-4 block flex items-center gap-1"><Coins size={14}/> 设定对战筹码 (WAGER)</label><div className="flex gap-2 mb-4">{[500, 1000, 2000].map(amt => (<button key={amt} onClick={() => setWagerInput(amt)} className={`flex-1 py-3 rounded-xl text-sm font-black border transition-all ${wagerInput === amt ? 'bg-brand-yellow border-brand-yellow text-black' : 'bg-white dark:bg-[#333] border-neutral-200 dark:border-[#444]'}`}>{amt}</button>))}</div><input type="number" value={wagerInput} onChange={e => setWagerInput(Math.min(userProfile?.credits || 0, Math.max(500, parseInt(e.target.value) || 500)))} className="w-full bg-white dark:bg-[#333] border-2 border-transparent focus:border-brand-yellow rounded-xl px-5 py-4 outline-none font-black text-lg dark:text-white" /><p className="text-[10px] text-neutral-500 mt-2 text-center">最低下注门槛: 500 🍯</p></div><Button onClick={handleHost} className="w-full py-5 text-xl rounded-2xl" disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : "立即创建房间"}</Button></div>
             )}
-            {activeTab === 'PROFILE' && (
-                <div className="flex flex-col gap-6">
-                    <div className="bg-white dark:bg-[#121212] rounded-[2rem] p-8 shadow-2xl border border-neutral-200 dark:border-white/10 flex flex-col items-center">
-                        <div className="w-24 h-24 rounded-full bg-neutral-100 p-1 border-4 border-brand-yellow mb-4 overflow-hidden">{userProfile.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover rounded-full" /> : '🐶'}</div>
-                        <h2 className="text-2xl font-black dark:text-white">{userProfile.nickname}</h2>
-                        
-                        <div className={`mt-2 px-4 py-1.5 rounded-full font-black text-sm flex items-center gap-2 ${myTier.bg} ${myTier.color} border-2 border-current/20`}>
-                            <Trophy size={14}/> {myTier.name} {myTier.stars} 星
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 w-full mt-8">
-                            <div className="bg-neutral-50 dark:bg-[#222] p-4 rounded-2xl text-center">
-                                <div className="text-xs text-neutral-400 font-bold mb-1">段位积分</div>
-                                <div className="text-xl font-black text-purple-500">{userProfile.chessPoints || 0}</div>
-                            </div>
-                            <div className="bg-neutral-50 dark:bg-[#222] p-4 rounded-2xl text-center">
-                                <div className="text-xs text-neutral-400 font-bold mb-1">胜场</div>
-                                <div className="text-xl font-black text-green-400">{matchHistory.filter(m => m.winner === userProfile.uid).length}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white dark:bg-[#121212] rounded-[2rem] p-6 shadow-xl border border-neutral-200 dark:border-white/10">
-                        <h3 className="font-black text-sm flex items-center gap-2 dark:text-white mb-4"><History size={16} className="text-brand-yellow"/> 最近战绩</h3>
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                            {matchHistory.map(m => {
-                                const isWin = m.winner === userProfile.uid;
-                                return (<div key={m.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-[#222] rounded-2xl border border-neutral-100 dark:border-white/5"><div className="flex items-center gap-3"><div className={`px-2 py-1 rounded text-[10px] font-black ${isWin ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>{isWin ? 'WIN' : 'LOSE'}</div><div className="text-xs font-bold dark:text-white">{userProfile.uid === m.players.red ? (m.playerData.black?.nickname || '匿名') : (m.playerData.red?.nickname || '房主')}</div></div><div className={`font-mono text-sm font-black ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? `+${m.wager*2}` : `-${m.wager}`} 🍯</div></div>);
-                            })}
-                        </div>
-                    </div>
-                </div>
+            {activeTab === 'PROFILE' && userProfile && (
+                <div className="flex flex-col gap-6"><div className="bg-white dark:bg-[#121212] rounded-[2rem] p-8 shadow-2xl border border-neutral-200 dark:border-white/10 flex flex-col items-center"><div className="w-24 h-24 rounded-full bg-neutral-100 p-1 border-4 border-brand-yellow mb-4 overflow-hidden">{userProfile.avatarUrl ? <img src={userProfile.avatarUrl} className="w-full h-full object-cover rounded-full" /> : '🐶'}</div><h2 className="text-2xl font-black dark:text-white">{userProfile.nickname}</h2><div className={`mt-2 px-4 py-1.5 rounded-full font-black text-sm flex items-center gap-2 ${myTier.bg} ${myTier.color} border-2 border-current/20`}><Trophy size={14}/> {myTier.name} {myTier.stars} 星</div><div className="grid grid-cols-2 gap-4 w-full mt-8"><div className="bg-neutral-50 dark:bg-[#222] p-4 rounded-2xl text-center"><div className="text-xs text-neutral-400 font-bold mb-1">段位积分</div><div className="text-xl font-black text-purple-500">{userProfile.chessPoints || 0}</div></div><div className="bg-neutral-50 dark:bg-[#222] p-4 rounded-2xl text-center"><div className="text-xs text-neutral-400 font-bold mb-1">胜场</div><div className="text-xl font-black text-green-400">{matchHistory.filter(m => m.winner === userProfile.uid).length}</div></div></div></div><div className="bg-white dark:bg-[#121212] rounded-[2rem] p-6 shadow-xl border border-neutral-200 dark:border-white/10"><h3 className="font-black text-sm flex items-center gap-2 dark:text-white mb-4"><History size={16} className="text-brand-yellow"/> 最近战绩</h3><div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">{matchHistory.map(m => { const isWin = m.winner === userProfile.uid; return (<div key={m.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-[#222] rounded-2xl border border-neutral-100 dark:border-white/5"><div className="flex items-center gap-3"><div className={`px-2 py-1 rounded text-[10px] font-black ${isWin ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>{isWin ? 'WIN' : 'LOSE'}</div><div className="text-xs font-bold dark:text-white">{userProfile.uid === m.players.red ? (m.playerData.black?.nickname || '匿名') : (m.playerData.red?.nickname || '房主')}</div></div><div className={`font-mono text-sm font-black ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? `+${m.wager*2}` : `-${m.wager}`} 🍯</div></div>); })}</div></div></div>
             )}
         </div>
     );
