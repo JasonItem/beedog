@@ -56,10 +56,12 @@ service cloud.firestore {
     }
 
     match /chess_rooms/{roomId} {
-      allow read: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSignedIn() && (resource.data.host == request.auth.uid || isAdmin());
+    }
+
+    match /gomoku_rooms/{roomId} {
+      allow read, create, update: if isSignedIn();
       allow delete: if isSignedIn() && (resource.data.host == request.auth.uid || isAdmin());
     }
   }

@@ -1,44 +1,16 @@
+
 import { db, storage } from "../firebaseConfig";
 import { doc, getDoc, setDoc, updateDoc, increment, collection, getDocs, query, orderBy, limit, runTransaction } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { User } from "firebase/auth";
 import { DivinationResult } from "./geminiService";
 
-// --- Types ---
-
-export interface RodItem {
-    id: string; // Unique instance ID
-    typeId: number; // 0: Bamboo, 1: Fiberglass, 2: Iridium
-    durability: number;
-    maxDurability: number;
+// Define and export missing interfaces used by components
+export interface DivinationRecord extends DivinationResult {
+  date: string;
+  timestamp: number;
 }
 
-export interface FishingSaveData {
-  rodLevel: number; // Deprecated, kept for legacy compatibility (visuals)
-  activeRodId?: string; // ID of the currently equipped rod
-  rods?: RodItem[]; // List of owned rods
-  baitCount: number;
-  level: number; // Current Player Level (1-50)
-  xp: number; // Current XP
-  inventory: { id: string, typeId: number, name: string, price: number, rarity: number }[]; // Caught fish kept
-  unlockedFish: number[]; // Pokedex (IDs of fish caught)
-}
-
-// NEW: Farm Game Types
-export interface FarmPlot {
-  id: number; // 0-8
-  cropId: string | null; // null if empty
-  plantedAt: number; // Timestamp
-  status: 'EMPTY' | 'GROWING' | 'READY'; // Helper status, mainly derived from time
-}
-
-export interface FarmSaveData {
-  level: number;
-  xp: number;
-  plots: FarmPlot[];
-}
-
-// NEW: Trading Game Types
 export interface TradingPosition {
   id: number;
   type: 'LONG' | 'SHORT';
@@ -50,8 +22,18 @@ export interface TradingPosition {
   timestamp: number;
 }
 
-export interface TradingSaveData {
-    positions: TradingPosition[];
+export interface RodItem {
+  id: string;
+  typeId: number;
+  durability: number;
+  maxDurability?: number;
+}
+
+export interface FarmPlot {
+  id: number;
+  cropId: string | null;
+  plantedAt: number;
+  status: 'EMPTY' | 'GROWING' | 'READY';
 }
 
 export interface UserProfile {
@@ -60,154 +42,68 @@ export interface UserProfile {
   nickname: string;
   avatarUrl?: string; 
   credits: number;
-  chessPoints: number; // Ranked points for BeeChess
-  is_admin?: number; // 0 = User, 1 = Admin
-  lastCheckInDate?: string; // ISO Date string YYYY-MM-DD
-  lastGamePlayedDate?: string; // ISO Date string YYYY-MM-DD
-  dailyGameRewards?: Record<string, string>; // Map of gameId -> YYYY-MM-DD
-  fishingData?: FishingSaveData;
-  farmData?: FarmSaveData;
-  tradingData?: TradingSaveData; // NEW: Trading Positions
-  productUsage?: Record<string, number>; // NEW: Map of productId -> count purchased
-}
-
-export interface DivinationRecord extends DivinationResult {
-  date: string; // YYYY-MM-DD
-  timestamp: number;
+  chessPoints: number; 
+  gomokuPoints: number; // NEW
+  is_admin?: number; 
+  lastCheckInDate?: string; 
+  lastGamePlayedDate?: string; 
+  dailyGameRewards?: Record<string, string>; 
+  fishingData?: {
+    inventory?: any[];
+    rods?: RodItem[];
+    baitCount?: number;
+    level?: number;
+    xp?: number;
+    unlockedFish?: number[];
+    activeRodId?: string;
+    rodLevel?: number;
+  };
+  farmData?: {
+    plots?: FarmPlot[];
+    level?: number;
+    xp?: number;
+  };
+  tradingData?: {
+    positions?: TradingPosition[];
+  }; 
+  productUsage?: Record<string, number>; 
 }
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const docRef = doc(db, "users", uid);
   const docSnap = await getDoc(docRef);
-
   if (docSnap.exists()) {
     const data = docSnap.data() as any;
-    
-    // Migration: If credits doesn't exist (old user), initialize it.
-    if (typeof data.credits === 'undefined') {
-        await updateDoc(docRef, { credits: 0 });
-        data.credits = 0;
-    }
-    
-    if (typeof data.chessPoints === 'undefined') {
-        await updateDoc(docRef, { chessPoints: 0 });
-        data.chessPoints = 0;
-    }
-
+    if (typeof data.credits === 'undefined') { await updateDoc(docRef, { credits: 0 }); data.credits = 0; }
+    if (typeof data.chessPoints === 'undefined') { await updateDoc(docRef, { chessPoints: 0 }); data.chessPoints = 0; }
+    if (typeof data.gomokuPoints === 'undefined') { await updateDoc(docRef, { gomokuPoints: 0 }); data.gomokuPoints = 0; }
     return data as UserProfile;
   }
   return null;
 };
 
-/**
- * Ensures a user profile exists.
- */
 export const ensureUserProfile = async (user: User) => {
   const docRef = doc(db, "users", user.uid);
   const docSnap = await getDoc(docRef);
-
   if (!docSnap.exists()) {
     const newProfile: UserProfile = {
-      uid: user.uid,
-      email: user.email,
-      nickname: user.displayName || "新蜜蜂",
-      credits: 0, 
-      chessPoints: 0,
-      is_admin: 0,
-      dailyGameRewards: {},
-      fishingData: { 
-          rodLevel: 0, 
-          baitCount: 0, 
-          level: 1, 
-          xp: 0, 
-          inventory: [], 
-          unlockedFish: [],
-          rods: [{ id: 'starter', typeId: 0, durability: 50, maxDurability: 50 }],
-          activeRodId: 'starter'
-      },
-      farmData: { level: 1, xp: 0, plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) },
-      tradingData: { positions: [] },
+      uid: user.uid, email: user.email, nickname: user.displayName || "新蜜蜂",
+      credits: 0, chessPoints: 0, gomokuPoints: 0, is_admin: 0, dailyGameRewards: {},
       productUsage: {}
     };
-
-    if (user.photoURL) {
-      newProfile.avatarUrl = user.photoURL;
-    }
-
+    if (user.photoURL) newProfile.avatarUrl = user.photoURL;
     await setDoc(docRef, newProfile);
     return newProfile;
   } else {
-    // Existing User Sync
     const updates: any = {};
     const currentData = docSnap.data();
-    
-    // Sync Avatar
-    const isCustomUpload = currentData.avatarUrl && currentData.avatarUrl.includes("firebasestorage.googleapis.com");
-    if (user.photoURL && (!currentData.avatarUrl || !isCustomUpload)) {
-       if (currentData.avatarUrl !== user.photoURL) {
-           updates.avatarUrl = user.photoURL;
-       }
-    }
-    
+    if (user.photoURL && !currentData.avatarUrl) updates.avatarUrl = user.photoURL;
     if (typeof currentData.credits === 'undefined') updates.credits = 0;
     if (typeof currentData.chessPoints === 'undefined') updates.chessPoints = 0;
-    
-    // Init fishing data if missing
-    if (!currentData.fishingData) {
-        updates.fishingData = { 
-            rodLevel: 0, 
-            baitCount: 0, 
-            level: 1, 
-            xp: 0, 
-            inventory: [], 
-            unlockedFish: [],
-            rods: [{ id: 'starter', typeId: 0, durability: 50, maxDurability: 50 }],
-            activeRodId: 'starter'
-        };
-    }
-    
-    // Init farm data if missing
-    if (!currentData.farmData) {
-        updates.farmData = { 
-            level: 1, 
-            xp: 0, 
-            plots: Array(9).fill(null).map((_, i) => ({ id: i, cropId: null, plantedAt: 0, status: 'EMPTY' })) 
-        };
-    }
-
-    // Init trading data if missing
-    if (!currentData.tradingData) {
-        updates.tradingData = { positions: [] };
-    }
-
-    // Init product usage if missing
-    if (!currentData.productUsage) {
-        updates.productUsage = {};
-    }
-    
-    if (Object.keys(updates).length > 0) {
-      await updateDoc(docRef, updates);
-    }
-    
+    if (typeof currentData.gomokuPoints === 'undefined') updates.gomokuPoints = 0;
+    if (Object.keys(updates).length > 0) await updateDoc(docRef, updates);
     return { ...currentData, ...updates } as UserProfile;
   }
-};
-
-export const updateUserNickname = async (uid: string, nickname: string) => {
-  const docRef = doc(db, "users", uid);
-  await setDoc(docRef, {
-    uid,
-    nickname
-  }, { merge: true });
-};
-
-export const uploadUserAvatar = async (uid: string, file: File): Promise<string> => {
-  const storageRef = ref(storage, `avatars/${uid}`);
-  await uploadBytes(storageRef, file);
-  const downloadUrl = await getDownloadURL(storageRef);
-  const docRef = doc(db, "users", uid);
-  await updateDoc(docRef, { avatarUrl: downloadUrl });
-  return downloadUrl;
 };
 
 export const deductCredit = async (uid: string, amount: number = 1): Promise<boolean> => {
@@ -219,13 +115,10 @@ export const deductCredit = async (uid: string, amount: number = 1): Promise<boo
       const data = docSnap.data();
       const currentCredits = typeof data.credits === 'number' ? data.credits : 0;
       if (amount > 0 && currentCredits < amount) throw "Insufficient funds";
-      const newCredits = currentCredits - amount;
-      transaction.update(docRef, { credits: newCredits });
+      transaction.update(docRef, { credits: currentCredits - amount });
     });
     return true;
-  } catch (e) {
-    return false;
-  }
+  } catch (e) { return false; }
 };
 
 export const performDailyCheckIn = async (uid: string): Promise<{ success: boolean; message: string }> => {
@@ -233,101 +126,77 @@ export const performDailyCheckIn = async (uid: string): Promise<{ success: boole
   const docSnap = await getDoc(docRef);
   if (!docSnap.exists()) return { success: false, message: "用户不存在" };
   const data = docSnap.data() as UserProfile;
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const today = new Date().toISOString().split('T')[0];
   if (data.lastCheckInDate === today) return { success: false, message: "今天已经签到过了" };
   await updateDoc(docRef, { credits: increment(100), lastCheckInDate: today });
   return { success: true, message: "签到成功！获得 100 罐蜂蜜！" };
 };
 
-export const completeDailyGameMission = async (uid: string): Promise<{ success: boolean; message: string; earned: number }> => {
+export const completeDailyGameMission = async (uid: string) => {
   const docRef = doc(db, "users", uid);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) return { success: false, message: "User not found", earned: 0 };
-  const data = docSnap.data() as UserProfile;
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  if (data.lastGamePlayedDate === today) return { success: false, message: "Mission already completed", earned: 0 };
-  await updateDoc(docRef, { credits: increment(500), lastGamePlayedDate: today });
-  return { success: true, message: "每日首玩任务完成！", earned: 500 };
+  const today = new Date().toISOString().split('T')[0];
+  const snap = await getDoc(docRef);
+  if (snap.exists() && snap.data().lastGamePlayedDate !== today) {
+      await updateDoc(docRef, { credits: increment(500), lastGamePlayedDate: today });
+      return { success: true, earned: 500 };
+  }
+  return { success: false, earned: 0 };
 };
 
-export const claimPerGameDailyReward = async (uid: string, gameId: string): Promise<{ success: boolean; earned: number }> => {
+export const claimPerGameDailyReward = async (uid: string, gameId: string) => {
   const docRef = doc(db, "users", uid);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) return { success: false, earned: 0 };
-  const data = docSnap.data() as UserProfile;
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const rewards = data.dailyGameRewards || {};
-  if (rewards[gameId] === today) return { success: false, earned: 0 };
-  await setDoc(docRef, { credits: increment(10), dailyGameRewards: { [gameId]: today } }, { merge: true });
-  return { success: true, earned: 10 };
-};
-
-export const saveDivinationResult = async (uid: string, result: DivinationResult) => {
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const docRef = doc(db, "users", uid, "divination_history", dateStr);
-  const record: DivinationRecord = { ...result, date: dateStr, timestamp: Date.now() };
-  await setDoc(docRef, record);
-  return record;
-};
-
-export const getDivinationHistory = async (uid: string): Promise<DivinationRecord[]> => {
-  const coll = collection(db, "users", uid, "divination_history");
-  const q = query(coll, orderBy("date", "desc"));
-  const snapshot = await getDocs(q);
-  const history: DivinationRecord[] = [];
-  snapshot.forEach((doc) => { history.push(doc.data() as DivinationRecord); });
-  return history;
-};
-
-export const updateFishingData = async (uid: string, newData: Partial<FishingSaveData>) => {
-    const docRef = doc(db, "users", uid);
-    const updates: any = {};
-    if (newData.rodLevel !== undefined) updates["fishingData.rodLevel"] = newData.rodLevel;
-    if (newData.activeRodId !== undefined) updates["fishingData.activeRodId"] = newData.activeRodId;
-    if (newData.rods !== undefined) updates["fishingData.rods"] = newData.rods;
-    if (newData.baitCount !== undefined) updates["fishingData.baitCount"] = newData.baitCount;
-    if (newData.level !== undefined) updates["fishingData.level"] = newData.level;
-    if (newData.xp !== undefined) updates["fishingData.xp"] = newData.xp;
-    if (newData.inventory !== undefined) updates["fishingData.inventory"] = newData.inventory;
-    if (newData.unlockedFish !== undefined) updates["fishingData.unlockedFish"] = newData.unlockedFish;
-    await updateDoc(docRef, updates);
-};
-
-/**
- * Update Farm Data
- */
-export const updateFarmData = async (uid: string, newData: Partial<FarmSaveData>) => {
-    const docRef = doc(db, "users", uid);
-    const updates: any = {};
-    if (newData.level !== undefined) updates["farmData.level"] = newData.level;
-    if (newData.xp !== undefined) updates["farmData.xp"] = newData.xp;
-    if (newData.plots !== undefined) updates["farmData.plots"] = newData.plots;
-    await updateDoc(docRef, updates);
-};
-
-/**
- * NEW: Update Trading Positions
- */
-export const updateTradingPositions = async (uid: string, positions: TradingPosition[]) => {
-    const docRef = doc(db, "users", uid);
-    await updateDoc(docRef, { "tradingData.positions": positions });
+  const today = new Date().toISOString().split('T')[0];
+  const snap = await getDoc(docRef);
+  if (snap.exists()) {
+      const rewards = snap.data().dailyGameRewards || {};
+      if (rewards[gameId] !== today) {
+          await updateDoc(docRef, { credits: increment(10), [`dailyGameRewards.${gameId}`]: today });
+          return { success: true, earned: 10 };
+      }
+  }
+  return { success: false, earned: 0 };
 };
 
 export const getHoneyLeaderboard = async (limitCount: number = 50): Promise<UserProfile[]> => {
-  try {
-    const q = query(collection(db, "users"), orderBy("credits", "desc"), limit(limitCount));
-    const snapshot = await getDocs(q);
-    const users: UserProfile[] = [];
-    snapshot.forEach((doc) => {
-      users.push(doc.data() as UserProfile);
-    });
-    return users;
-  } catch (error) {
-    console.warn("Failed to fetch leaderboard", error);
-    return [];
-  }
+  const q = query(collection(db, "users"), orderBy("credits", "desc"), limit(limitCount));
+  const snap = await getDocs(q);
+  const users: UserProfile[] = [];
+  snap.forEach(d => users.push(d.data() as UserProfile));
+  return users;
+};
+export const updateUserNickname = async (uid: string, nickname: string) => {
+  await updateDoc(doc(db, "users", uid), { nickname });
+};
+export const uploadUserAvatar = async (uid: string, file: File) => {
+  const refS = ref(storage, `avatars/${uid}`);
+  await uploadBytes(refS, file);
+  const url = await getDownloadURL(refS);
+  await updateDoc(doc(db, "users", uid), { avatarUrl: url });
+  return url;
+};
+export const updateFishingData = async (uid: string, data: any) => {
+  await updateDoc(doc(db, "users", uid), { fishingData: data });
+};
+export const updateFarmData = async (uid: string, data: any) => {
+  await updateDoc(doc(db, "users", uid), { farmData: data });
+};
+export const updateTradingPositions = async (uid: string, data: any) => {
+  await updateDoc(doc(db, "users", uid), { "tradingData.positions": data });
+};
+
+// Fix: Added proper return type mapping for divination result saving
+export const saveDivinationResult = async (uid: string, data: DivinationResult): Promise<DivinationRecord> => {
+    const today = new Date().toISOString().split('T')[0];
+    const timestamp = Date.now();
+    const record: DivinationRecord = { ...data, date: today, timestamp };
+    await setDoc(doc(db, "users", uid, "divination_history", today), record);
+    return record;
+};
+
+// Fix: Explicitly typed the return array for history fetching
+export const getDivinationHistory = async (uid: string): Promise<DivinationRecord[]> => {
+    const snap = await getDocs(query(collection(db, "users", uid, "divination_history"), orderBy("timestamp", "desc")));
+    const history: DivinationRecord[] = [];
+    snap.forEach(d => history.push(d.data() as DivinationRecord));
+    return history;
 };

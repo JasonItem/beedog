@@ -22,6 +22,12 @@
                 accent: '#3B82F6'
               }
             },
+            gridTemplateColumns: {
+              '15': 'repeat(15, minmax(0, 1fr))',
+            },
+            gridTemplateRows: {
+              '15': 'repeat(15, minmax(0, 1fr))',
+            },
             fontFamily: {
               sans: ['Inter', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
               display: ['Space Grotesk', 'PingFang SC', 'sans-serif'],
@@ -31,6 +37,7 @@
             backgroundImage: {
               'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
               'hero-glow': 'conic-gradient(from 180deg at 50% 50%, #FFD700 0deg, #FFA500 180deg, #FFD700 360deg)',
+              'wood-pattern': "url('https://www.transparenttextures.com/patterns/wood-pattern.png')",
             },
             animation: {
               'blob': 'blob 10s infinite',
@@ -102,6 +109,12 @@
         background-image: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
       }
       ::selection { background: #FFD700; color: #000; }
+      
+      /* Gomoku Board Styles */
+      .gomoku-board {
+        background-color: #e3c08d;
+        background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
+      }
     </style>
 <script type="importmap">
 {

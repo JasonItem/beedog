@@ -208,6 +208,8 @@ const translations: Record<Language, Translations> = {
     // Game Titles
     'game.bee_chess.name': '蜜蜂象棋',
     'game.bee_chess.desc': '联机象棋对战，策略博弈。',
+    'game.gomoku.name': '蜜蜂五子棋',
+    'game.gomoku.desc': '经典五子连珠，联机博弈。',
     'game.honey_jump.name': '蜂蜜跳一跳',
     'game.honey_jump.desc': '蓄力跳跃，探索更高处。',
     'game.honey_farm.name': '蜜蜂农场',
@@ -510,6 +512,8 @@ const translations: Record<Language, Translations> = {
     // Game Titles
     'game.bee_chess.name': 'Bee Chess',
     'game.bee_chess.desc': 'Online multiplayer Chinese Chess.',
+    'game.gomoku.name': 'Bee Gomoku',
+    'game.gomoku.desc': 'Online multiplayer Five-in-a-row.',
     'game.honey_jump.name': 'Honey Jump',
     'game.honey_jump.desc': 'Charge and jump to the sky.',
     'game.honey_farm.name': 'Honey Farm',
@@ -622,7 +626,7 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('zh'); // Default to Chinese
+  const [language, setLanguage] = useState<Language>('zh'); 
 
   const t = (key: string, params?: any): string => {
     let text = translations[language][key] || translations['en'][key] || key;
