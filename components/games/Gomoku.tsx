@@ -193,8 +193,8 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
             if (!success) { showNotif("支付失败"); return; }
 
             const newHistory = [...room.history];
-            const last1 = newHistory.pop(); // Opponent's last move
-            const last2 = newHistory.pop(); // My last move
+            const last1 = newHistory.pop(); 
+            const last2 = newHistory.pop(); 
             const newBoard = [...room.board];
             if (last1 !== undefined) newBoard[last1] = 0;
             if (last2 !== undefined) newBoard[last2] = 0;
@@ -250,15 +250,20 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
         const undoCost = room ? Math.floor(room.wager / 2) : 0;
         const myUndoUsed = room && mySide ? (mySide === 1 ? room.undoUsed.black : room.undoUsed.white) : false;
         const canUndo = isMyTurn && (room?.history.length || 0) >= 2 && !myUndoUsed;
+        const lastIdx = room?.history.length ? room.history[room.history.length - 1] : -1;
 
         return (
             <div className="w-full flex flex-col gap-4 animate-in fade-in max-w-lg mx-auto">
                 <div className="bg-white dark:bg-[#121212] rounded-3xl p-4 shadow-xl border border-neutral-100 dark:border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center border-2 border-yellow-500 shadow-lg">🐝</div>
+                        <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#222] border-2 border-brand-yellow flex items-center justify-center overflow-hidden">
+                             {room?.playerData.black?.avatar ? <img src={room.playerData.black.avatar} className="w-full h-full object-cover"/> : '🐝'}
+                        </div>
                         <div>
                             <div className="text-xs font-black dark:text-white truncate max-w-[80px]">{room?.playerData.black?.nickname}</div>
-                            <div className={`text-[8px] font-bold px-1 rounded ${blackTier.bg} ${blackTier.color}`}>{blackTier.name}</div>
+                            <div className={`text-[8px] font-bold px-1.5 rounded-sm flex items-center gap-0.5 ${blackTier.bg} ${blackTier.color}`}>
+                                {blackTier.name} {blackTier.stars}<Star size={8} className="fill-current"/>
+                            </div>
                         </div>
                     </div>
                     <div className="text-center">
@@ -268,9 +273,15 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
                     <div className="flex items-center gap-2 text-right">
                         <div>
                             <div className="text-xs font-black dark:text-white truncate max-w-[80px]">{room?.playerData.white?.nickname || '等待中'}</div>
-                            {room?.playerData.white && <div className={`text-[8px] font-bold px-1 rounded ${whiteTier.bg} ${whiteTier.color}`}>{whiteTier.name}</div>}
+                            {room?.playerData.white && (
+                                <div className={`text-[8px] font-bold px-1.5 rounded-sm flex items-center justify-end gap-0.5 ${whiteTier.bg} ${whiteTier.color}`}>
+                                    {whiteTier.name} {whiteTier.stars}<Star size={8} className="fill-current"/>
+                                </div>
+                            )}
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center border-2 border-neutral-400">🦟</div>
+                        <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#222] border-2 border-neutral-400 flex items-center justify-center overflow-hidden">
+                             {room?.playerData.white?.avatar ? <img src={room.playerData.white.avatar} className="w-full h-full object-cover"/> : '🦟'}
+                        </div>
                     </div>
                 </div>
 
@@ -291,7 +302,6 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
                             {room?.status === 'ready' ? '等待开始' : (isMyTurn ? '轮到你了' : '对方正在思考...')}
                         </div>
 
-                        {/* Error Notification Bar with High Contrast */}
                         {error && (
                             <div className="bg-brand-yellow text-black p-3 rounded-2xl text-sm font-black w-full text-center shadow-[0_0_15px_rgba(251,191,36,0.5)] border-2 border-black/10 animate-pulse">
                                 <Zap size={16} fill="black" className="inline mr-2"/> {error}
@@ -300,16 +310,33 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
 
                         <div className="relative aspect-square w-full max-w-[480px] gomoku-board rounded-lg border-4 border-[#8b4513] shadow-2xl p-1 grid grid-cols-15 grid-rows-15">
                             <div className="absolute inset-0 pointer-events-none" style={{ backgroundSize: 'calc(100% / 14) calc(100% / 14)', backgroundImage: 'linear-gradient(#8b4513 1px, transparent 1px), linear-gradient(90deg, #8b4513 1px, transparent 1px)', margin: 'calc(100% / 30)' }}></div>
-                            {room?.board.map((val, idx) => (
-                                <div key={idx} onClick={() => handleMove(idx)} className="relative flex items-center justify-center cursor-pointer hover:bg-black/5 rounded-full z-10">
-                                    {val !== 0 && (
-                                        <div className={`w-[90%] h-[90%] rounded-full flex items-center justify-center text-lg md:text-xl shadow-md animate-in zoom-in duration-200 ${val === 1 ? 'bg-neutral-900 border-2 border-yellow-500' : 'bg-white border-2 border-neutral-400'}`}>
-                                            {val === 1 ? '🐝' : '🦟'}
-                                        </div>
-                                    )}
-                                    {[112, 48, 56, 168, 176].includes(idx) && val === 0 && <div className="w-1.5 h-1.5 bg-[#8b4513] rounded-full"></div>}
-                                </div>
-                            ))}
+                            {room?.board.map((val, idx) => {
+                                const isLastMove = idx === lastIdx;
+                                return (
+                                    <div key={idx} onClick={() => handleMove(idx)} className="relative flex items-center justify-center cursor-pointer hover:bg-black/5 rounded-full z-10">
+                                        {val !== 0 && (
+                                            <div className={`w-[85%] h-[85%] rounded-full shadow-lg transform transition-all duration-300 animate-in zoom-in border-2 relative ${
+                                                val === 1 
+                                                    ? 'bg-gradient-to-br from-neutral-700 to-neutral-950 border-neutral-800' 
+                                                    : 'bg-gradient-to-br from-white to-neutral-200 border-neutral-300'
+                                            }`}>
+                                                <div className="absolute top-1 left-1.5 w-1/3 h-1/4 rounded-[50%] bg-white/10 filter blur-[1px]"></div>
+                                                
+                                                {/* Last move dot */}
+                                                {isLastMove && (
+                                                    <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full shadow-sm ${val === 1 ? 'bg-white' : 'bg-black'}`}></div>
+                                                )}
+                                                
+                                                {/* Pulsing highlight for last move */}
+                                                {isLastMove && (
+                                                    <div className="absolute inset-[-4px] rounded-full border-2 border-yellow-400 animate-ping opacity-75"></div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {[112, 48, 56, 168, 176].includes(idx) && val === 0 && <div className="w-1.5 h-1.5 bg-[#8b4513] rounded-full"></div>}
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         <div className="w-full flex gap-2">
@@ -379,7 +406,9 @@ export const Gomoku: React.FC<GomokuProps> = ({ userProfile, onGameOver }) => {
                             {waitingRooms.length === 0 ? <div className="text-center py-8 text-neutral-500 text-xs">暂无房间</div> : waitingRooms.map(r => (
                                 <div key={r.id} className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-[#222] rounded-2xl">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">🐝</div>
+                                        <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-[#333] border border-brand-yellow flex items-center justify-center overflow-hidden">
+                                            {r.playerData.black?.avatar ? <img src={r.playerData.black.avatar} className="w-full h-full object-cover"/> : '⚫'}
+                                        </div>
                                         <div className="text-sm font-bold dark:text-white">{r.playerData.black?.nickname}</div>
                                     </div>
                                     <div className="flex items-center gap-3">

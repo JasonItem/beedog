@@ -48,8 +48,7 @@ export interface ChessRoom {
         black: boolean;
     };
     lastMoveAt: any;
-    // Fix: Added 'undo' to the allowed types for lastAction to match its usage in components
-    lastAction?: { type: 'move' | 'capture' | 'check' | 'undo'; at: number; by: string }; 
+    lastAction?: { type: 'move' | 'capture' | 'check' | 'undo'; at: number; by: string; toIdx?: number }; 
     winner: string | null;
     winReason: 'checkmate' | 'surrender' | 'escape' | null;
     host: string;
@@ -352,8 +351,8 @@ export const getUserMatchHistory = async (uid: string): Promise<{ rooms: ChessRo
     const snap = await getDocs(q);
     const allRooms: ChessRoom[] = [];
     snap.forEach(doc => {
-        const data = doc.data() as GomokuRoom; // Using GomokuRoom type is a mistake here, keeping for consistency but should be ChessRoom
-        if (data.players.black === uid || (data as any).players.red === uid) allRooms.push(data as any);
+        const data = doc.data() as ChessRoom; 
+        if (data.players.black === uid || data.players.red === uid) allRooms.push(data);
     });
     const sorted = allRooms.sort((a, b) => (b.lastMoveAt?.seconds || 0) - (a.lastMoveAt?.seconds || 0));
     return { rooms: sorted };

@@ -264,7 +264,8 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                 lastAction: { 
                     at: Date.now(), 
                     by: userProfile?.uid,
-                    type: targetPiece ? 'capture' : 'move'
+                    type: targetPiece ? 'capture' : 'move',
+                    toIdx: idx // Save target index for highlighting
                 }
             };
 
@@ -311,8 +312,8 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
             if (!success) { showNotif("支付失败", 'error'); return; }
 
             const newHistory = [...room.history];
-            newHistory.pop(); // Pop opponent's last move state
-            const stateBeforeMe = newHistory.pop(); // Get state before my last move
+            newHistory.pop(); 
+            const stateBeforeMe = newHistory.pop(); 
             if (!stateBeforeMe) throw new Error("No history");
             
             const restoredBoard = JSON.parse(stateBeforeMe);
@@ -332,6 +333,7 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
         finally { setLoading(false); setConfirmUndoStage(0); }
     };
 
+    // Fix: Added handleQuitRoom function to manage leaving or surrendering in a game
     const handleQuitRoom = async () => {
         if (confirmQuitStage === 0) {
             setConfirmQuitStage(1);
@@ -339,9 +341,12 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
             confirmTimerRef.current = setTimeout(() => setConfirmQuitStage(0), 3000);
             return;
         }
-        const id = roomId; const r = room; const u = userProfile;
-        if (id) await performCleanup(id, r, u);
-        setRoomId(null); setRoom(null); setConfirmQuitStage(0);
+        if (roomId) {
+            await performCleanup(roomId, room, userProfile);
+            setRoomId(null);
+            setRoom(null);
+        }
+        setConfirmQuitStage(0);
     };
 
     const showNotif = (msg: string, type: 'error' | 'info' = 'error') => { 
@@ -380,6 +385,8 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                             const isSelected = selectedIdx === idx;
                             const isMoveable = isInteractive && moveableIndices.includes(idx) && !isSelected;
                             const canClick = isInteractive && piece.side === mySide && room.turn === mySide;
+                            const isLastMove = room.lastAction?.toIdx === idx;
+
                             return (
                                 <div 
                                     key={piece.id}
@@ -393,6 +400,16 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                                     style={{ top: `${(displayRi / 9) * 100}%`, left: `${(displayCi / 8) * 100}%` }}
                                 >
                                     {piece.side === 'red' ? RED_LABELS[piece.type] : BLACK_LABELS[piece.type]}
+                                    
+                                    {/* Last Move Indicator (Corner Frames) */}
+                                    {isLastMove && (
+                                        <div className="absolute inset-[-4px] pointer-events-none animate-pulse">
+                                            <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-yellow-400"></div>
+                                            <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-yellow-400"></div>
+                                            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-yellow-400"></div>
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-yellow-400"></div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -465,7 +482,6 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                              </div>
                              {renderBoard(isPlaying)}
                              
-                             {/* Improved Notification Bar */}
                              {error && (
                                  <div className="bg-brand-yellow dark:bg-brand-yellow text-black p-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(251,191,36,0.5)] animate-pulse border-2 border-black/10">
                                      <Zap size={16} fill="black"/> {error}
@@ -516,7 +532,7 @@ export const BeeChess: React.FC<BeeChessProps> = ({ userProfile, onGameOver }) =
                         <h4 className="font-black text-sm flex items-center gap-2 dark:text-white mb-4"><Users size={16} className="text-brand-yellow"/> 等待中对局</h4>
                         <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
                             {waitingRooms.length === 0 ? <div className="text-center py-12 text-neutral-500 text-xs">暂无待加入的房间</div> : waitingRooms.map(r => (
-                                <div key={r.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-[#222] rounded-2xl border border-neutral-100 dark:border-white/5"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-neutral-200 overflow-hidden">{r.playerData.red?.avatar ? <img src={r.playerData.red.avatar} className="w-full h-full object-cover"/> : <User size={16}/>}</div><div><div className="text-sm font-black dark:text-white">{r.playerData.red?.nickname}</div><span className={`text-[8px] font-black px-1 rounded-sm ${getTierInfo(r.playerData.red?.points || 0).bg} ${getTierInfo(r.playerData.red?.points || 0).color}`}>{getTierInfo(r.playerData.red?.points || 0).name} {getTierInfo(r.playerData.red?.points || 0).stars}★</span></div></div><div className="flex items-center gap-3"><div className="text-right text-sm font-black text-brand-yellow">{(r.wager || 0) * 2} <Coins size={12} className="inline"/></div><button onClick={() => handleJoin(r.code)} className="bg-brand-yellow text-black px-4 py-2 rounded-xl text-xs font-black shadow-lg">加入</button></div></div>
+                                <div key={r.id} className="flex items-center justify-between p-4 bg-neutral-50 dark:bg-[#222] rounded-2xl border border-neutral-100 dark:border-white/5"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-neutral-200 overflow-hidden">{r.playerData.red?.avatar ? <img src={r.playerData.red.avatar} className="w-full h-full object-cover"/> : <User size={16}/>}</div><div><div className="text-sm font-black dark:text-white">{r.playerData.red?.nickname}</div><span className={`text-[9px] font-black px-1 rounded-sm ${getTierInfo(r.playerData.red?.points || 0).bg} ${getTierInfo(r.playerData.red?.points || 0).color}`}>{getTierInfo(r.playerData.red?.points || 0).name} {getTierInfo(r.playerData.red?.points || 0).stars}★</span></div></div><div className="flex items-center gap-3"><div className="text-right text-sm font-black text-brand-yellow">{(r.wager || 0) * 2} <Coins size={12} className="inline"/></div><button onClick={() => handleJoin(r.code)} className="bg-brand-yellow text-black px-4 py-2 rounded-xl text-xs font-black shadow-lg">加入</button></div></div>
                             ))}
                         </div>
                     </div>
