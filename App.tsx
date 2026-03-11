@@ -369,7 +369,7 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="absolute top-0 left-0 w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-[0_20px_60px_-15px_rgba(255,215,0,0.3)] p-3 border-4 border-brand-yellow transform hover:scale-105 transition-all duration-500 z-20">
-                       <img src="/image/site/beedog.png" className="w-full h-[85%] object-cover rounded-2xl" />
+                       <img src="/image/site/beedog.jpg" className="w-full h-[85%] object-cover rounded-2xl" />
                        <div className="mt-3 px-2">
                           <div className="text-lg font-black font-display">BeeDog.meme</div>
                           <div className="text-xs text-neutral-400 font-mono">The stickiest coin on chain.</div>
