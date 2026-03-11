@@ -58,7 +58,7 @@ const App: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+  // ceshi
   // Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'profile'>('login');
@@ -193,7 +193,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToSection(SectionId.HERO)}>
               <div className="relative group">
                 <div className="absolute inset-0 rounded-full blur-md group-hover:blur-lg transition-all"></div>
-                <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" alt="Logo" className="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" />
+                <img src="/image/site/logo.png" alt="Logo" className="w-10 h-10 relative z-10 transform group-hover:rotate-12 transition-transform" />
               </div>
               <span className="text-xl font-display font-black tracking-tight hidden sm:block">{t('brand.name')}</span>
             </div>
@@ -351,7 +351,7 @@ const App: React.FC = () => {
                  <div className="relative w-[300px] h-[400px] sm:w-[350px] sm:h-[450px]">
                     <div className="group absolute top-12 -left-20 sm:-left-32 w-[90%] h-[90%] z-10 transition-all duration-500 transform -rotate-12 hover:rotate-0 hover:scale-105 hover:z-30">
                        <div className="w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-2xl p-3 border border-white/20 animate-float-delayed opacity-90">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog2.png?alt=media&token=dc5a47ef-573b-4b0a-bbb9-1876767a2147" className="w-full h-[85%] object-cover rounded-2xl" />
+                          <img src="/image/site/beedog2.png" className="w-full h-[85%] object-cover rounded-2xl" />
                           <div className="mt-3 flex items-center gap-2 px-2">
                               <Heart size={16} className="text-red-500 fill-red-500" />
                               <span className="text-xs font-bold text-neutral-400">12.5k Likes</span>
@@ -361,7 +361,7 @@ const App: React.FC = () => {
                     
                     <div className="group absolute top-24 -right-20 sm:-right-32 w-[90%] h-[90%] z-10 transition-all duration-500 transform rotate-12 hover:rotate-0 hover:scale-105 hover:z-30">
                        <div className="w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-2xl p-3 border border-white/20 animate-float opacity-90">
-                          <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog3.png?alt=media&token=492461bc-6c44-4a69-bd59-d33736e1bce7" className="w-full h-[85%] object-cover rounded-2xl" />
+                          <img src="/image/site/beedog3.png" className="w-full h-[85%] object-cover rounded-2xl" />
                           <div className="mt-3 flex items-center gap-2 px-2">
                               <MessageCircle size={16} className="text-blue-500 fill-blue-500" />
                               <span className="text-xs font-bold text-neutral-400">8.2k Comments</span>
@@ -370,7 +370,7 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="absolute top-0 left-0 w-full h-full bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-[0_20px_60px_-15px_rgba(255,215,0,0.3)] p-3 border-4 border-brand-yellow transform hover:scale-105 transition-all duration-500 z-20">
-                       <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fbeedog.jpg?alt=media&token=a4a2e58d-a413-422d-aa1f-98ae61af5d8b" className="w-full h-[85%] object-cover rounded-2xl" />
+                       <img src="/image/site/beedog.png" className="w-full h-[85%] object-cover rounded-2xl" />
                        <div className="mt-3 px-2">
                           <div className="text-lg font-black font-display">BeeDog.meme</div>
                           <div className="text-xs text-neutral-400 font-mono">The stickiest coin on chain.</div>
@@ -390,12 +390,11 @@ const App: React.FC = () => {
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-orange">{t('narrative.subtitle')}</span>
                 </h2>
               </div>
-
               <div className="grid lg:grid-cols-2 gap-16 items-center">
                 <div className="relative">
                    <div className="absolute inset-0 bg-gradient-to-tr from-brand-yellow/20 to-transparent rounded-full blur-[100px]"></div>
                    <div className="relative z-10 glass-card rounded-[2.5rem] p-2 overflow-hidden transform rotate-2 hover:rotate-0 transition-all duration-500 shadow-2xl">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Fdybg.png?alt=media&token=d6139884-4351-4795-91ae-895a02f8cbfa" className="w-full rounded-[2rem]" />
+                      <img src="/image/site/dybg.png" className="w-full rounded-[2rem]" />
                    </div>
                 </div>
 
@@ -583,7 +582,7 @@ const App: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
-                 <img src="https://firebasestorage.googleapis.com/v0/b/beedogpage.firebasestorage.app/o/site%2Flogo.png?alt=media&token=84f2313f-9225-4e55-a3f2-4f3498e649ce" className="w-8 h-8" />
+                 <img src="/image/site/logo.png" className="w-8 h-8" />
                  <span className="font-display font-black text-xl dark:text-white">{t('brand.name')}</span>
               </div>
               <p className="text-neutral-500 max-w-xs text-sm">
